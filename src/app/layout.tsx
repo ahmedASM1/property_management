@@ -10,6 +10,9 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Green Bridge - Tenant Management System',
   description: 'A comprehensive tenant management system for property administrators',
+  icons: {
+    icon: '/Green Bridge.svg',
+  },
 };
 
 export default function RootLayout({

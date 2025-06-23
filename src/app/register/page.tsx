@@ -33,8 +33,8 @@ export default function RegisterPage() {
     const [phone, setPhone] = useState('');
 
     // Password visibility
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
     // Tenant-specific
     const [buildingName, setBuildingName] = useState('');
@@ -127,7 +127,7 @@ export default function RegisterPage() {
                 {buildingName === 'Other' && (
                     <input type="text" placeholder="Please specify building name" value={otherBuilding} onChange={(e) => setOtherBuilding(e.target.value)} className="w-full mt-2 px-3 py-2 border border-gray-300 rounded-lg"/>
                 )}
-            </div>
+              </div>
             <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Passport Number</label>
                 <input type="text" placeholder="Your Passport Number" value={passport} onChange={(e) => setPassport(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg"/>
@@ -160,11 +160,11 @@ export default function RegisterPage() {
                 <div className="flex gap-2 mt-2">
                     <input type="text" placeholder="Add another service" value={otherService} onChange={(e) => setOtherService(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg"/>
                     <button type="button" onClick={handleAddOtherService} className="px-4 py-2 bg-gray-200 rounded-lg text-sm font-medium">Add</button>
-                </div>
+          </div>
                 <div className="flex flex-wrap gap-2 mt-2">
                     {services.map(s => <span key={s} className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">{s}</span>)}
-                </div>
-            </div>
+        </div>
+      </div>
         </>
     );
 
@@ -176,7 +176,7 @@ export default function RegisterPage() {
                     <p className="text-gray-600 mb-6">
                         Your details have been submitted successfully. Our admin team will review your information and approve your account shortly. You'll receive an email notification once your account is activated.
                     </p>
-                    <button 
+          <button
                         onClick={() => {
                             setShowSuccessModal(false);
                             router.push('/login');
@@ -184,8 +184,8 @@ export default function RegisterPage() {
                         className="w-full py-3 px-4 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition duration-300"
                     >
                         Back to Login
-                    </button>
-                </div>
+          </button>
+        </div>
             </div>
         )
     }
@@ -207,29 +207,29 @@ export default function RegisterPage() {
                             <option value="service-provider">Service Provider</option>
                             <option value="property-owner">Property Owner</option>
                         </select>
-                    </div>
-                    
+      </div>
+
                     {/* Common Fields */}
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700">Full Name</label>
                         <input type="text" placeholder="Your Full Name" required value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg" autoComplete="off" />
-                    </div>
+          </div>
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700">Email Address</label>
                         <input type="email" placeholder="you@example.com" required value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg" autoComplete="off" />
-                    </div>
+        </div>
                      <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700">Phone Number</label>
                         <input type="tel" placeholder="Your Phone Number" required value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full px-3 py-2 border border-gray-300 rounded-lg" autoComplete="off" />
-                    </div>
-                    
+      </div>
+
                     {/* Role-specific fields */}
                     {role === 'tenant' && renderTenantFields()}
                     {role === 'service-provider' && renderServiceProviderFields()}
 
                     <div className="relative space-y-2">
                         <label className="text-sm font-medium text-gray-700">Password</label>
-                        <input 
+          <input
                             type={showPassword ? "text" : "password"} 
                             placeholder="••••••••" 
                             required 
@@ -241,10 +241,10 @@ export default function RegisterPage() {
                         <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500" style={{top: '1.75rem'}}>
                             {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                         </button>
-                    </div>
+        </div>
                     <div className="relative space-y-2">
                         <label className="text-sm font-medium text-gray-700">Confirm Password</label>
-                        <input 
+          <input
                             type={showConfirmPassword ? "text" : "password"} 
                             placeholder="••••••••" 
                             required 
@@ -256,19 +256,19 @@ export default function RegisterPage() {
                         <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500" style={{top: '1.75rem'}}>
                             {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                         </button>
-                    </div>
+      </div>
 
                     <button type="submit" disabled={loading} className="w-full py-3 px-4 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition duration-300 disabled:opacity-50">
                         {loading ? 'Registering...' : 'Create Account'}
-                    </button>
+      </button>
 
                     <p className="text-center text-sm text-gray-600">
                         <Link href="/login" className="font-medium text-green-600 hover:underline">
                             &larr; Back to Login
-                        </Link>
-                    </p>
+              </Link>
+            </p>
                 </form>
-            </div>
-        </div>
-    );
+          </div>
+    </div>
+  );
 }

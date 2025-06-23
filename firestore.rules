@@ -1,0 +1,93 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.admin == true;
+    }
+    
+    function isTenant() {
+      return isAuthenticated() && request.auth.token.role == 'tenant';
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read: if isAuthenticated() && (isAdmin() || isOwner(userId));
+      allow create: if isAuthenticated();
+      allow update: if isAdmin() || isOwner(userId);
+      allow delete: if isAdmin();
+    }
+
+    // Contracts collection
+    match /contracts/{contractId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        (isTenant() && resource.data.tenantId == request.auth.uid)
+      );
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+
+      // Contract comments subcollection
+      match /comments/{commentId} {
+        allow read: if isAuthenticated() && (
+          isAdmin() || 
+          (isTenant() && get(/databases/$(database)/documents/contracts/$(contractId)).data.tenantId == request.auth.uid)
+        );
+        allow create: if isAuthenticated() && (
+          isAdmin() || 
+          (isTenant() && get(/databases/$(database)/documents/contracts/$(contractId)).data.tenantId == request.auth.uid)
+        );
+        allow update, delete: if isAdmin();
+      }
+    }
+
+    // Invoices collection
+    match /invoices/{invoiceId} {
+      allow read: if isAuthenticated() && (
+        isAdmin() || 
+        (isTenant() && resource.data.tenantId == request.auth.uid)
+      );
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (isTenant() && resource.data.tenantId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    // Maintenance Requests collection
+    match /maintenance_requests/{requestId} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+  }
+}
+    match /maintenance_requests/{requestId} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+  }
+}
+    match /maintenance_requests/{requestId} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+  }
+}
+    match /maintenance_requests/{requestId} {
+      allow create: if isAuthenticated();
+      allow read: if isAuthenticated();
+      allow update, delete: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Contract Expiry Reminder</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            max-width: 200px;
+            margin-bottom: 20px;
+        }
+        .content {
+            background-color: #f9f9f9;
+            padding: 30px;
+            border-radius: 5px;
+        }
+        .button {
+            display: inline-block;
+            padding: 12px 24px;
+            background-color: #4F46E5;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            font-size: 12px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="https://greenbridge.com.my/logo.png" alt="Green Bridge Realty" class="logo">
+    </div>
+    
+    <div class="content">
+        <h2>Contract Expiry Reminder</h2>
+        
+        <p>Dear {{to_name}},</p>
+        
+        <p>This is a friendly reminder that your rental contract with Green Bridge Realty will be expiring on {{expiry_date}}.</p>
+        
+        <p>To ensure a smooth transition, we recommend reviewing your contract and discussing renewal options with our team. You can access your contract by clicking the button below:</p>
+        
+        <div style="text-align: center;">
+            <a href="{{contract_link}}" class="button">View Contract</a>
+        </div>
+        
+        <p>If you have any questions or would like to discuss renewal options, please don't hesitate to contact us:</p>
+        
+        <ul>
+            <li>Phone: +60 3-1234 5678</li>
+            <li>Email: info@greenbridge.com.my</li>
+            <li>Office Hours: Monday - Friday, 9:00 AM - 6:00 PM</li>
+        </ul>
+        
+        <p>Thank you for choosing Green Bridge Realty as your property management partner.</p>
+        
+        <p>Best regards,<br>
+        {{from_name}}</p>
+    </div>
+    
+    <div class="footer">
+        <p>This is an automated message. Please do not reply to this email.</p>
+        <p>&copy; 2024 Green Bridge Realty Sdn. Bhd. All rights reserved.</p>
+    </div>
+</body>
+</html> 

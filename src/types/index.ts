@@ -94,6 +94,8 @@ export interface Property {
   address: string;
   unitNumber: string;
   status: 'occupied' | 'vacant';
+  monthlyRent: number;
+  rentalType: string;
   ownerId: string;
   currentTenantId?: string;
   pendingMaintenanceRequests?: number;

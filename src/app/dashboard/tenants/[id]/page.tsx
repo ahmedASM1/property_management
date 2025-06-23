@@ -21,7 +21,7 @@ export default function TenantDetailPage() {
 
   useEffect(() => {
     async function fetchTenantDetails() {
-      if (!user || user.role !== 'owner' || !tenantId) {
+      if (!user || user.role !== 'propertyOwner' || !tenantId) {
         setLoading(false);
         return;
       }

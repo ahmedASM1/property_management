@@ -153,7 +153,7 @@ export default function NavBar() {
       if (notification.message.toLowerCase().includes('maintenance') ||
           notification.message.toLowerCase().includes('service')) {
         // Route based on user role
-        if (user?.role === 'admin' || user?.role === 'owner') {
+        if (user?.role === 'admin' || user?.role === 'propertyOwner') {
           router.push('/dashboard/maintenance/admin');
         } else if (user?.role === 'tenant') {
           router.push('/dashboard/maintenance');
@@ -215,7 +215,7 @@ export default function NavBar() {
               <Link href="/dashboard/contracts" className={navClassName('/dashboard/contracts')}><FaFileContract className="inline mr-1 mb-1" />Contracts</Link>
               <Link href="/dashboard/users" className={navClassName('/dashboard/users')}><FaUsers className="inline mr-1 mb-1" />Users</Link>
             </>
-          ) : user?.role === 'owner' ? (
+          ) : user?.role === 'propertyOwner' ? (
             <>
               <Link href="/dashboard" className={navClassName('/dashboard', true)}><FaHome className="inline mr-1 mb-1" />Dashboard</Link>
             </>
@@ -223,11 +223,13 @@ export default function NavBar() {
             <>
               <Link href="/dashboard" className={navClassName('/dashboard', true)}><FaHome className="inline mr-1 mb-1" />Dashboard</Link>
             </>
-          ) : (
+          ) : user?.role === 'tenant' ? (
             <>
               <Link href="/dashboard" className={navClassName('/dashboard', true)}><FaHome className="inline mr-1 mb-1" />Dashboard</Link>
               <Link href="/dashboard/invoices" className={navClassName('/dashboard/invoices')}><FaFileInvoice className="inline mr-1 mb-1" />Invoices</Link>
             </>
+          ) : (
+             <Link href="/dashboard" className={navClassName('/dashboard', true)}><FaHome className="inline mr-1 mb-1" />Dashboard</Link>
           )}
           <div className="flex items-center gap-4">
             <div className="relative">
@@ -405,7 +407,7 @@ export default function NavBar() {
                 )}
 
                 {/* Owner Links */}
-                {user.role === 'owner' && <></>}
+                {user.role === 'propertyOwner' && <></>}
 
                 {/* Service Provider Links */}
                 {user.role === 'service' && (

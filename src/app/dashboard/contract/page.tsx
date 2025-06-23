@@ -5,13 +5,14 @@ import { collection, query, where, getDocs, orderBy, addDoc, serverTimestamp, do
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
 import jsPDF from 'jspdf';
+import { Contract, Comment } from '@/types';
 
 export default function TenantContractPage() {
   const auth = useAuth();
   const user = auth?.user;
-  const [contract, setContract] = useState<any>(null);
+  const [contract, setContract] = useState<Contract | null>(null);
   const [loading, setLoading] = useState(true);
-  const [comments, setComments] = useState<any[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [commentLoading, setCommentLoading] = useState(false);
   const [signing, setSigning] = useState(false);
@@ -25,14 +26,14 @@ export default function TenantContractPage() {
       const snapshot = await getDocs(q);
       if (!snapshot.empty) {
         const doc = snapshot.docs[0];
-        setContract({ id: doc.id, ...doc.data() });
+        setContract({ id: doc.id, ...doc.data() } as Contract);
         // Fetch comments
         const commentsQ = query(
           collection(db, 'contracts', doc.id, 'comments'),
           orderBy('timestamp', 'asc')
         );
         const commentsSnap = await getDocs(commentsQ);
-        setComments(commentsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+        setComments(commentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Comment)));
       } else {
         setContract(null);
       }
@@ -55,7 +56,7 @@ export default function TenantContractPage() {
       orderBy('timestamp', 'asc')
     );
     const commentsSnap = await getDocs(commentsQ);
-    setComments(commentsSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+    setComments(commentsSnap.docs.map(d => ({ id: d.id, ...d.data() } as Comment)));
     setNewComment('');
     setCommentLoading(false);
   };

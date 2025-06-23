@@ -23,7 +23,7 @@ export default function PropertyDetailPage() {
 
   useEffect(() => {
     async function fetchPropertyDetails() {
-      if (!user || user.role !== 'owner' || !propertyId) {
+      if (!user || user.role !== 'propertyOwner' || !propertyId) {
         setLoading(false);
         return;
       }
@@ -146,7 +146,11 @@ export default function PropertyDetailPage() {
                     </span>
                   </div>
                   <p className="text-sm text-gray-500 mt-1">
-                    Created on: {request.createdAt ? new Date(request.createdAt.toDate()).toLocaleDateString() : 'N/A'}
+                    Created on: {request.createdAt ? 
+                      (typeof request.createdAt === 'object' && 'toDate' in request.createdAt ? 
+                        new Date(request.createdAt.toDate()).toLocaleDateString() : 
+                        new Date(request.createdAt).toLocaleDateString()) 
+                      : 'N/A'}
                   </p>
                 </li>
               ))}

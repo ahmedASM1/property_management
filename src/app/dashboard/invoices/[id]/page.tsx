@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db, storage } from '@/lib/firebase';
@@ -23,14 +23,12 @@ export default function InvoiceDetailPage({ params: initialParams }: InvoiceDeta
   const auth = useAuth();
   const user = auth?.user;
   const router = useRouter();
-  const params = typeof window !== 'undefined' ? useParams() : initialParams;
+  const params = useParams();
   const { id: invoiceId } = params;
   const [loading, setLoading] = useState(true);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [editForm, setEditForm] = useState<any>(null);
   const [isRequesting, setIsRequesting] = useState(false);
+  const [editForm, setEditForm] = useState<Partial<Invoice> | null>(null);
 
   useEffect(() => {
     if (!invoiceId || !user) {
@@ -84,7 +82,7 @@ export default function InvoiceDetailPage({ params: initialParams }: InvoiceDeta
     if (!file || !invoice) return;
 
     try {
-      setUploading(true);
+      setLoading(true);
 
       // Upload file to Firebase Storage
       const storageRef = ref(storage, `receipts/${invoice.id}/${file.name}`);
@@ -107,7 +105,7 @@ export default function InvoiceDetailPage({ params: initialParams }: InvoiceDeta
       console.error('Error uploading receipt:', error);
       toast.error('Failed to upload receipt');
     } finally {
-      setUploading(false);
+      setLoading(false);
     }
   };
 
@@ -168,7 +166,9 @@ export default function InvoiceDetailPage({ params: initialParams }: InvoiceDeta
           tenantEmail = userData.email;
           tenantName = userData.fullName;
         }
-      } catch (e) { /* ignore */ }
+      } catch (error) { 
+        console.error('Error fetching user data:', error);
+      }
       if (tenantEmail && tenantName) {
         sendInvoiceEmail(tenantEmail, tenantName, invoice.id)
           .then(() => toast.success('Tenant notified by email'))
@@ -198,200 +198,145 @@ export default function InvoiceDetailPage({ params: initialParams }: InvoiceDeta
       docToPdf.addImage(logoImg, 'PNG', leftMargin, y, 50, 50);
       docToPdf.setFontSize(16);
       docToPdf.setFont('helvetica', 'bold');
-      docToPdf.text('GREEN BRIDGE REALTY SDN. BHD.', leftMargin + 60, y + 20);
-      docToPdf.setFontSize(9);
-      docToPdf.setFont('helvetica', 'normal');
-      docToPdf.text('3-38, Kompleks Kantonmen Prima, 698, Jalan Sultan Azlan Shah, Batu 4½, Jalan Ipoh,', leftMargin + 60, y + 32);
-      docToPdf.text('51200 Kuala Lumpur, W.P. Kuala Lumpur, Malaysia', leftMargin + 60, y + 44);
-      
-      // Invoice Title
-      docToPdf.setFontSize(24);
-      docToPdf.setFont('helvetica', 'bold');
-      docToPdf.text('INVOICE', rightMargin, y + 25, { align: 'right' });
-      
-      // Invoice Details
+      docToPdf.text('GREEN BRIDGE REALTY SDN. BHD.', leftMargin + 60, y + 15);
       docToPdf.setFontSize(10);
       docToPdf.setFont('helvetica', 'normal');
-      docToPdf.text(`Invoice #: ${invoice.id}`, rightMargin, y + 45, { align: 'right' });
-      docToPdf.text(`Date: ${safeDate(invoice.createdAt)}`, rightMargin, y + 57, { align: 'right' });
-      
+      docToPdf.text('3-38, Kompleks Kantonmen Prima, 698, Jalan Sultan Azlan Shah, Batu 4½, Jalan Ipoh, 51200 Kuala Lumpur, W.P. Kuala Lumpur, Malaysia', leftMargin + 60, y + 30);
+      docToPdf.text('Tel: 011-23583397 | Email: myroom8685@gmail.com', leftMargin + 60, y + 45);
       y += 80;
 
-      // Billing Details
-      docToPdf.setFontSize(11);
+      // Invoice Title
+      docToPdf.setFontSize(20);
       docToPdf.setFont('helvetica', 'bold');
-      docToPdf.text('BILL TO:', leftMargin, y);
+      docToPdf.text('INVOICE', leftMargin, y);
+      y += 30;
+
+      // Invoice Details
+      docToPdf.setFontSize(12);
       docToPdf.setFont('helvetica', 'normal');
-      if (invoice.tenantDetails) {
-        docToPdf.text(invoice.tenantDetails.fullName, leftMargin, y + 15);
-        docToPdf.text(`Unit: ${invoice.tenantDetails.unitNumber}`, leftMargin, y + 30);
-        docToPdf.text(`Type: ${invoice.tenantDetails.rentalType || 'Not specified'}`, leftMargin, y + 45);
-        docToPdf.text(`Phone: ${invoice.tenantDetails.phoneNumber}`, leftMargin, y + 60);
+      docToPdf.text(`Invoice #: ${invoice.id.substring(0, 8).toUpperCase()}`, leftMargin, y); y += 20;
+      docToPdf.text(`Date: ${safeDate(invoice.createdAt).toLocaleDateString()}`, leftMargin, y); y += 20;
+      docToPdf.text(`Due Date: ${invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A'}`, leftMargin, y); y += 30;
+
+      // Tenant Information
+      docToPdf.setFontSize(14);
+      docToPdf.setFont('helvetica', 'bold');
+      docToPdf.text('Bill To:', leftMargin, y);
+      y += 20;
+      docToPdf.setFontSize(12);
+      docToPdf.setFont('helvetica', 'normal');
+      docToPdf.text(invoice.tenantDetails?.fullName || 'Tenant', leftMargin, y); y += 15;
+      docToPdf.text(`Unit: ${invoice.tenantDetails?.unitNumber || invoice.unitNumber || 'N/A'}`, leftMargin, y); y += 15;
+      docToPdf.text(`Phone: ${invoice.tenantDetails?.phoneNumber || 'N/A'}`, leftMargin, y); y += 30;
+
+      // Line Items Table
+      docToPdf.setFontSize(12);
+      docToPdf.setFont('helvetica', 'bold');
+      docToPdf.text('Description', leftMargin, y);
+      docToPdf.text('Amount (RM)', rightMargin - 80, y);
+      y += 20;
+      docToPdf.setLineWidth(1);
+      docToPdf.line(leftMargin, y, rightMargin, y);
+      y += 20;
+
+      // Add line items
+      docToPdf.setFont('helvetica', 'normal');
+      invoice.lineItems.forEach(item => {
+        docToPdf.text(item.description, leftMargin, y);
+        docToPdf.text(item.amount.toFixed(2), rightMargin - 80, y);
+        y += 15;
+      });
+
+      // Add utilities if present
+      if (invoice.utilities) {
+        if (invoice.utilities.water) {
+          docToPdf.text('Water Bill', leftMargin, y);
+          docToPdf.text(invoice.utilities.water.toFixed(2), rightMargin - 80, y);
+          y += 15;
+        }
+        if (invoice.utilities.electricity) {
+          docToPdf.text('Electricity Bill', leftMargin, y);
+          docToPdf.text(invoice.utilities.electricity.toFixed(2), rightMargin - 80, y);
+          y += 15;
+        }
+        if (invoice.utilities.internet) {
+          docToPdf.text('Internet Bill', leftMargin, y);
+          docToPdf.text(invoice.utilities.internet.toFixed(2), rightMargin - 80, y);
+          y += 15;
+        }
+        if (invoice.utilities.other) {
+          docToPdf.text('Other Utilities', leftMargin, y);
+          docToPdf.text(invoice.utilities.other.toFixed(2), rightMargin - 80, y);
+          y += 15;
+        }
       }
 
-      y += 90;
-
-      // Table header with improved styling
-      docToPdf.setFillColor(240, 240, 240);
-      docToPdf.rect(leftMargin, y, 515, 25, 'F');
-      docToPdf.setFont('helvetica', 'bold');
-      docToPdf.setFontSize(10);
-      docToPdf.text('Item Description', leftMargin + 10, y + 16);
-      docToPdf.text('Qty', leftMargin + 280, y + 16, { align: 'center' });
-      docToPdf.text('Unit Price (RM)', leftMargin + 380, y + 16, { align: 'center' });
-      docToPdf.text('Amount (RM)', rightMargin - 10, y + 16, { align: 'right' });
-
-      // Table rows
-      y += 25;
-      docToPdf.setFont('helvetica', 'normal');
-      
-      const items = (invoice.lineItems && Array.isArray(invoice.lineItems) && invoice.lineItems.length > 0)
-        ? invoice.lineItems.map(item => ({ description: item.description, quantity: 1, unitPrice: item.amount || 0 }))
-        : [
-            { description: 'Rent', quantity: 1, unitPrice: invoice.rentAmount || 0 },
-            { description: 'Water', quantity: 1, unitPrice: invoice.utilities?.water || 0 },
-            { description: 'Electricity', quantity: 1, unitPrice: invoice.utilities?.electricity || 0 },
-            { description: 'Internet', quantity: 1, unitPrice: invoice.utilities?.internet || 0 },
-            ...(invoice.utilities?.other ? [{ description: 'Other', quantity: 1, unitPrice: invoice.utilities.other }] : [])
-          ].filter(item => item.unitPrice > 0);
-
-      items.forEach(item => {
-        if (item.unitPrice > 0) {
-          docToPdf.text(item.description, leftMargin + 10, y + 15);
-          docToPdf.text('1', leftMargin + 280, y + 15, { align: 'center' });
-          docToPdf.text(item.unitPrice.toFixed(2), leftMargin + 380, y + 15, { align: 'center' });
-          docToPdf.text(item.unitPrice.toFixed(2), rightMargin - 10, y + 15, { align: 'right' });
-          y += 25;
-        }
-      });
-
-      // Totals section with improved styling
       y += 10;
-      const subtotal = items.reduce((sum: number, item: { unitPrice: number; quantity: number; }) => sum + (item.unitPrice * item.quantity), 0);
-      const tax = 0;
-      const total = subtotal + tax;
+      docToPdf.setLineWidth(1);
+      docToPdf.line(leftMargin, y, rightMargin, y);
+      y += 20;
 
-      docToPdf.setDrawColor(200, 200, 200);
-      docToPdf.line(leftMargin + 250, y, rightMargin, y);
+      // Totals
+      docToPdf.setFont('helvetica', 'bold');
+      docToPdf.text('Subtotal:', leftMargin, y);
+      docToPdf.text(invoice.subtotal.toFixed(2), rightMargin - 80, y);
       y += 15;
+      docToPdf.text('Tax:', leftMargin, y);
+      docToPdf.text(invoice.tax.toFixed(2), rightMargin - 80, y);
+      y += 15;
+      docToPdf.setFontSize(14);
+      docToPdf.text('Total:', leftMargin, y);
+      docToPdf.text(invoice.totalAmount.toFixed(2), rightMargin - 80, y);
+      y += 30;
 
-      docToPdf.text('Subtotal:', leftMargin + 380, y, { align: 'right' });
-      docToPdf.text(subtotal.toFixed(2), rightMargin - 10, y, { align: 'right' });
+      // Payment Instructions
+      docToPdf.setFontSize(12);
+      docToPdf.setFont('helvetica', 'bold');
+      docToPdf.text('Payment Instructions:', leftMargin, y);
       y += 20;
-
-      docToPdf.text('Tax (0%):', leftMargin + 380, y, { align: 'right' });
-      docToPdf.text(tax.toFixed(2), rightMargin - 10, y, { align: 'right' });
-      y += 20;
-
-      docToPdf.setFont('helvetica', 'bold');
-      docToPdf.text('Total:', leftMargin + 380, y, { align: 'right' });
-      docToPdf.text(total.toFixed(2), rightMargin - 10, y, { align: 'right' });
-
-      // Payment Details and Notes
-      y += 50;
-      docToPdf.setFont('helvetica', 'bold');
-      docToPdf.text('Payment Details:', leftMargin, y);
       docToPdf.setFont('helvetica', 'normal');
-      docToPdf.text('Bank: Maybank', leftMargin, y + 15);
-      docToPdf.text('Account Name: GREEN BRIDGE REALTY SDN. BHD.', leftMargin, y + 30);
-      docToPdf.text('Account Number: 514123456789', leftMargin, y + 45);
+      docToPdf.text('Please make payment to:', leftMargin, y);
+      y += 15;
+      docToPdf.text('Bank: Maybank', leftMargin, y);
+      y += 15;
+      docToPdf.text('Account: 1234-5678-9012', leftMargin, y);
+      y += 15;
+      docToPdf.text('Account Name: GREEN BRIDGE REALTY SDN. BHD.', leftMargin, y);
+      y += 15;
+      docToPdf.text('Reference: Invoice #' + invoice.id.substring(0, 8).toUpperCase(), leftMargin, y);
 
-      // Terms and Conditions
-      y += 80;
-      docToPdf.setFont('helvetica', 'bold');
-      docToPdf.text('Terms & Conditions:', leftMargin, y);
-      docToPdf.setFont('helvetica', 'normal');
-      docToPdf.setFontSize(9);
-      docToPdf.text('1. Payment is due within 7 days of invoice date', leftMargin, y + 15);
-      docToPdf.text('2. Please include invoice number in payment reference', leftMargin, y + 27);
-      docToPdf.text('3. Late payments may incur additional charges', leftMargin, y + 39);
-
-      // Footer
-      y = 780;
-      docToPdf.setFontSize(10);
-      docToPdf.text('Thank you for your business!', leftMargin, y);
-      
-      // Signature
-      docToPdf.text('Authorized Signature', rightMargin, y, { align: 'right' });
-      docToPdf.line(rightMargin - 150, y + 5, rightMargin, y + 5);
-      docToPdf.text('Green Bridge Realty Sdn. Bhd.', rightMargin, y + 20, { align: 'right' });
-
-      // Save the PDF
-      docToPdf.save(`Invoice-${invoice.id}.pdf`);
+      docToPdf.save(`Invoice_${invoice.id.substring(0, 8)}.pdf`);
     };
-  };
-
-  // Admin: Start editing
-  const handleEdit = () => {
-    if (!invoice) return;
-    setEditForm({
-      month: invoice.month,
-      year: invoice.year,
-      rentAmount: invoice.rentAmount,
-      water: invoice.utilities?.water || 0,
-      electricity: invoice.utilities?.electricity || 0,
-      internet: invoice.utilities?.internet || 0,
-      other: invoice.utilities?.other || 0,
-      dueDate: invoice.dueDate ? new Date(invoice.dueDate).toISOString().slice(0, 10) : '',
-    });
-    setEditing(true);
-  };
-
-  // Admin: Save edit
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!invoice) return;
-    try {
-      await updateDoc(doc(db, 'invoices', invoice.id), {
-        month: editForm.month,
-        year: Number(editForm.year),
-        rentAmount: Number(editForm.rentAmount),
-        utilities: {
-          water: Number(editForm.water),
-          electricity: Number(editForm.electricity),
-          internet: Number(editForm.internet),
-          other: Number(editForm.other) || 0,
-        },
-        totalAmount:
-          Number(editForm.rentAmount) + 
-          Number(editForm.water) + 
-          Number(editForm.electricity) + 
-          Number(editForm.internet) + 
-          (Number(editForm.other) || 0),
-        dueDate: new Date(editForm.dueDate),
-        updatedAt: new Date(),
-      });
-      toast.success('Invoice updated');
-      setEditing(false);
-      // Refresh invoice
-      const invoiceDoc = await getDoc(doc(db, 'invoices', invoice.id));
-      setInvoice(invoiceDoc.exists() ? { id: invoiceDoc.id, ...invoiceDoc.data() } as Invoice : null);
-    } catch (err) {
-      toast.error('Failed to update invoice');
-    }
   };
 
   // Helper for safe date formatting
   function safeDate(date: any) {
-    if (!date) return '-';
-    const d = typeof date === 'string' ? new Date(date) : date.toDate ? date.toDate() : new Date(date);
-    return isNaN(d.getTime()) ? '-' : d.toLocaleDateString();
+    if (!date) return new Date();
+    if (date.toDate) return date.toDate();
+    if (date.seconds) return new Date(date.seconds * 1000);
+    return new Date(date);
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
       </div>
     );
   }
 
   if (!invoice) {
-    return null;
+    return (
+      <div className="text-center py-12">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">Invoice Not Found</h2>
+        <p className="text-gray-600 mb-6">The invoice you&apos;re looking for doesn&apos;t exist or you don&apos;t have permission to view it.</p>
+        <Link href="/dashboard/invoices" className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">
+          <FaArrowLeft className="h-4 w-4" />
+          Back to Invoices
+        </Link>
+      </div>
+    );
   }
-
-  // Helper for currency
-  const formatCurrency = (amount: number) => `RM${Number(amount).toLocaleString('en-MY', { minimumFractionDigits: 2 })}`;
 
   // Use dynamic line items if available
   const items = (invoice.lineItems && Array.isArray(invoice.lineItems) && invoice.lineItems.length > 0)

@@ -104,7 +104,7 @@ export default function ExpensesPage() {
       return;
     }
     setUploading(true);
-    let receiptUrls: string[] = [];
+    const receiptUrls: string[] = [];
     for (const file of receipts) {
       const storageRef = ref(storage, `expenses/${Date.now()}_${file.name}`);
       await uploadBytes(storageRef, file);
@@ -351,7 +351,7 @@ export default function ExpensesPage() {
         <select
           className="border rounded px-3 py-2 w-full sm:w-1/4"
           value={filterType}
-          onChange={e => { setFilterType(e.target.value as any); setPage(1); }}
+          onChange={e => { setFilterType(e.target.value as 'all' | 'expense' | 'income'); setPage(1); }}
         >
           <option value="all">All Types</option>
           <option value="expense">Expense</option>

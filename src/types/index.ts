@@ -1,9 +1,12 @@
-export type UserRole = 'admin' | 'tenant' | 'service' | 'owner';
+import { Timestamp } from 'firebase/firestore';
+
+export type UserRole = 'admin' | 'tenant' | 'service' | 'propertyOwner';
 
 export type RentalType = 'Room1' | 'Room2' | 'Room3' | 'Studio' | 'Whole Unit';
 
 export interface User {
   id: string;
+  uid?: string;
   email: string;
   fullName: string;
   idNumber: string;
@@ -82,9 +85,39 @@ export interface Invoice {
 
 export interface Contract {
   id: string;
-  tenantId: string;  contractUrl: string;
-  createdAt: Date;
-  updatedAt: Date;
+  tenantId: string;
+  tenantName: string;
+  contractUrl: string;
+  propertyAddress: string;
+  term: string;
+  moveInDate: string; // or Date
+  expiryDate: string; // or Date
+  rentalPerMonth: number;
+  securityDeposit: number;
+  utilityDeposit: number;
+  accessCardDeposit: number;
+  agreementFee: number;
+  dateOfAgreement: string; // or Date
+  companySignName: string;
+  companySignNRIC: string;
+  companySignDesignation: string;
+  status: 'active' | 'pending' | 'expired' | 'terminated';
+  acknowledged?: boolean;
+  acknowledgedAt?: Date;
+  resent?: boolean;
+  resentAt?: Date;
+  archived?: boolean;
+  archivedAt?: any; // Firestore Timestamp
+  reminderSent?: boolean;
+  createdAt: any; // Firestore Timestamp
+  updatedAt: any; // Firestore Timestamp
+}
+
+export interface Comment {
+  id: string;
+  author: 'tenant' | 'admin' | 'propertyOwner' | 'service';
+  message: string;
+  timestamp: any; // Firestore Timestamp
 }
 
 export interface Property {
@@ -124,13 +157,19 @@ export interface MaintenanceRequest {
   tenantName: string;
   tenantPhone: string;
   buildingName: string;
-  createdAt: any; // Firestore Timestamp
-  scheduledDate?: any; // ISO string or Firestore Timestamp
+  createdAt: Timestamp | Date;
+  scheduledDate?: Timestamp | Date;
+  completedAt?: Timestamp | Date;
   assignedTo?: string;
   assignedProviderName?: string;
-  assignedAt?: any; // ISO string or Firestore Timestamp
+  assignedAt?: Timestamp | Date;
   providerInstructions?: string;
-  messages: Message[];
+  messages: {
+    sender: string;
+    text: string;
+    timestamp: Timestamp | Date;
+    senderName?: string;
+  }[];
   fileUrls?: string[];
   assignedBy?: string;
   from?: string;

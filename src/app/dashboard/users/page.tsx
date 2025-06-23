@@ -174,7 +174,7 @@ export default function UsersPage() {
                   <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
                     ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 
                       user.role === 'tenant' ? 'bg-blue-100 text-blue-800' : 
-                      user.role === 'owner' ? 'bg-green-100 text-green-800' :
+                      user.role === 'propertyOwner' ? 'bg-green-100 text-green-800' :
                       'bg-orange-100 text-orange-800'}`}>
                     {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                   </span>
@@ -184,7 +184,7 @@ export default function UsersPage() {
                     <>Unit: {user.unitNumber}<br/>Type: {user.rentalType}</>
                   ) : user.role === 'service' ? (
                     <>Service: {user.serviceType}</>
-                  ) : user.role === 'owner' ? (
+                  ) : user.role === 'propertyOwner' ? (
                     <>Property Owner</>
                   ) : (
                     '-'

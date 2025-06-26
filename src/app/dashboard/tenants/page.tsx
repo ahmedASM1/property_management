@@ -6,6 +6,7 @@ import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { User, Property } from '@/types';
 import Link from 'next/link';
+import Image from 'next/image';
 import { FaArrowLeft, FaUserCircle } from 'react-icons/fa';
 
 export default function OwnerTenantsPage() {
@@ -16,7 +17,7 @@ export default function OwnerTenantsPage() {
 
   useEffect(() => {
     async function fetchTenants() {
-      if (!user || user.role !== 'owner') {
+      if (!user || user.role !== 'propertyOwner') {
         setLoading(false);
         return;
       }
@@ -83,7 +84,7 @@ export default function OwnerTenantsPage() {
                   <div className="flex items-center space-x-4">
                     <div className="flex-shrink-0">
                       {tenant.profileImage ? (
-                        <img className="h-10 w-10 rounded-full" src={tenant.profileImage} alt={tenant.fullName} />
+                        <Image className="h-10 w-10 rounded-full" src={tenant.profileImage} alt={tenant.fullName} width={40} height={40} />
                       ) : (
                         <FaUserCircle className="h-10 w-10 text-gray-400" />
                       )}

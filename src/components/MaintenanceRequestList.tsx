@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs, query, where, updateDoc, doc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where, updateDoc, doc, addDoc, serverTimestamp, arrayUnion } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import DatePicker from 'react-datepicker';
@@ -38,6 +38,7 @@ interface Request {
   serviceType?: string;
   assignedTo?: string;
   userId?: string;
+  hiddenFor?: string[];
 }
 
 function formatDate(date: any) {
@@ -158,7 +159,7 @@ export default function MaintenanceRequestList() {
     setRequests(reqs => reqs.map(r => r.id === selected.id ? { ...r, messages: updatedMessages } : r));
   };
 
-  const visibleRequests = requests.filter(r => r.status !== 'completed');
+  const visibleRequests = requests.filter(req => !Array.isArray(req.hiddenFor) || !req.hiddenFor.includes(user?.id));
 
   if (loading) return <div className="text-center text-gray-500">Loading requests...</div>;
 
@@ -234,6 +235,16 @@ export default function MaintenanceRequestList() {
               >
                 View & Reply
               </button>
+              {req.status === 'completed' && (
+                <button
+                  onClick={async () => {
+                    await updateDoc(doc(db, 'maintenance_requests', req.id), { hiddenFor: arrayUnion(user.id) });
+                  }}
+                  className="ml-2 px-4 py-2 bg-gray-400 text-white rounded-md hover:bg-gray-500 transition"
+                >
+                  Hide
+                </button>
+              )}
             </div>
           ))}
         </div>

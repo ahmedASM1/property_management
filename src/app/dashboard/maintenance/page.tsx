@@ -2,25 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, addDoc, getDocs, query, where, serverTimestamp } from 'firebase/firestore';
-import { db, storage } from '@/lib/firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import MaintenanceForm from '../../../components/MaintenanceForm';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import MaintenanceRequestList from '../../../components/MaintenanceRequestList';
 import Link from 'next/link';
 import { FaArrowLeft } from 'react-icons/fa';
-
-interface Request {
-  id: string;
-  description: string;
-  status: 'pending' | 'in progress' | 'completed';
-  createdAt: string;
-  unit: string;
-  urgency: string;
-  photoUrl?: string;
-  tenantName: string;
-  adminComment?: string;
-}
 
 const REQUEST_TYPES = [
   { value: 'maintenance', label: 'Maintenance' },
@@ -30,9 +16,9 @@ const SERVICE_TYPES = [
   'Cleaning',
   'AC Repair',
   'Plumbing',
-  'Furniture',
-  'Electrical',
-  'TV Repair',
+  'Furniture Assembly',
+  'Electrical Work',
+  'Pest Control',
   'Other',
 ];
 
@@ -62,7 +48,7 @@ export default function MaintenancePage() {
     );
   }
 
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitting(true);
     setError('');
@@ -95,7 +81,7 @@ export default function MaintenancePage() {
           return;
         }
     }
-      const requestData: { [key: string]: any } = {
+      const requestData: Record<string, unknown> = {
         userId: user.id,
         tenantName: user.fullName || 'N/A',
         tenantPhone: user.phoneNumber || 'N/A',
@@ -128,7 +114,7 @@ export default function MaintenancePage() {
       setServiceType('');
       setCustomService('');
       setSuccess(true);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to submit request:', err);
       setError('Failed to submit request.');
     } finally {

@@ -1,21 +1,16 @@
-import { Invoice } from '@/types';
+import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
+import { Invoice } from '@/types';
 import { 
   FaFileInvoice, 
   FaFileContract, 
   FaMoneyBillWave, 
-  FaClock, 
-  FaUser,
-  FaCalendarAlt,
-  FaCheckCircle,
   FaExclamationCircle,
   FaHome,
-  FaChartLine,
   FaDownload,
   FaEye,
   FaBell,
-  FaCreditCard,
   FaSignature
 } from 'react-icons/fa';
 
@@ -51,7 +46,8 @@ export default function TenantDashboard({ data }: TenantDashboardProps) {
   const paymentProgress = invoices.length ? Math.round((paidInvoices.length / invoices.length) * 100) : 0;
 
   // Helper for safe date formatting
-  function safeDate(date: any) {
+  function safeDate(date: string | number | Date | null | undefined) {
+    if (!date) return 'N/A';
     const d = new Date(date);
     return isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString('en-US', { 
       year: 'numeric', 
@@ -380,7 +376,7 @@ export default function TenantDashboard({ data }: TenantDashboardProps) {
                         invoice.isPaid ? 'bg-green-100' : 'bg-yellow-100'
                       }`}>
                         {invoice.isPaid ? (
-                          <FaCheckCircle className="h-5 w-5 text-green-600" />
+                          <FaFileInvoice className="h-5 w-5 text-green-600" />
                         ) : (
                           <FaExclamationCircle className="h-5 w-5 text-yellow-600" />
                         )}
@@ -474,7 +470,7 @@ export default function TenantDashboard({ data }: TenantDashboardProps) {
                   <FaFileInvoice className="h-8 w-8 text-gray-400" />
                 </div>
                 <h4 className="text-lg font-medium text-gray-900 mb-2">No invoices yet</h4>
-                <p className="text-gray-500">When your landlord issues invoices, they'll appear here.</p>
+                <p className="text-gray-500">When your landlord issues invoices, they&apos;ll appear here.</p>
               </div>
             ) : (
               <table className="min-w-full divide-y divide-gray-200">

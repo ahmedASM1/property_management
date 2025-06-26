@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,13 +20,17 @@ interface ContractDoc {
 
 const allStatusOptions: Invoice['status'][] = ['unpaid', 'paid', 'overdue', 'queried', 'pending_payment', 'pending_approval', 'rejected'];
 
-function safeDate(date: any): string {
+function safeDate(date: unknown): string {
   if (!date) return 'N/A';
-  const d = date.toDate ? date.toDate() : new Date(date);
-  if (isNaN(d.getTime())) {
-    return 'Invalid Date';
+  let dateObj: Date;
+  if (typeof date === 'object' && date !== null && 'toDate' in date) {
+    dateObj = (date as { toDate(): Date }).toDate();
+  } else if (typeof date === 'object' && date !== null && 'seconds' in date) {
+    dateObj = new Date((date as { seconds: number }).seconds * 1000);
+  } else {
+    dateObj = new Date(date as string | number | Date);
   }
-  return d.toLocaleDateString();
+  return dateObj.toLocaleDateString();
 }
 
 export default function InvoicesPage() {
@@ -37,6 +41,8 @@ export default function InvoicesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [typeFilter, setTypeFilter] = useState<'all' | 'tenant' | 'service'>('all');
+  const [search, setSearch] = useState('');
 
   // Form states
   const [showForm, setShowForm] = useState(false);
@@ -55,6 +61,13 @@ export default function InvoicesPage() {
   // Filtering
   const [statusFilter, setStatusFilter] = useState('all');
 
+  const updateLineItem = useCallback((idx: number, field: string, value: string | number) =>
+    setLineItems(currentLineItems =>
+      currentLineItems.map((item, i) =>
+        i === idx ? { ...item, [field]: value } : item
+      )
+    ), []);
+
   useEffect(() => {
     async function fetchData() {
       if (!user) {
@@ -62,7 +75,7 @@ export default function InvoicesPage() {
         return;
       }
       try {
-      setLoading(true);
+        setLoading(true);
         const tenantsQuery = query(collection(db, 'users'), where('role', '==', 'tenant'));
         const tenantsSnap = await getDocs(tenantsQuery);
         const tenantsData = tenantsSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Tenant[];
@@ -73,7 +86,6 @@ export default function InvoicesPage() {
           : query(collection(db, 'invoices'), where('tenantId', '==', user.id));
         const invoicesSnap = await getDocs(invoicesQuery);
         const invoicesData = invoicesSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Invoice[];
-
         setInvoices(invoicesData);
       } catch (error) {
         console.error('Failed to fetch data:', error);
@@ -104,12 +116,10 @@ export default function InvoicesPage() {
       }
     }
     fetchContract();
-  }, [tenantId, tenants]);
+  }, [tenantId, tenants, updateLineItem]);
 
   const addLineItem = () => setLineItems([...lineItems, { description: '', amount: 0 }]);
   const removeLineItem = (idx: number) => setLineItems(lineItems.length > 1 ? lineItems.filter((_, i) => i !== idx) : lineItems);
-  const updateLineItem = (idx: number, field: string, value: any) =>
-    setLineItems(lineItems.map((item, i) => i === idx ? { ...item, [field]: value } : item));
 
   const subtotal = lineItems.reduce((acc, item) => acc + Number(item.amount), 0);
   const totalAmount = subtotal + (subtotal * (tax / 100));
@@ -137,7 +147,7 @@ export default function InvoicesPage() {
                 : inv
         ));
         toast.success('Status updated.', { id: toastId });
-    } catch (error) {
+    } catch {
         toast.error('Failed to update status.', { id: toastId });
     }
   };
@@ -149,12 +159,12 @@ export default function InvoicesPage() {
     const toastId = toast.loading(approve ? 'Approving...' : 'Rejecting...');
 
     try {
-        const updateData: any = {
+        const updateData: Partial<Invoice> = {
             statusChangeRequest: null 
         };
 
         if (approve) {
-            updateData.status = requestedStatus;
+            updateData.status = requestedStatus as Invoice['status'];
             updateData.isPaid = requestedStatus === 'paid';
         }
 
@@ -172,9 +182,9 @@ export default function InvoicesPage() {
             return inv;
         }));
         
-        toast.success(`Request ${approve ? 'approved' : 'rejected'}.`, { id: toastId });
-    } catch (error) {
-        toast.error('Action failed.', { id: toastId });
+        toast.success(approve ? 'Status change approved' : 'Status change rejected', { id: toastId });
+    } catch {
+        toast.error('Failed to update invoice status');
     }
   };
 
@@ -236,8 +246,8 @@ export default function InvoicesPage() {
       const invoicesSnap = await getDocs(invoicesQuery);
       const invoicesData = invoicesSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Invoice[];
       setInvoices(invoicesData);
-    } catch (error) {
-      console.error('Failed to create invoice:', error);
+    } catch {
+      console.error('Failed to create invoice');
       alert('Failed to create invoice.');
     }
   };
@@ -273,16 +283,35 @@ export default function InvoicesPage() {
     doc.text(`To: ${to}`, 14, 28);
     doc.text(`Date: ${safeDate(invoice.invoiceDate || invoice.createdAt)}`, 14, 34);
     
-    const tableBody = invoice.lineItems?.map(item => [item.description, `RM ${item.amount.toFixed(2)}`]) || [[invoice.description, `RM ${invoice.totalAmount.toFixed(2)}`]];
+    const tableBody = invoice.lineItems?.map(item => [item.description, `RM ${isNaN(Number(item.amount)) ? '0.00' : Number(item.amount).toFixed(2)}`]) || [[invoice.description, `RM ${isNaN(Number(invoice.totalAmount)) ? '0.00' : Number(invoice.totalAmount).toFixed(2)}`]];
     
-    (doc as any).autoTable({
+    (doc as unknown as { autoTable: (options: unknown) => void }).autoTable({
       startY: 45,
       head: [['Description', 'Amount']],
       body: tableBody,
-      foot: [['Total', `RM ${invoice.totalAmount.toFixed(2)}`]]
+      foot: [['Total', `RM ${isNaN(Number(invoice.totalAmount)) ? '0.00' : Number(invoice.totalAmount).toFixed(2)}`]]
     });
     doc.save(`invoice-${invoice.id}.pdf`);
   };
+
+  // Filtering by type
+  const filteredByType = invoices.filter(inv => {
+    if (typeFilter === 'tenant') return !!inv.tenantId;
+    if (typeFilter === 'service') return !!inv.fromId;
+    return true;
+  });
+  // Search filter
+  const searchedInvoices = filteredByType.filter(inv => {
+    const idMatch = inv.id.toLowerCase().includes(search.toLowerCase());
+    const payerName = inv.tenantId
+      ? tenants.find(t => t.id === inv.tenantId)?.fullName || ''
+      : inv.from || '';
+    const nameMatch = payerName.toLowerCase().includes(search.toLowerCase());
+    const statusMatch = (inv.status || '').toLowerCase().includes(search.toLowerCase());
+    const dateStr = (inv.invoiceDate || inv.createdAt || '').toString();
+    const dateMatch = dateStr.toLowerCase().includes(search.toLowerCase());
+    return idMatch || nameMatch || statusMatch || dateMatch;
+  });
 
   if (loading) {
     return (
@@ -294,8 +323,6 @@ export default function InvoicesPage() {
 
   // Admin UI
   if (user?.role === 'admin') {
-    const filteredInvoices = invoices.filter(inv => statusFilter === 'all' || inv.status === statusFilter);
-
     return (
       <div className="container mx-auto px-4 w-full max-w-7xl py-6">
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
@@ -311,6 +338,21 @@ export default function InvoicesPage() {
             </button>
           </div>
         </div>
+        {/* Filter and Search Bar */}
+        <div className="flex flex-col md:flex-row gap-4 mb-4 items-center">
+          <select value={typeFilter} onChange={e => setTypeFilter(e.target.value as any)} className="border rounded px-3 py-2">
+            <option value="all">All</option>
+            <option value="tenant">Tenant Invoices</option>
+            <option value="service">Service Provider Invoices</option>
+          </select>
+          <input
+            type="text"
+            placeholder="Search by ID, payer, status, date..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="border rounded px-3 py-2 w-full md:w-80"
+          />
+        </div>
         {showForm && (
           <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-8 mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <h2 className="text-2xl font-bold col-span-full">{isEditing ? 'Edit Invoice' : 'New Invoice'}</h2>
@@ -325,7 +367,28 @@ export default function InvoicesPage() {
             
             <div className="col-span-1">
               <label htmlFor="month" className="block text-sm font-medium text-gray-700 mb-1">Month</label>
-              <input type="text" id="month" name="month" value={month} onChange={handleFormChange} className="w-full border-gray-300 rounded-lg shadow-sm" />
+              <select
+                id="month"
+                name="month"
+                value={month}
+                onChange={handleFormChange}
+                className="w-full border-gray-300 rounded-lg shadow-sm"
+                required
+              >
+                <option value="">Select Month</option>
+                <option value="January">January</option>
+                <option value="February">February</option>
+                <option value="March">March</option>
+                <option value="April">April</option>
+                <option value="May">May</option>
+                <option value="June">June</option>
+                <option value="July">July</option>
+                <option value="August">August</option>
+                <option value="September">September</option>
+                <option value="October">October</option>
+                <option value="November">November</option>
+                <option value="December">December</option>
+              </select>
             </div>
             <div className="col-span-1">
               <label htmlFor="year" className="block text-sm font-medium text-gray-700 mb-1">Year</label>
@@ -366,7 +429,7 @@ export default function InvoicesPage() {
             </div>
             
             <div className="col-span-full flex justify-between items-center mt-4">
-              <div className="font-bold text-xl">Total: RM {totalAmount.toFixed(2)}</div>
+              <div className="font-bold text-xl">Total: RM {isNaN(Number(totalAmount)) ? '0.00' : Number(totalAmount).toFixed(2)}</div>
               <button type="submit" className="bg-indigo-600 text-white px-8 py-3 rounded-lg shadow-lg hover:bg-indigo-700 transition">
                 {isEditing ? 'Update Invoice' : 'Create Invoice'}
               </button>
@@ -374,108 +437,13 @@ export default function InvoicesPage() {
           </form>
         )}
         
-        <div className="flex flex-wrap gap-2 mb-4 p-2 bg-gray-100 rounded-lg">
-          {(['all', 'paid', 'unpaid', 'overdue'] as const).map(status => (
-            <button
-              key={status}
-              onClick={() => setStatusFilter(status)}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold border transition focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                statusFilter === status
-                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg scale-105'
-                  : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100'
-              }`}
-            >
-              {status.charAt(0).toUpperCase() + status.slice(1)}
-            </button>
-          ))}
-        </div>
         <div className="bg-white rounded-xl shadow-sm">
           <h2 className="text-xl font-bold mb-4 p-6">Invoices</h2>
-          
-          {/* Mobile Card View */}
-          <div className="md:hidden">
-            <div className="space-y-4 px-4 pb-4">
-            {filteredInvoices.map(inv => {
-                const isServiceInvoice = !!inv.fromId;
-                const fromName = isServiceInvoice ? inv.from : 'Admin';
-                const toName = isServiceInvoice ? inv.to : tenants.find(t => t.id === inv.tenantId)?.fullName || 'N/A';
-                const description = isServiceInvoice ? inv.description : `Rent for ${inv.month}, ${inv.year}`;
-                const date = safeDate(inv.invoiceDate || inv.createdAt);
-                const request = inv.statusChangeRequest;
-
-                return (
-                  <div key={inv.id} className={`p-4 rounded-lg shadow-md border ${request ? 'bg-blue-50 border-blue-200' : 'bg-white'}`}>
-                    <div className="flex justify-between items-center mb-2">
-                      <div className="font-bold">{toName}</div>
-                      <div className="text-sm font-semibold">RM {inv.totalAmount.toFixed(2)}</div>
-                    </div>
-                    <p className="text-sm text-gray-600 truncate mb-2">{description}</p>
-                    <div className="text-xs text-gray-500 mb-3">From: {fromName} &bull; {date}</div>
-                    
-                    <div className="flex justify-between items-center">
-                      <div className="relative">
-                        <select
-                          value={inv.status}
-                          onChange={(e) => handleAdminStatusChange(inv.id, e.target.value)}
-                          className={`w-full appearance-none pl-3 pr-8 py-1 text-xs font-semibold rounded-full border-none focus:ring-0 cursor-pointer ${
-                            inv.status === 'paid' || inv.isPaid ? 'bg-green-100 text-green-700' : 
-                            inv.status === 'unpaid' ? 'bg-yellow-100 text-yellow-700' : 
-                            inv.status === 'pending_payment' ? 'bg-blue-100 text-blue-700' :
-                            'bg-red-100 text-red-700'
-                          }`}
-                        >
-                          {allStatusOptions.map(status => (
-                            <option key={status} value={status} className="bg-white text-gray-900">
-                              {status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                            </option>
-                          ))}
-                        </select>
-                        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
-                          <FaChevronDown className="h-3 w-3" />
-                        </div>
-                      </div>
-
-                      {request && (
-                          <div className="text-xs text-blue-600 animate-pulse font-semibold">
-                              Req: {request.requestedStatus}
-                          </div>
-                      )}
-                    </div>
-                    
-                    <div className="mt-4 pt-4 border-t">
-                      {request ? (
-                          <div className="flex items-center justify-end gap-2">
-                              <button onClick={() => handleStatusRequest(inv, true)} className="px-3 py-1 bg-green-600 text-white text-xs rounded-md hover:bg-green-700">Approve</button>
-                              <button onClick={() => handleStatusRequest(inv, false)} className="px-3 py-1 bg-red-600 text-white text-xs rounded-md hover:bg-red-700">Reject</button>
-                          </div>
-                      ) : (
-                          <div className="flex items-center justify-end gap-3">
-                              <button 
-                                onClick={() => router.push(`/dashboard/invoices/${inv.id}`)}
-                                className="text-indigo-600 hover:text-indigo-800 text-sm font-medium"
-                              >
-                                View
-                              </button>
-                              {!isServiceInvoice && (
-                                <button onClick={() => handleEdit(inv)} className="text-gray-500 hover:text-gray-700 text-sm">Edit</button>
-                              )}
-                              <button onClick={() => handleExportSingleInvoicePDF(inv)} className="text-green-600 hover:text-green-800 text-sm">
-                                Export
-                              </button>
-                          </div>
-                      )}
-                    </div>
-                  </div>
-                )
-            })}
-            </div>
-          </div>
-          
-          {/* Desktop Table View */}
           <div className="hidden md:block overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="bg-gray-50">
                 <tr>
+                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">From</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">To</th>
                   <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Description</th>
@@ -486,20 +454,23 @@ export default function InvoicesPage() {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {filteredInvoices.map(inv => {
+                {searchedInvoices.map(inv => {
                   const isServiceInvoice = !!inv.fromId;
                   const fromName = isServiceInvoice ? inv.from : 'Admin';
                   const toName = isServiceInvoice ? inv.to : tenants.find(t => t.id === inv.tenantId)?.fullName || 'N/A';
                   const description = isServiceInvoice ? inv.description : `Rent for ${inv.month}, ${inv.year}`;
                   const date = safeDate(inv.invoiceDate || inv.createdAt);
                   const request = inv.statusChangeRequest;
-                  
                   return (
                     <tr key={inv.id} className={`hover:bg-gray-50 transition ${request ? 'bg-blue-50' : ''}`}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        {inv.tenantId && <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">Tenant</span>}
+                        {inv.fromId && <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">Service Provider</span>}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">{fromName}</td>
                       <td className="px-6 py-4 whitespace-nowrap">{toName}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{description}</td>
-                      <td className="px-6 py-4 whitespace-nowrap font-medium">RM {inv.totalAmount.toFixed(2)}</td>
+                      <td className="px-6 py-4 whitespace-nowrap font-medium">RM {isNaN(Number(inv.totalAmount)) ? '0.00' : Number(inv.totalAmount).toFixed(2)}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="relative">
                           <select
@@ -555,6 +526,11 @@ export default function InvoicesPage() {
                     </tr>
                   )
                 })}
+                {searchedInvoices.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="text-center py-8 text-gray-400">No invoices found.</td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

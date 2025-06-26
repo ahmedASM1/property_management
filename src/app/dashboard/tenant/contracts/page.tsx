@@ -22,8 +22,8 @@ interface Contract {
   agreementFee: string;
   dateOfAgreement: string;
   acknowledged: boolean;
-  acknowledgedAt?: any;
-  createdAt: any;
+  acknowledgedAt?: string | Date;
+  createdAt: string | Date;
   signatureUrl?: string;
 }
 
@@ -35,7 +35,7 @@ export default function TenantContractsPage() {
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [signingContractId, setSigningContractId] = useState<string | null>(null);
   const [signatureData, setSignatureData] = useState<string | null>(null);
-  const [sigPad, setSigPad] = useState<any>(null);
+  const [sigPad, setSigPad] = useState<SignaturePad | null>(null);
   const storage = getStorage();
 
   useEffect(() => {
@@ -57,8 +57,8 @@ export default function TenantContractsPage() {
         })) as Contract[];
         
         setContracts(contractsData);
-      } catch (error) {
-        console.error('Error fetching contracts:', error);
+      } catch (_error) {
+        console.error('Error fetching contracts:', _error);
         toast.error('Failed to load contracts');
       } finally {
         setLoading(false);
@@ -92,7 +92,7 @@ export default function TenantContractsPage() {
           : contract
       ));
       toast.success('Contract acknowledged with signature');
-    } catch (error) {
+    } catch {
       toast.error('Failed to acknowledge contract');
     } finally {
       setShowSignatureModal(false);
@@ -241,7 +241,12 @@ export default function TenantContractsPage() {
               <SignaturePad
                 ref={setSigPad}
                 canvasProps={{ width: 300, height: 120, className: 'border border-gray-300 rounded mb-2' }}
-                onEnd={() => setSignatureData(sigPad?.getTrimmedCanvas().toDataURL('image/png'))}
+                onEnd={() => {
+                  const dataUrl = sigPad?.getTrimmedCanvas().toDataURL('image/png');
+                  if (dataUrl) {
+                    setSignatureData(dataUrl);
+                  }
+                }}
               />
               <div className="flex space-x-2 mb-2">
                 <button onClick={() => { sigPad?.clear(); setSignatureData(null); }} className="px-3 py-1 bg-gray-200 rounded">Clear</button>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, query, where, getDocs, orderBy, doc, getDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Property, Tenant, Invoice } from '@/types';
 import { 
@@ -23,6 +23,7 @@ interface PropertyWithDetails extends Property {
   recentInvoices?: Invoice[];
   maintenanceCount?: number;
   totalIncome?: number;
+  rentPrice?: string | number;
 }
 
 const PropertyOwnerDashboard = () => {
@@ -270,17 +271,17 @@ const PropertyOwnerDashboard = () => {
                 Unit {property.unitNumber}
               </p>
                     </div>
+                    {/* Rental Type & Price */}
+                    <div className="mt-2">
+                      <p className="text-sm font-medium text-gray-700">Rental Type: <span className="font-semibold">{property.rentalType || 'N/A'}</span></p>
+                      <p className="text-sm font-medium text-gray-700">Rent Price: <span className="font-semibold text-green-700">RM {property.rentPrice ? property.rentPrice : (property.monthlyRent?.toLocaleString() || '0')}</span></p>
+                    </div>
                   <div className="mt-4 border-t pt-4">
                     <p className="text-xs font-medium text-gray-500">CURRENT TENANT</p>
                     <p className="text-sm text-gray-800 font-semibold">{property.currentTenant?.fullName || 'Vacant'}</p>
                   </div>
-                  <div className="mt-4">
-              <Link href={`/dashboard/properties/${property.id}`} className="text-sm font-semibold text-indigo-600 hover:text-indigo-800">
-                      View Details →
-              </Link>
-            </div>
-          </div>
-        ))}
+                </div>
+              ))}
             </div>
           ) : (
             <div className="text-center py-12 bg-white rounded-xl border border-gray-200">

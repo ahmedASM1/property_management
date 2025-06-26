@@ -1,14 +1,13 @@
 'use client';
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { RentalType } from '@/types';
-import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
+import { toast } from 'react-hot-toast';
 
 const schema = yup.object({
   email: yup.string().email('Invalid email').required('Email is required'),
@@ -86,12 +85,11 @@ export default function TenantRegistrationForm() {
 
       toast.success('Registration successful! Please wait for admin approval.');
       router.push('/');
-    } catch (error: any) {
-      if (error.code === 'auth/email-already-in-use') {
-        toast.error('Email is already registered');
-      } else {
-        toast.error('Registration failed. Please try again.');
-      }
+    } catch (error: unknown) {
+      const errorMessage = (error as { code?: string; message?: string }).code === 'auth/email-already-in-use'
+        ? 'An account with this email already exists.'
+        : ((error as { message?: string }).message || "Something went wrong. Please try again later.");
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }

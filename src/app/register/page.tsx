@@ -6,7 +6,7 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Eye, EyeOff, Mail, Lock, User, Phone, MapPin, ArrowRight, Check, Building, Wrench } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
@@ -63,7 +63,7 @@ export default function RegisterPage() {
         setRole('tenant');
     };
 
-    const handleRoleChange = (newRole: Role) => {
+    const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         // Reset all role-specific fields to avoid data leakage between roles
         setBuildingName('');
         setOtherBuilding('');
@@ -73,7 +73,7 @@ export default function RegisterPage() {
         setServices([]);
         setOtherService('');
         // Set the new role
-        setRole(newRole);
+        setRole(e.target.value as Role);
     };
 
     const handleMultiSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -88,7 +88,7 @@ export default function RegisterPage() {
         setOtherService('');
     };
 
-    const handleRegister = async (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
         if (password !== confirmPassword) {
             toast.error("Passwords do not match.");
@@ -96,7 +96,7 @@ export default function RegisterPage() {
         }
         setLoading(true);
         try {
-            let userData: any = { email, password, fullName, phone, role };
+            let userData: Record<string, unknown> = { email, password, fullName, phone, role };
             if (role === 'tenant') {
                 userData = { ...userData, buildingName: buildingName === 'Other' ? otherBuilding : buildingName, passport, unitNumber, rentType };
             } else if (role === 'service-provider') {
@@ -106,10 +106,10 @@ export default function RegisterPage() {
             await registerUser(userData);
             setShowSuccessModal(true); // Show success modal
             resetForm(); // Reset form state in the background
-        } catch (error: any) {
-            const errorMessage = error.code === 'auth/email-already-in-use'
+        } catch (error: unknown) {
+            const errorMessage = (error as { code?: string; message?: string }).code === 'auth/email-already-in-use'
                 ? 'An account with this email already exists.'
-                : (error.message || "Something went wrong. Please try again later.");
+                : ((error as { message?: string }).message || "Something went wrong. Please try again later.");
             toast.error(errorMessage);
         } finally {
             setLoading(false);
@@ -174,7 +174,7 @@ export default function RegisterPage() {
                 <div className="max-w-lg w-full bg-white p-8 sm:p-10 rounded-2xl shadow-lg text-center">
                      <h2 className="text-2xl font-bold mb-4 text-green-700">✅ Thank you for registering!</h2>
                     <p className="text-gray-600 mb-6">
-                        Your details have been submitted successfully. Our admin team will review your information and approve your account shortly. You'll receive an email notification once your account is activated.
+                        Your details have been submitted successfully. Our admin team will review your information and approve your account shortly. You&apos;ll receive an email notification once your account is activated.
                     </p>
           <button
                         onClick={() => {
@@ -199,10 +199,10 @@ export default function RegisterPage() {
                     <p className="text-gray-600 text-sm mt-1">Sign up to Green Bridge Realty</p>
                 </header>
 
-                <form onSubmit={handleRegister} className="space-y-4" autoComplete="off">
+                <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
                     <div className="space-y-2">
                         <label className="text-sm font-medium text-gray-700">Register as</label>
-                        <select value={role} onChange={(e) => handleRoleChange(e.target.value as Role)} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
+                        <select value={role} onChange={handleRoleChange} className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500">
                             <option value="tenant">Tenant</option>
                             <option value="service-provider">Service Provider</option>
                             <option value="property-owner">Property Owner</option>
@@ -263,10 +263,11 @@ export default function RegisterPage() {
       </button>
 
                     <p className="text-center text-sm text-gray-600">
+                        Already have an account?{' '}
                         <Link href="/login" className="font-medium text-green-600 hover:underline">
                             &larr; Back to Login
-              </Link>
-            </p>
+                        </Link>
+                    </p>
                 </form>
           </div>
     </div>

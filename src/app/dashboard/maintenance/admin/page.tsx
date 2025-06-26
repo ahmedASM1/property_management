@@ -19,7 +19,7 @@ interface ServiceProvider {
 interface Message {
   sender: string;
   text: string;
-  timestamp: any;
+  timestamp: string | Date;
   senderName?: string;
 }
 
@@ -35,12 +35,13 @@ interface MaintenanceRequest {
   tenantName: string;
   tenantPhone: string;
   buildingName: string;
-  createdAt: any;
+  createdAt: string | Date;
   scheduledDate?: string;
   assignedTo?: string;
   assignedProviderName?: string;
   providerInstructions?: string;
   messages: Message[];
+  hiddenFor?: string[];
 }
 
 interface RequestState {
@@ -52,9 +53,11 @@ interface RequestState {
 const statusOptions = ['pending', 'in progress', 'completed', 'delayed', 'faced an issue'] as const;
 
 // Helper to convert Firestore Timestamps or ISO strings to Date objects
-const toDate = (timestamp: any): Date | null => {
+const toDate = (timestamp: unknown): Date | null => {
   if (!timestamp) return null;
-  if (timestamp.toDate) return timestamp.toDate(); // Firestore Timestamp
+  if (typeof timestamp === 'object' && timestamp !== null && 'toDate' in timestamp) {
+    return (timestamp as { toDate(): Date }).toDate(); // Firestore Timestamp
+  }
   if (typeof timestamp === 'string') return new Date(timestamp); // ISO String
   return null;
 };
@@ -81,7 +84,10 @@ export default function AdminMaintenancePage() {
           messages: doc.data().messages || []
         })) as MaintenanceRequest[];
         
-      setRequests(updatedRequests);
+      const visibleRequests = adminUser?.id
+        ? updatedRequests.filter(req => !Array.isArray(req.hiddenFor) || !req.hiddenFor.includes(adminUser.id))
+        : [];
+      setRequests(visibleRequests);
         
       // Initialize or update request states
         setRequestStates(prevStates => {
@@ -344,13 +350,24 @@ export default function AdminMaintenancePage() {
                       View Messages ({request.messages.length})
                     </button>
                     {request.status === 'completed' && (
-                    <button
+                    <>
+                      <button
                         onClick={() => setConfirmDelete(request.id)}
                         disabled={deletingId === request.id}
                         className="ml-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition disabled:opacity-50"
-                    >
+                      >
                         {deletingId === request.id ? 'Deleting...' : 'Delete'}
-                    </button>
+                      </button>
+                      <button
+                        onClick={async () => {
+                          if (!adminUser) return;
+                          await updateDoc(doc(db, 'maintenance_requests', request.id), { hiddenFor: arrayUnion(adminUser.id) });
+                        }}
+                        className="ml-2 px-4 py-2 bg-gray-400 text-white rounded-md hover:bg-gray-500 transition"
+                      >
+                        Hide
+                      </button>
+                    </>
                     )}
                   </div>
                 </div>

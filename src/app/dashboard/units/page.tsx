@@ -11,6 +11,8 @@ interface Unit {
   unitNumber: string;
   status: 'available' | 'booked' | 'rented out' | 'in service';
   ownerId?: string;
+  rentalType?: string;
+  rentPrice?: string | number;
 }
 
 const statusOptions = ['available', 'booked', 'rented out', 'in service'] as const;
@@ -29,19 +31,25 @@ const buildingNameOptions = [
   'Other',
 ];
 
+const rentalTypeOptions = [
+  'Whole Unit',
+  'Room 1',
+  'Room 2',
+  'Room 3',
+  'Studio',
+];
+
 export default function UnitsPage() {
   const [units, setUnits] = useState<Unit[]>([]);
-  const [newUnit, setNewUnit] = useState({ buildingName: '', unitNumber: '', status: 'available' as Unit['status'], ownerId: '' });
+  const [newUnit, setNewUnit] = useState({ buildingName: '', unitNumber: '', status: 'available' as Unit['status'], ownerId: '', rentalType: '', rentPrice: '' });
   const [customBuildingName, setCustomBuildingName] = useState('');
   const [isManaged, setIsManaged] = useState(false);
   const [owners, setOwners] = useState<User[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [editUnit, setEditUnit] = useState<Partial<Unit>>({});
-  const [loading, setLoading] = useState(false);
+  const [editUnit, setEditUnit] = useState<Partial<Unit & { rentPrice: string }>>({});
 
   useEffect(() => {
     async function fetchInitialData() {
-      setLoading(true);
       // Fetch units
       const unitsSnapshot = await getDocs(collection(db, 'units'));
       setUnits(unitsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Unit)));
@@ -50,8 +58,6 @@ export default function UnitsPage() {
       const ownersQuery = query(collection(db, 'users'), where('role', '==', 'owner'));
       const ownersSnapshot = await getDocs(ownersQuery);
       setOwners(ownersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
-      
-      setLoading(false);
     }
     fetchInitialData();
   }, []);
@@ -71,6 +77,8 @@ export default function UnitsPage() {
       buildingName: finalBuildingName,
       unitNumber: newUnit.unitNumber,
       status: newUnit.status,
+      rentalType: newUnit.status === 'rented out' ? newUnit.rentalType : '',
+      rentPrice: newUnit.status === 'rented out' ? Number(newUnit.rentPrice) : undefined,
     };
 
     if (isManaged && newUnit.ownerId) {
@@ -78,7 +86,7 @@ export default function UnitsPage() {
     }
 
     await addDoc(collection(db, 'units'), unitToAdd);
-    setNewUnit({ buildingName: '', unitNumber: '', status: 'available', ownerId: '' });
+    setNewUnit({ buildingName: '', unitNumber: '', status: 'available', ownerId: '', rentalType: '', rentPrice: '' });
     setCustomBuildingName('');
     setIsManaged(false);
     fetchUnits();
@@ -86,15 +94,28 @@ export default function UnitsPage() {
 
   async function handleEditSave(id: string) {
     if (!editUnit.buildingName || !editUnit.unitNumber || !editUnit.status) return;
-    await updateDoc(doc(db, 'units', id), {
+    const updateData: any = {
       buildingName: editUnit.buildingName,
       unitNumber: editUnit.unitNumber,
       status: editUnit.status,
-    });
+      rentalType: editUnit.status === 'rented out' ? (editUnit.rentalType || '') : '',
+    };
+    if (editUnit.status === 'rented out') {
+      updateData.rentPrice = Number(editUnit.rentPrice);
+    }
+    await updateDoc(doc(db, 'units', id), updateData);
     setEditingId(null);
     setEditUnit({});
     fetchUnits();
   }
+
+  const handleEdit = (unit: Unit) => {
+    setEditingId(unit.id);
+    setEditUnit({
+      ...unit,
+      rentPrice: unit.rentPrice !== undefined ? String(unit.rentPrice) : '',
+    });
+  };
 
   return (
     <div className="max-w-3xl mx-auto py-8 px-2 sm:px-0">
@@ -187,6 +208,35 @@ export default function UnitsPage() {
             </select>
           </div>
         )}
+        {newUnit.status === 'rented out' && (
+          <>
+            <div className="mt-4">
+              <label className="block text-sm font-medium mb-1">Rental Type</label>
+              <select
+                className="border rounded px-3 py-2 w-full"
+                value={newUnit.rentalType}
+                onChange={e => setNewUnit({ ...newUnit, rentalType: e.target.value })}
+                required
+              >
+                <option value="">Select Rental Type</option>
+                {rentalTypeOptions.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+            <div className="mt-4">
+              <label className="block text-sm font-medium mb-1">Rent Price (RM)</label>
+              <input
+                type="number"
+                min="0"
+                className="border rounded px-3 py-2 w-full"
+                value={newUnit.rentPrice}
+                onChange={e => setNewUnit({ ...newUnit, rentPrice: e.target.value })}
+                required
+              />
+            </div>
+          </>
+        )}
         <div className="mt-6 flex justify-end">
             <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">Add Unit</button>
         </div>
@@ -215,6 +265,35 @@ export default function UnitsPage() {
                           <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
                         ))}
                       </select>
+                      {editUnit.status === 'rented out' && (
+                        <>
+                          <div className="mt-2">
+                            <label className="block text-xs font-medium mb-1">Rental Type</label>
+                            <select
+                              className="border rounded px-2 py-1 w-full"
+                              value={editUnit.rentalType || ''}
+                              onChange={e => setEditUnit({ ...editUnit, rentalType: e.target.value })}
+                              required
+                            >
+                              <option value="">Select Rental Type</option>
+                              {rentalTypeOptions.map(type => (
+                                <option key={type} value={type}>{type}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="mt-2">
+                            <label className="block text-xs font-medium mb-1">Rent Price (RM)</label>
+                            <input
+                              type="number"
+                              min="0"
+                              className="border rounded px-2 py-1 w-full"
+                              value={editUnit.rentPrice || ''}
+                              onChange={e => setEditUnit({ ...editUnit, rentPrice: e.target.value })}
+                              required
+                            />
+                          </div>
+                        </>
+                      )}
                     </td>
                     <td className="py-2 px-4">
                       <button className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 mr-2" onClick={() => handleEditSave(unit.id)}>Save</button>
@@ -236,7 +315,7 @@ export default function UnitsPage() {
                       </span>
                     </td>
                     <td className="py-2 px-4">
-                      <button className="bg-indigo-600 text-white px-3 py-1 rounded hover:bg-indigo-700" onClick={() => { setEditingId(unit.id); setEditUnit(unit); }}>Edit</button>
+                      <button className="bg-indigo-600 text-white px-3 py-1 rounded hover:bg-indigo-700" onClick={() => handleEdit(unit)}>Edit</button>
                     </td>
                   </>
                 )}
@@ -258,6 +337,35 @@ export default function UnitsPage() {
                     <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
                   ))}
                 </select>
+                {editUnit.status === 'rented out' && (
+                  <>
+                    <div className="mt-2">
+                      <label className="block text-xs font-medium mb-1">Rental Type</label>
+                      <select
+                        className="border rounded px-2 py-1 w-full"
+                        value={editUnit.rentalType || ''}
+                        onChange={e => setEditUnit({ ...editUnit, rentalType: e.target.value })}
+                        required
+                      >
+                        <option value="">Select Rental Type</option>
+                        {rentalTypeOptions.map(type => (
+                          <option key={type} value={type}>{type}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="mt-2">
+                      <label className="block text-xs font-medium mb-1">Rent Price (RM)</label>
+                      <input
+                        type="number"
+                        min="0"
+                        className="border rounded px-2 py-1 w-full"
+                        value={editUnit.rentPrice || ''}
+                        onChange={e => setEditUnit({ ...editUnit, rentPrice: e.target.value })}
+                        required
+                      />
+                    </div>
+                  </>
+                )}
                 <div className="flex gap-2">
                   <button className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700" onClick={() => handleEditSave(unit.id)}>Save</button>
                   <button className="bg-gray-300 text-gray-700 px-3 py-1 rounded hover:bg-gray-400" onClick={() => { setEditingId(null); setEditUnit({}); }}>Cancel</button>
@@ -275,7 +383,7 @@ export default function UnitsPage() {
                     ${unit.status === 'in service' ? 'bg-blue-100 text-blue-700' : ''}
                   `}>{unit.status.charAt(0).toUpperCase() + unit.status.slice(1)}</span>
                 </div>
-                <button className="bg-indigo-600 text-white px-3 py-1 rounded hover:bg-indigo-700 mt-2 w-full" onClick={() => { setEditingId(unit.id); setEditUnit(unit); }}>Edit</button>
+                <button className="bg-indigo-600 text-white px-3 py-1 rounded hover:bg-indigo-700 mt-2 w-full" onClick={() => handleEdit(unit)}>Edit</button>
               </>
             )}
           </div>

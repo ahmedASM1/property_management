@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, Users, Edit3, Eye, Download, ArrowLeft, Plus, Menu, X } from 'lucide-react';
-import { db, storage } from '../lib/firebase';
-import { collection, addDoc, getDocs, updateDoc, doc, deleteDoc, getDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { FileText, Edit3, Eye, ArrowLeft, Menu, X } from 'lucide-react';
+import { db } from '../lib/firebase';
+import { collection, getDocs, addDoc, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { sendContractNotification } from '../utils/emailNotifications';
 import ContractWizard from './ContractWizard';
 
@@ -123,19 +120,7 @@ export default function ContractManagement() {
     setContracts(contractsData as Contract[]);
   };
 
-  const handleTenantSelect = (tenant: Tenant) => {
-    setSelectedTenant(tenant);
-    setContractFields({
-      ...initialContractFields,
-      rentalPerMonth: tenant.rentAmount ? String(tenant.rentAmount) : '',
-    });
-  };
-
-  const handleFieldChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setContractFields({ ...contractFields, [e.target.name]: e.target.value });
-  };
-
-  const handleCreateContract = async (contractData: any) => {
+  const handleCreateContract = async (contractData: Record<string, unknown>) => {
     if (!selectedTenant) {
       alert('Please select a tenant first');
       return;
@@ -206,162 +191,6 @@ export default function ContractManagement() {
       } catch (error: unknown) {
         alert('Failed to delete contract: ' + (error as Error).message);
       }
-    }
-  };
-
-  const handleContractSigning = async (contractId: string, signedFile: File) => {
-    try {
-      // Upload the signed contract to Firebase Storage
-      const storageRef = ref(storage, `signed-contracts/${contractId}`);
-      await uploadBytes(storageRef, signedFile);
-      const downloadUrl = await getDownloadURL(storageRef);
-
-      // Update the contract in Firestore
-      const contractRef = doc(db, 'contracts', contractId);
-      await updateDoc(contractRef, {
-        status: 'signed',
-        signedContractUrl: downloadUrl,
-        signedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      });
-
-      // Send email notification
-      const contractDoc = await getDoc(contractRef);
-      const contract = contractDoc.data();
-      if (contract) {
-        await sendContractNotification('signed', contractId, contract.tenantId);
-      }
-
-      // Refresh the contracts list
-      fetchContracts();
-    } catch (error: unknown) {
-      alert('Failed to upload signed contract: ' + (error as Error).message);
-    }
-  };
-
-  const exportContractAsPDF = async (contract: Contract) => {
-    try {
-      const doc = new jsPDF();
-      
-      // Add company logo (if you have one)
-      // doc.addImage(logo, 'PNG', 20, 20, 40, 20);
-      
-      // Title
-      doc.setFontSize(20);
-      doc.setFont('helvetica', 'bold');
-      doc.text('SUB-TENANCY AGREEMENT', 105, 30, { align: 'center' });
-      
-      // Date
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Date: ${contract.dateOfAgreement}`, 20, 45);
-      
-      // Parties
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('BETWEEN:', 20, 60);
-      
-      // Company Details
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Company: GREEN BRIDGE REALTY SDN. BHD', 20, 70);
-      doc.text('Company No: 202301042822 (1536738-K)', 20, 77);
-      doc.text('Company Address: 3-38, Kompleks Kantonmen Prima, 698,', 20, 84);
-      doc.text('Jalan Sultan Azlan Shah, Batu 4½, Jalan Ipoh,', 20, 91);
-      doc.text('51200 Kuala Lumpur, W.P. Kuala Lumpur, Malaysia', 20, 98);
-      doc.text('Company Tel: 011-23583397', 20, 105);
-      doc.text('Company Email: myroom8685@gmail.com', 20, 112);
-      
-      // Tenant Details
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('AND', 20, 125);
-      
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Tenant: ${contract.tenantName}`, 20, 135);
-      doc.text(`Passport/NRIC: ${contract.tenantId}`, 20, 142);
-      
-      // Contract Details
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('TENANCY DETAILS:', 20, 155);
-      
-      // Create a table for contract details
-      const contractDetails = [
-        ['Property Address', contract.propertyAddress],
-        ['Term', contract.term],
-        ['Move-in Date', contract.moveInDate],
-        ['Expiry Date', contract.expiryDate],
-        ['Rental per Month', `RM ${isNaN(Number(contract.rentalPerMonth)) ? '0.00' : Number(contract.rentalPerMonth).toFixed(2)}`],
-        ['Security Deposit', `RM ${isNaN(Number(contract.securityDeposit)) ? '0.00' : Number(contract.securityDeposit).toFixed(2)}`],
-        ['Utility Deposit', `RM ${isNaN(Number(contract.utilityDeposit)) ? '0.00' : Number(contract.utilityDeposit).toFixed(2)}`],
-        ['Access Card Deposit', `RM ${isNaN(Number(contract.accessCardDeposit)) ? '0.00' : Number(contract.accessCardDeposit).toFixed(2)}`],
-        ['Agreement Fee', `RM ${isNaN(Number(contract.agreementFee)) ? '0.00' : Number(contract.agreementFee).toFixed(2)}`]
-      ];
-      
-      (doc as any).autoTable({
-        startY: 165,
-        head: [['Item', 'Details']],
-        body: contractDetails,
-        theme: 'grid',
-        headStyles: { fillColor: [79, 70, 229], textColor: 255 },
-        styles: { fontSize: 10, cellPadding: 5 }
-      });
-      
-      // Terms and Conditions
-      doc.setFontSize(14);
-      doc.setFont('helvetica', 'bold');
-      doc.text('TERMS AND CONDITIONS:', 20, (doc as any).lastAutoTable.finalY + 20);
-      
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      const terms = [
-        '1. AGREEMENT TO LET',
-        '1.1 The Company agrees to sub-let the premises to the Tenant, and the Tenant agrees to accept the sub-tenancy for the term and rental price as stated.',
-        '',
-        '2. DEPOSITS',
-        '2.1 Upon execution of this agreement, the Tenant shall pay the Company the required deposits (security and utility) as stated, which act as security for compliance with the agreement.',
-        '2.2 The deposits are refundable without interest within 14 days after the end of the tenancy term.',
-        '2.3 The Tenant may not use the deposits to offset rental payments.',
-        '',
-        '3. TENANT\'S COVENANT',
-        '(a) Pay rental in advance as per agreement.',
-        '(b) Promptly pay for and settle all utilities.',
-        '(c) Not transfer, assign, sub-let, or share occupation of the premises without the Company\'s written consent.',
-        '(d) Not use the premises for any illegal, unlawful, or immoral purposes or cause nuisance to neighbors.',
-        '',
-        '4. TERMINATION OF TENANCY',
-        '4.1 The Company may terminate the agreement with 7 days\' notice if the Tenant fails to comply with any terms.'
-      ];
-      
-      terms.forEach((term, index) => {
-        doc.text(term, 20, (doc as any).lastAutoTable.finalY + 30 + (index * 5));
-      });
-      
-      // Signatures
-      const signatureY = (doc as any).lastAutoTable.finalY + 30 + (terms.length * 5) + 20;
-      
-      doc.setFontSize(12);
-      doc.setFont('helvetica', 'bold');
-      doc.text('SIGNATURES', 20, signatureY);
-      
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'normal');
-      doc.text('Company Representative:', 20, signatureY + 15);
-      doc.text(`Name: ${contract.companySignName}`, 20, signatureY + 22);
-      doc.text(`NRIC: ${contract.companySignNRIC}`, 20, signatureY + 29);
-      doc.text(`Designation: ${contract.companySignDesignation}`, 20, signatureY + 36);
-      
-      doc.text('Tenant:', 120, signatureY + 15);
-      doc.text(`Name: ${contract.tenantName}`, 120, signatureY + 22);
-      doc.text(`NRIC: ${contract.tenantId}`, 120, signatureY + 29);
-      doc.text(`Date: ${contract.dateOfAgreement}`, 120, signatureY + 36);
-      
-      // Save the PDF
-      doc.save(`contract-${contract.id}.pdf`);
-    } catch (error) {
-      alert('Failed to export contract: ' + (error as Error).message);
     }
   };
 
@@ -642,4 +471,4 @@ export default function ContractManagement() {
       </div>
     </div>
   );
-} 
+}

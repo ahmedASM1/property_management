@@ -1,46 +1,23 @@
 'use client';
 
-import { Tenant, Invoice } from '@/types';
+import React, { useState, useEffect } from 'react';
+import { collection, getDocs, query, where } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import Link from 'next/link';
 import { 
   FaUsers, 
   FaFileInvoice, 
   FaMoneyBillWave, 
-  FaClock, 
   FaExclamationTriangle, 
-  FaFileContract, 
   FaBuilding,
-  FaArrowUp,
-  FaArrowDown,
-  FaCalendarAlt,
   FaChartLine,
-  FaHome,
-  FaUserPlus,
-  FaFileAlt,
   FaTools
 } from 'react-icons/fa';
-import { Tooltip as ReactTooltip } from 'react-tooltip';
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  ResponsiveContainer, 
-  Tooltip, 
-  Legend, 
-  LineChart, 
-  Line,
-  PieChart,
-  Pie,
-  Cell 
-} from 'recharts';
 import { sendPaymentReminderEmail } from '@/lib/email';
-import { useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import { saveAs } from 'file-saver';
-import { collection, getDocs, query, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { Tenant, Invoice } from '@/types';
 
 interface AdminDashboardProps {
   data: {
@@ -52,10 +29,7 @@ interface AdminDashboardProps {
 export default function AdminDashboard({ data }: AdminDashboardProps) {
   const { tenants = [], invoices = [] } = data;
 
-  const totalTenants = tenants.length;
-  const pendingApprovals = tenants.filter(t => !t.isApproved).length;
   const totalUnpaidInvoices = invoices.filter(i => !i.isPaid).length;
-  const totalRevenue = invoices.reduce((sum, invoice) => sum + (invoice.totalAmount || 0), 0);
   const paidInvoices = invoices.filter(i => i.isPaid).length;
 
   const recentInvoices = [...invoices]
@@ -80,7 +54,7 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
   const expiringContracts = tenants.filter(t => t.contractExpiry && new Date(t.contractExpiry) < new Date(Date.now() + 1000 * 60 * 60 * 24 * 30));
 
   // Occupancy rate
-  const totalUnits = 100;
+  const [totalUnits, setTotalUnits] = useState<number>(0);
   const occupiedUnits = tenants.length;
   const occupancyRate = totalUnits ? Math.round((occupiedUnits / totalUnits) * 100) : 0;
 
@@ -116,8 +90,14 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
       setReceivedInvoicesCount(snap.size);
     }
 
+    async function fetchUnits() {
+      const snap = await getDocs(collection(db, 'units'));
+      setTotalUnits(snap.size);
+    }
+
     fetchMaintenance();
     fetchReceivedInvoices();
+    fetchUnits();
   }, []);
 
   async function handleBulkRemind() {
@@ -189,6 +169,10 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
     doc.save('invoices.pdf');
   }
 
+  const formatCurrency = (n: number) => {
+    return `RM${n.toFixed(2)}`;
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -197,7 +181,9 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-              <p className="text-sm text-gray-500 mt-1">Welcome back! Here's what's happening with your properties.</p>
+              <p className="text-gray-600 text-center">
+                Welcome to your admin dashboard. Here&apos;s what&apos;s happening today.
+              </p>
             </div>
             <div className="text-left sm:text-right">
               <div className="text-xs text-gray-500">Last updated</div>
@@ -268,14 +254,14 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
             </div>
           </Link>
 
-          <Link href="/dashboard/invoices" className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-4">
-              <div className="bg-blue-100 p-3 rounded-full">
-                <FaFileInvoice className="h-6 w-6 text-blue-600" />
+          <Link href="/dashboard/invoices" className="bg-white rounded-2xl shadow-sm p-6 hover:shadow-md transition-shadow flex flex-col">
+            <div className="flex items-center gap-4 mb-2">
+              <div className="p-3 bg-indigo-100 rounded-full">
+                <FaFileInvoice className="h-6 w-6 text-indigo-600" />
               </div>
               <div>
-                <h3 className="font-semibold text-lg">Create Invoice</h3>
-                <p className="text-gray-500 text-sm">Generate new invoice</p>
+                <h3 className="font-semibold text-lg">Invoices</h3>
+                <p className="text-gray-500 text-sm">View and manage all invoices</p>
               </div>
             </div>
           </Link>
@@ -325,28 +311,6 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
               </div>
             </div>
           </Link>
-
-          <Link href="/dashboard/invoices/received" className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
-            <div className="flex flex-col h-full">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-base font-semibold text-gray-800">Received Invoices</h4>
-                <div className="p-2 bg-yellow-100 rounded-full">
-                  <FaFileInvoice className="h-5 w-5 text-yellow-600" />
-                </div>
-              </div>
-              <p className="text-sm text-gray-500 mb-4">Invoices from service providers</p>
-              <div className="mt-auto">
-                <div className="flex items-center text-sm text-gray-700">
-                  {receivedInvoicesCount !== null ? (
-                    <span className="text-2xl font-bold text-gray-900">{receivedInvoicesCount}</span>
-                  ) : (
-                    <span className="text-gray-400">Loading...</span>
-                  )}
-                  <span className="ml-2">Pending</span>
-                </div>
-              </div>
-            </div>
-          </Link>
         </div>
 
         {/* Key Metrics */}
@@ -356,18 +320,18 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
             <div className="text-gray-700 font-semibold">Total Tenants</div>
           </div>
           <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
-            <div className="text-3xl font-bold text-green-600 mb-2">{100 /* TODO: Replace with real total units */}</div>
+            <div className="text-3xl font-bold text-green-600 mb-2">{totalUnits}</div>
             <div className="text-gray-700 font-semibold">Total Units</div>
           </div>
           <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
             <div className="text-3xl font-bold text-blue-600 mb-2">
-              {data.tenants && 100 ? `${Math.round((data.tenants.length / 100) * 100)}%` : '0%'}
+              {totalUnits ? `${Math.round((occupiedUnits / totalUnits) * 100)}%` : '0%'}
             </div>
             <div className="text-gray-700 font-semibold">Occupancy Rate</div>
           </div>
           <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
             <div className="text-3xl font-bold text-red-600 mb-2">
-              RM{data.invoices ? data.invoices.filter(i => !i.isPaid).reduce((sum, i) => sum + (i.totalAmount || 0), 0).toFixed(2) : '0.00'}
+              RM{data.invoices ? data.invoices.filter(i => !i.isPaid && Number(i.totalAmount) <= 100000).reduce((sum, i) => sum + (i.totalAmount || 0), 0).toFixed(2) : '0.00'}
             </div>
             <div className="text-gray-700 font-semibold">Outstanding Payments</div>
           </div>

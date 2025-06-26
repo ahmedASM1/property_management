@@ -12,8 +12,8 @@ import { toast } from 'react-hot-toast';
 interface Notification {
   id: string;
   read: boolean;
-  createdAt: any; // Using 'any' for simplicity with Firestore Timestamps
-  [key: string]: any;
+  createdAt: unknown; // Using 'unknown' instead of 'any' for better type safety
+  [key: string]: unknown;
 }
 
 export default function NavBar() {
@@ -105,7 +105,13 @@ export default function NavBar() {
 
     const unsub = onSnapshot(q, snap => {
       const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
-      setNotifications(items.sort((a,b) => (b.createdAt?.seconds || 0) - (a.createdAt?.seconds || 0)));
+      setNotifications(
+        items.sort((a, b) => {
+          const aSeconds = typeof a.createdAt === 'object' && a.createdAt && 'seconds' in a.createdAt ? (a.createdAt as { seconds: number }).seconds : 0;
+          const bSeconds = typeof b.createdAt === 'object' && b.createdAt && 'seconds' in b.createdAt ? (b.createdAt as { seconds: number }).seconds : 0;
+          return bSeconds - aSeconds;
+        })
+      );
     });
 
     return () => unsub();
@@ -131,11 +137,11 @@ export default function NavBar() {
   };
 
   // Helper to format Firestore Timestamp or date
-  function formatNotificationDate(date: any) {
+  function formatNotificationDate(date: unknown) {
     if (!date) return '';
     if (typeof date === 'string') return date;
-    if (date.toDate) return date.toDate().toLocaleString();
-    if (date.seconds) return new Date(date.seconds * 1000).toLocaleString();
+    if (typeof date === 'object' && date !== null && 'toDate' in date) return (date as { toDate(): Date }).toDate().toLocaleString();
+    if (typeof date === 'object' && date !== null && 'seconds' in date) return new Date((date as { seconds: number }).seconds * 1000).toLocaleString();
     return String(date);
   }
 
@@ -150,8 +156,9 @@ export default function NavBar() {
       setNotifications(prev => prev.filter(n => n.id !== notification.id));
 
       // Route based on notification content
-      if (notification.message.toLowerCase().includes('maintenance') ||
-          notification.message.toLowerCase().includes('service')) {
+      const message = typeof notification.message === 'string' ? notification.message : '';
+      if (message.toLowerCase().includes('maintenance') ||
+          message.toLowerCase().includes('service')) {
         // Route based on user role
         if (user?.role === 'admin' || user?.role === 'propertyOwner') {
           router.push('/dashboard/maintenance/admin');
@@ -160,9 +167,9 @@ export default function NavBar() {
         } else if (user?.role === 'service') {
           router.push('/dashboard');
         }
-      } else if (notification.message.toLowerCase().includes('invoice')) {
+      } else if (message.toLowerCase().includes('invoice')) {
         router.push('/dashboard/invoices');
-      } else if (notification.message.toLowerCase().includes('contract')) {
+      } else if (message.toLowerCase().includes('contract')) {
         router.push('/dashboard/contracts');
       }
     } catch (error) {
@@ -211,7 +218,6 @@ export default function NavBar() {
             <>
               <Link href="/dashboard" className={navClassName('/dashboard', true)}><FaHome className="inline mr-1 mb-1" />Dashboard</Link>
               <Link href="/dashboard/invoices" className={navClassName('/dashboard/invoices')}><FaFileInvoice className="inline mr-1 mb-1" />Invoices</Link>
-              <Link href="/dashboard/invoices/received" className={navClassName('/dashboard/invoices/received')}><FaFileInvoice className="inline mr-1 mb-1" />Received Invoices</Link>
               <Link href="/dashboard/contracts" className={navClassName('/dashboard/contracts')}><FaFileContract className="inline mr-1 mb-1" />Contracts</Link>
               <Link href="/dashboard/users" className={navClassName('/dashboard/users')}><FaUsers className="inline mr-1 mb-1" />Users</Link>
             </>
@@ -276,7 +282,7 @@ export default function NavBar() {
                            className="block px-4 py-3 hover:bg-gray-100"
                         >
                           <div className="flex items-center justify-between">
-                            <p className="text-sm text-gray-800 truncate">{notification.message}</p>
+                            <p className="text-sm text-gray-800 truncate">{typeof notification.message === 'string' ? notification.message : ''}</p>
                           <button
                             onClick={(e) => handleDeleteNotification(e, notification.id)}
                             className="ml-2 text-gray-400 hover:text-red-500"
@@ -337,7 +343,7 @@ export default function NavBar() {
           </div>
           <div className="p-4 flex flex-col space-y-2">
             {user && (
-              <>
+                <>
                 {/* Common Links */}
                 <Link
                   onClick={closeDrawerInstant}
@@ -369,18 +375,6 @@ export default function NavBar() {
                     </Link>
                     <Link
                       onClick={closeDrawerInstant}
-                      href="/dashboard/invoices/received"
-                      className={`flex items-center space-x-3 p-3 rounded-lg ${
-                        pathname.startsWith('/dashboard/invoices/received')
-                          ? 'bg-indigo-50 text-indigo-600 font-semibold'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      }`}
-                    >
-                      <FaFileInvoice className="w-5 h-5" />
-                      <span>Received Invoices</span>
-                    </Link>
-                    <Link
-                      onClick={closeDrawerInstant}
                       href="/dashboard/contracts"
                       className={`flex items-center space-x-3 p-3 rounded-lg ${
                         pathname.startsWith('/dashboard/contracts')
@@ -403,8 +397,8 @@ export default function NavBar() {
                       <FaUsers className="w-5 h-5" />
                       <span>Users</span>
                     </Link>
-                  </>
-                )}
+                </>
+              )}
 
                 {/* Owner Links */}
                 {user.role === 'propertyOwner' && <></>}
@@ -445,19 +439,19 @@ export default function NavBar() {
                   <span>My Profile</span>
                 </Link>
 
-                <button
+                  <button
                   onClick={() => {
                     closeDrawerInstant();
                     handleSignOut();
                   }}
                   className="flex items-center space-x-3 p-3 rounded-lg text-red-600 hover:bg-red-50 w-full"
-                >
+                  >
                   <FaSignOutAlt className="inline mr-2" />
                   Sign Out
-                </button>
+                  </button>
               </>
-            )}
-          </div>
+              )}
+            </div>
         </div>
       )}
     </header>

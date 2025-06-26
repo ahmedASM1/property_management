@@ -1,7 +1,7 @@
 'use client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
+import Image from 'next/image';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { storage } from '@/lib/firebase';
@@ -71,7 +71,7 @@ export default function TenantProfilePage() {
         const storageRef = ref(storage, `profileImages/${user.id}_${Date.now()}`);
         await uploadBytes(storageRef, imageFile);
         profileImageUrl = await getDownloadURL(storageRef);
-      } catch (err) {
+      } catch {
         setError('Failed to upload image.');
         setUploading(false);
         setSaving(false);
@@ -92,7 +92,7 @@ export default function TenantProfilePage() {
       });
       setEditing(false);
       window.location.reload(); // To refresh context/user info
-    } catch (err) {
+    } catch {
       setError('Failed to update profile.');
     } finally {
       setSaving(false);
@@ -102,7 +102,7 @@ export default function TenantProfilePage() {
   if (!user) return null;
 
   // New Profile for Owner and Service Provider
-  if (user.role === 'owner' || user.role === 'service') {
+  if (user.role === 'propertyOwner' || user.role === 'service') {
     return (
       <div className="min-h-[80vh] flex items-center justify-center bg-gray-50">
         <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-lg p-8 text-center">
@@ -187,7 +187,7 @@ export default function TenantProfilePage() {
           <div className="flex flex-col items-center mb-6">
             <div className="h-24 w-24 rounded-full border-2 border-indigo-300 flex items-center justify-center text-4xl font-bold text-indigo-700 mb-2 overflow-hidden bg-gray-100">
               {user.profileImage ? (
-                <img src={user.profileImage} alt="Profile" className="object-cover w-full h-full" />
+                <Image src={user.profileImage} alt="Profile" width={96} height={96} className="object-cover w-full h-full rounded-full" />
               ) : getInitials(user.fullName)}
             </div>
             <input type="file" accept="image/*" onChange={handleImageChange} className="mb-2" />
@@ -210,7 +210,7 @@ export default function TenantProfilePage() {
         <div className="flex flex-col items-center mb-6">
           <div className="h-24 w-24 rounded-full border-2 border-indigo-300 flex items-center justify-center text-4xl font-bold text-indigo-700 mb-2 overflow-hidden bg-gray-100">
             {user.profileImage ? (
-              <img src={user.profileImage} alt="Profile" className="object-cover w-full h-full" />
+              <Image src={user.profileImage} alt="Profile" width={96} height={96} className="object-cover w-full h-full rounded-full" />
             ) : getInitials(user.fullName)}
           </div>
           <input type="file" accept="image/*" onChange={handleImageChange} className="mb-2" />
@@ -251,43 +251,62 @@ export default function TenantProfilePage() {
                 </select>
               </div>
             </div>
-            {error && <div className="text-red-500 text-sm mb-2">{error}</div>}
-            <div className="flex gap-2">
-              <button onClick={handleSave} disabled={saving} className="px-5 py-2 bg-green-600 text-white rounded-lg font-medium shadow hover:bg-green-700 disabled:opacity-50">{saving ? 'Saving...' : 'Save'}</button>
-              <button onClick={() => setEditing(false)} disabled={saving} className="px-5 py-2 bg-gray-200 text-gray-500 rounded-lg font-medium shadow">Cancel</button>
+            {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => setEditing(false)}
+                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSave}
+                disabled={saving}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {saving ? 'Saving...' : 'Save'}
+              </button>
             </div>
           </div>
         ) : (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
+          <div className="w-full">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-6">
               <div>
-                <div className="text-xs text-gray-500 mb-1">Unit Number</div>
-                <div className="font-medium text-gray-800">{user.unitNumber || '-'}</div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Full Name</label>
+                <div className="text-sm text-gray-900">{user.fullName}</div>
               </div>
               <div>
-                <div className="text-xs text-gray-500 mb-1">Building Name</div>
-                <div className="font-medium text-gray-800">{user.buildingName || '-'}</div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Phone Number</label>
+                <div className="text-sm text-gray-900">{user.phoneNumber}</div>
               </div>
               <div>
-                <div className="text-xs text-gray-500 mb-1">Rental Type</div>
-                <div className="font-medium text-gray-800">{user.rentalType || '-'}</div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Unit Number</label>
+                <div className="text-sm text-gray-900">{user.unitNumber}</div>
               </div>
               <div>
-                <div className="text-xs text-gray-500 mb-1">ID / Passport</div>
-                <div className="font-medium text-gray-800">{user.idNumber || '-'}</div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Building Name</label>
+                <div className="text-sm text-gray-900">{user.buildingName}</div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Rental Type</label>
+                <div className="text-sm text-gray-900">{user.rentalType}</div>
               </div>
             </div>
-            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Contract Status</div>
-                <div className={`font-semibold ${user.contractUrl ? 'text-green-700' : 'text-gray-400'}`}>{user.contractUrl ? 'Available' : 'Not Available'}</div>
-                {user.contractUrl && (
-                  <Link href="/dashboard/contract" className="text-xs text-indigo-600 hover:underline font-medium ml-1">View contract</Link>
-                )}
-              </div>
-              <button className="px-5 py-2 bg-indigo-600 text-white rounded-lg font-medium shadow hover:bg-indigo-700" onClick={() => setEditing(true)}>Edit Profile</button>
+            <div className="flex justify-end gap-4">
+              <button
+                onClick={() => setEditing(true)}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+              >
+                Edit Profile
+              </button>
+              <button
+                onClick={signOut}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                Sign Out
+              </button>
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>

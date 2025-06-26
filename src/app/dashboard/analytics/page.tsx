@@ -4,17 +4,15 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { MaintenanceRequest, Invoice, User } from '@/types';
 import { 
   FaUsers, 
   FaFileInvoice, 
   FaTools, 
   FaExclamationCircle,
-  FaChartLine,
-  FaMoneyBillWave,
+  FaChartLine, 
+  FaMoneyBillWave, 
   FaBuilding,
-  FaArrowUp as FaTrendingUp,
-  FaArrowDown as FaTrendingDown
+  FaArrowUp as FaTrendingUp
 } from 'react-icons/fa';
 import { Bar, Pie } from 'react-chartjs-2';
 import {
@@ -76,18 +74,18 @@ const AnalyticsPage = () => {
 
         // Fetch invoices
         const invoicesQuery = query(collection(db, 'invoices'), where('propertyOwnerId', '==', user.uid));
-        const invoicesSnapshot = await getDocs(invoicesQuery);
+            const invoicesSnapshot = await getDocs(invoicesQuery);
         const openInvoices = invoicesSnapshot.docs.filter(doc => doc.data().status === 'pending').length;
         let rentRevenue = 0;
-        invoicesSnapshot.docs.forEach(doc => {
+            invoicesSnapshot.docs.forEach(doc => {
           if (doc.data().status === 'paid') {
             rentRevenue += doc.data().totalAmount;
-          }
-        });
+              }
+            });
 
         // Fetch maintenance requests
         const maintenanceQuery = query(collection(db, 'maintenanceRequests'), where('propertyOwnerId', '==', user.uid));
-        const maintenanceSnapshot = await getDocs(maintenanceQuery);
+            const maintenanceSnapshot = await getDocs(maintenanceQuery);
         const maintenanceRequests = maintenanceSnapshot.size;
         const criticalMaintenance = maintenanceSnapshot.docs.filter(doc => doc.data().priority === 'high').length;
         
@@ -188,28 +186,28 @@ const AnalyticsPage = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-white p-6 rounded-lg shadow-md flex items-center">
           <FaUsers className="text-4xl text-blue-500 mr-4" />
-          <div>
+            <div>
             <div className="text-gray-500">Total Tenants</div>
             <div className="text-2xl font-bold">{totalTenants}</div>
           </div>
         </div>
         <div className="bg-white p-6 rounded-lg shadow-md flex items-center">
           <FaFileInvoice className="text-4xl text-green-500 mr-4" />
-          <div>
+            <div>
             <div className="text-gray-500">Open Invoices</div>
             <div className="text-2xl font-bold">{openInvoices}</div>
           </div>
         </div>
         <div className="bg-white p-6 rounded-lg shadow-md flex items-center">
           <FaTools className="text-4xl text-yellow-500 mr-4" />
-          <div>
+            <div>
             <div className="text-gray-500">Maintenance Requests</div>
             <div className="text-2xl font-bold">{maintenanceRequests}</div>
           </div>
         </div>
         <div className="bg-white p-6 rounded-lg shadow-md flex items-center">
           <FaExclamationCircle className="text-4xl text-red-500 mr-4" />
-          <div>
+            <div>
             <div className="text-gray-500">Critical Alerts</div>
             <div className="text-2xl font-bold">{criticalMaintenance}</div>
           </div>
@@ -253,7 +251,7 @@ const AnalyticsPage = () => {
           <p className="text-gray-500 mt-2">from last month</p>
         </div>
 
-        {/* Property Performance */}
+      {/* Property Performance */}
         <div className="bg-white p-6 rounded-lg shadow-md">
           <h2 className="text-xl font-bold mb-4 text-gray-700">Property Performance</h2>
           <ul className="space-y-3">
@@ -262,7 +260,7 @@ const AnalyticsPage = () => {
                 <span>Unit {prop.unitNumber}</span>
                 <span className={`font-semibold ${prop.occupancy ? 'text-green-600' : 'text-red-600'}`}>
                   {prop.occupancy ? 'Occupied' : 'Vacant'}
-                </span>
+                    </span>
                 <span className="text-gray-600">${prop.income.toLocaleString()}</span>
               </li>
             ))}

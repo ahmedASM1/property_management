@@ -29,7 +29,7 @@ export default function PropertyDetailPage() {
       }
 
       try {
-        const propertyDoc = await getDoc(doc(db, 'units', propertyId));
+        const propertyDoc = await getDoc(doc(db, 'properties', propertyId));
 
         if (propertyDoc.exists()) {
           const propertyData = { ...propertyDoc.data(), id: propertyDoc.id } as Property;

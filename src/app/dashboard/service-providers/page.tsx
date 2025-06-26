@@ -24,8 +24,8 @@ export default function ServiceProvidersPage() {
     async function fetchProviders() {
       setLoading(true);
       try {
-        const snap = await getDocs(collection(db, 'serviceProviders'));
-        setProviders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ServiceProvider)));
+      const snap = await getDocs(collection(db, 'serviceProviders'));
+      setProviders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ServiceProvider)));
       } catch (error) {
         console.error("Failed to fetch service providers:", error);
       }
@@ -58,13 +58,13 @@ export default function ServiceProvidersPage() {
     }
     setSaving(true);
     try {
-      if (editId) {
+    if (editId) {
         await updateDoc(doc(db, 'serviceProviders', editId), form);
-      } else {
+    } else {
         await addDoc(collection(db, 'serviceProviders'), form);
-      }
+    }
       setForm({ name: '', services: [] });
-      setEditId(null);
+    setEditId(null);
       // Refetch after submission
       const snap = await getDocs(collection(db, 'serviceProviders'));
       setProviders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as ServiceProvider)));
@@ -109,33 +109,33 @@ export default function ServiceProvidersPage() {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Services Offered</label>
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-              {SERVICE_TYPES.map(type => (
+            {SERVICE_TYPES.map(type => (
                 <label key={type} className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg hover:bg-gray-100 transition">
-                  <input
-                    type="checkbox"
+                <input
+                  type="checkbox"
                     name="services"
-                    value={type}
+                  value={type}
                     checked={form.services.includes(type)}
-                    onChange={handleChange}
+                  onChange={handleChange}
                     className="rounded text-blue-600 focus:ring-blue-500"
-                  />
+                />
                   <span className="text-sm text-gray-800">{type}</span>
-                </label>
-              ))}
-            </div>
+              </label>
+            ))}
           </div>
+        </div>
           <div className="flex justify-end gap-4 pt-2">
             {editId && (
               <button type="button" onClick={handleCancelEdit} className="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition" disabled={saving}>
                 Cancel
-              </button>
+        </button>
             )}
             <button type="submit" className="px-6 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition disabled:opacity-50 flex items-center gap-2" disabled={saving}>
               <FaPlus /> {saving ? 'Saving...' : (editId ? 'Update Provider' : 'Add Provider')}
             </button>
           </div>
         </form>
-      </div>
+          </div>
 
       <div className="bg-white rounded-xl shadow-md">
         <h2 className="text-xl font-semibold p-6 border-b text-gray-700">Current Providers</h2>
@@ -148,7 +148,7 @@ export default function ServiceProvidersPage() {
                 <div className="flex-1">
                   <p className="font-semibold text-lg text-gray-900">{p.name}</p>
                   <p className="text-sm text-gray-600">{p.services.join(', ')}</p>
-                </div>
+          </div>
                 <div className="flex gap-2">
                   <button onClick={() => handleEdit(p)} className="p-2 bg-gray-100 text-gray-700 rounded-full hover:bg-gray-200 transition">
                     <FaEdit />
@@ -156,12 +156,12 @@ export default function ServiceProvidersPage() {
                   <button onClick={() => handleDelete(p.id)} className="p-2 bg-red-100 text-red-700 rounded-full hover:bg-red-200 transition">
                     <FaTrash />
                   </button>
-                </div>
-              </div>
+          </div>
+        </div>
             ))}
           </div>
         )}
-      </div>
+        </div>
     </div>
   );
 } 

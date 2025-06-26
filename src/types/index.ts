@@ -1,6 +1,6 @@
 import { Timestamp } from 'firebase/firestore';
 
-export type UserRole = 'admin' | 'tenant' | 'service' | 'propertyOwner';
+export type UserRole = 'admin' | 'tenant' | 'service' | 'propertyOwner' | 'mixedProvider';
 
 export type RentalType = 'Room1' | 'Room2' | 'Room3' | 'Studio' | 'Whole Unit';
 
@@ -70,11 +70,13 @@ export interface Invoice {
   maintenanceRequestId?: string;
   description?: string;
   invoiceDate?: string;
+  issuedDate?: string;
+  hiddenFor?: string[];
   statusChangeRequest?: {
     requestedStatus: string;
     tenantName?: string;
     requestedAt?: any;
-  };
+  } | null;
   tenantDetails?: {
     fullName: string;
     phoneNumber: string;

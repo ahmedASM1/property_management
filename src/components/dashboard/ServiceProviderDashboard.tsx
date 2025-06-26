@@ -1,483 +1,527 @@
 'use client';
 
-import { useState, useEffect, Fragment } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { collection, query, where, getDocs, orderBy, doc, updateDoc, arrayUnion, addDoc, serverTimestamp, onSnapshot, deleteDoc } from 'firebase/firestore';
+import React, { useState, useEffect } from 'react';
+import { collection, getDocs, addDoc, updateDoc, doc, query, where, deleteDoc, arrayUnion } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { FaTools, FaCheckCircle, FaClock, FaExclamationTriangle, FaChevronDown, FaFilePdf, FaTimes } from 'react-icons/fa';
+import { MaintenanceRequest } from '@/types';
+import { FaTools, FaClock, FaCheckCircle, FaExclamationTriangle, FaCalendarAlt } from 'react-icons/fa';
 import Link from 'next/link';
-import { MaintenanceRequest, RequestStatus, Invoice } from '@/types';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { toast } from 'react-hot-toast';
-import { Menu, Transition } from '@headlessui/react';
+import { useAuth } from '@/contexts/AuthContext';
 
-const formatDate = (timestamp: any): string => {
-  if (!timestamp) return 'N/A';
-  const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-  if (isNaN(date.getTime())) {
-    return 'Invalid Date';
-  }
-  return date.toLocaleDateString();
-};
+interface DashboardStats {
+  totalRequests: number;
+  pendingRequests: number;
+  inProgressRequests: number;
+  completedRequests: number;
+  averageResponseTime: number;
+}
 
-const getStatusInfo = (status?: string) => {
-    const defaultText = status ? status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()) : 'N/A';
-    switch (status?.toLowerCase()) {
-        case 'paid':
-            return { text: 'Paid', style: 'bg-green-100 text-green-800' };
-        case 'pending_payment':
-            return { text: 'Pending', style: 'bg-yellow-100 text-yellow-800' };
-        case 'queried':
-            return { text: 'Queried', style: 'bg-blue-100 text-blue-800' };
-        case 'rejected':
-            return { text: 'Rejected', style: 'bg-red-100 text-red-800' };
-        default:
-            return { text: defaultText, style: 'bg-gray-100 text-gray-800' };
-    }
-};
-
-const statusOptions: RequestStatus[] = ['pending', 'in progress', 'completed', 'delayed', 'faced an issue'];
-
-const getStatusPillStyle = (status: RequestStatus) => {
-    switch (status.toLowerCase()) {
-        case 'pending':
-            return 'bg-yellow-100 text-yellow-800';
-        case 'in progress':
-            return 'bg-blue-100 text-blue-800';
-        case 'completed':
-            return 'bg-green-100 text-green-800';
-        case 'delayed':
-            return 'bg-orange-100 text-orange-800';
-        case 'faced an issue':
-            return 'bg-red-100 text-red-800';
-        default:
-            return 'bg-gray-100 text-gray-800';
-    }
-};
-
-const StatusUpdater = ({ currentStatus, onStatusChange }: { currentStatus: RequestStatus, onStatusChange: (status: RequestStatus) => void }) => {
-    return (
-        <Menu as="div" className="relative inline-block text-left">
-            <div>
-                <Menu.Button className={`inline-flex justify-center w-full rounded-full border border-gray-300 shadow-sm px-4 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 ${getStatusPillStyle(currentStatus)}`}>
-                    {currentStatus}
-                    <FaChevronDown className="-mr-1 ml-2 h-5 w-5" aria-hidden="true" />
-                </Menu.Button>
-            </div>
-
-            <Transition
-                as={Fragment}
-                enter="transition ease-out duration-100"
-                enterFrom="transform opacity-0 scale-95"
-                enterTo="transform opacity-100 scale-100"
-                leave="transition ease-in duration-75"
-                leaveFrom="transform opacity-100 scale-100"
-                leaveTo="transform opacity-0 scale-95"
-            >
-                <Menu.Items className="absolute z-10 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none">
-                    <div className="py-1">
-                        {statusOptions.map((status) => (
-                            <Menu.Item key={status}>
-                                {({ active }) => (
-                                    <button
-                                        onClick={() => onStatusChange(status)}
-                                        className={`${
-                                            active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
-                                        } group flex rounded-md items-center w-full px-4 py-2 text-sm`}
-                                    >
-                                        {status}
-                                    </button>
-                                )}
-                            </Menu.Item>
-                        ))}
-                    </div>
-                </Menu.Items>
-            </Transition>
-        </Menu>
-    );
-};
-
-const ServiceProviderDashboard = () => {
-  const auth = useAuth();
-  const user = auth?.user;
-  const [requests, setRequests] = useState<MaintenanceRequest[]>([]);
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    pending: 0,
-    inProgress: 0,
-    completed: 0,
-    total: 0
+export default function ServiceProviderDashboard() {
+  const { user } = useAuth();
+  const [stats, setStats] = useState<DashboardStats>({
+    totalRequests: 0,
+    pendingRequests: 0,
+    inProgressRequests: 0,
+    completedRequests: 0,
+    averageResponseTime: 0
   });
-
-  const handleStatusChange = async (requestId: string, newStatus: RequestStatus) => {
-    if (!user) return;
-
-    try {
-      const requestRef = doc(db, 'maintenance_requests', requestId);
-      
-      const systemMessage = {
-        sender: 'system',
-        senderName: 'System',
-        text: `Status updated to "${newStatus}" by ${user.fullName}.`,
-        timestamp: new Date().toISOString(),
-      };
-
-      await updateDoc(requestRef, {
-        status: newStatus,
-        messages: arrayUnion(systemMessage)
-      });
-
-      const requestToUpdate = requests.find(r => r.id === requestId);
-      if (requestToUpdate) {
-          // Notify admin and tenant
-          addDoc(collection(db, 'notifications'), {
-              userId: requestToUpdate.userId,
-              message: `Status of your request for unit ${requestToUpdate.unitProperty} is now: ${newStatus}`,
-              read: false,
-              createdAt: serverTimestamp(),
-          });
-          addDoc(collection(db, 'notifications'), {
-              role: 'admin',
-              message: `Service provider ${user.fullName} updated request for unit ${requestToUpdate.unitProperty} to: ${newStatus}`,
-              read: false,
-              createdAt: serverTimestamp(),
-          });
-      }
-      
-      // Update local state
-      setRequests(prev => prev.map(r => r.id === requestId ? { ...r, status: newStatus } : r));
-
-    } catch (err) {
-      console.error('Error updating status:', err);
-    }
-  };
+  const [loading, setLoading] = useState(true);
+  const [recentRequests, setRecentRequests] = useState<MaintenanceRequest[]>([]);
+  const [assignedRequests, setAssignedRequests] = useState<MaintenanceRequest[]>([]);
+  // Mock invoices data for demonstration
+  const [invoices] = useState([
+    { id: '1', description: 'Invoice for service on unit D-11-1', amount: 132.0 },
+    { id: '2', description: 'Invoice for service on unit D-11-2', amount: 99.5 },
+  ]);
+  const [showDetails, setShowDetails] = useState<MaintenanceRequest | null>(null);
+  const [chatMessages, setChatMessages] = useState<any[]>([]); // Replace any with your message type
+  const [newMessage, setNewMessage] = useState('');
+  const [invoiceModal, setInvoiceModal] = useState<{ open: boolean, requestId?: string, editId?: string }>({ open: false });
+  const [myInvoices, setMyInvoices] = useState<any[]>([]); // Replace any with your invoice type
+  const [hideCompleted, setHideCompleted] = useState(false);
+  // Add state for invoice form
+  const [invoiceForm, setInvoiceForm] = useState({ description: '', amount: '' });
+  const [creatingInvoice, setCreatingInvoice] = useState(false);
+  // Add state for delete confirmation
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-    
-    const q = query(
-      collection(db, 'maintenance_requests'),
-      where('assignedTo', '==', user.id)
-    );
-
-    const unsubscribeRequests = onSnapshot(q, (snapshot) => {
-      const requestsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as MaintenanceRequest[];
-
-      // Filter and sort client-side
-      const filteredRequests = requestsData.filter(req => 
-        ['pending', 'in progress', 'completed', 'delayed', 'faced an issue'].includes(req.status?.toLowerCase() || '')
-      );
-      
-      filteredRequests.sort((a, b) => {
-        const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-        const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
-        return dateB.getTime() - dateA.getTime();
-      });
-
-      setRequests(filteredRequests);
-      
-      // Calculate stats
-      const stats = filteredRequests.reduce((acc, req) => {
-        acc.total++;
-        switch (req.status?.toLowerCase()) {
-          case 'pending':
-            acc.pending++;
-            break;
-          case 'in progress':
-            acc.inProgress++;
-            break;
-          case 'completed':
-            acc.completed++;
-            break;
-        }
-        return acc;
-      }, { pending: 0, inProgress: 0, completed: 0, total: 0 });
-      
-      setStats(stats);
-      setLoading(false);
-    }, (error) => {
-      console.error('Error fetching requests with real-time listener:', error);
-      setLoading(false);
-    });
-
-    // Real-time listener for invoices
-    const invoicesQuery = query(
-        collection(db, 'invoices'),
-        where('fromId', '==', user.id)
-    );
-
-    const unsubscribeInvoices = onSnapshot(invoicesQuery, (snapshot) => {
-        const invoicesData = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-        })) as Invoice[];
-
-        invoicesData.sort((a, b) => {
-            const dateA = a.invoiceDate ? new Date(a.invoiceDate).getTime() : 0;
-            const dateB = b.invoiceDate ? new Date(b.invoiceDate).getTime() : 0;
-            return dateB - dateA;
-        });
-
-        setInvoices(invoicesData);
-    }, (error) => {
-        console.error('Failed to fetch invoices with real-time listener:', error);
-    });
-
-    return () => {
-        unsubscribeRequests();
-        unsubscribeInvoices();
-    };
+    fetchDashboardData();
+    fetchMyInvoices();
   }, [user]);
 
-  const handleCancelInvoice = async (invoiceId: string) => {
-    if (window.confirm('Are you sure you want to cancel this invoice? This action cannot be undone.')) {
-      try {
-        await deleteDoc(doc(db, 'invoices', invoiceId));
-        setInvoices(prev => prev.filter(inv => inv.id !== invoiceId));
-        toast.success('Invoice cancelled.');
-      } catch (error) {
-        toast.error('Failed to cancel invoice.');
-        console.error(error);
+  const fetchDashboardData = async () => {
+    try {
+      const requestsSnapshot = await getDocs(collection(db, 'maintenance_requests'));
+      let requests = requestsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MaintenanceRequest));
+      // Role-based filtering
+      if (user?.role === 'service') {
+        requests = requests.filter(req => req.assignedTo === user.id);
+      } else if (user?.role === 'mixedProvider') {
+        requests = requests.filter(req => req.assignedTo);
       }
+      setAssignedRequests(requests);
+
+      // Calculate stats
+      const totalRequests = requests.length;
+      const pendingRequests = requests.filter(req => req.status === 'pending').length;
+      const inProgressRequests = requests.filter(req => req.status === 'in progress').length;
+      const completedRequests = requests.filter(req => req.status === 'completed').length;
+
+      // Calculate average response time (simplified)
+      const completedWithDates = requests.filter(req => req.status === 'completed' && req.createdAt && req.completedAt);
+      const totalResponseTime = completedWithDates.reduce((sum, req) => {
+        const created = req.createdAt && typeof req.createdAt === 'object' && 'toDate' in req.createdAt 
+          ? req.createdAt.toDate() 
+          : new Date(req.createdAt);
+        const completed = req.completedAt && typeof req.completedAt === 'object' && 'toDate' in req.completedAt 
+          ? req.completedAt.toDate() 
+          : req.completedAt ? new Date(req.completedAt) : new Date();
+        return sum + (completed.getTime() - created.getTime());
+      }, 0);
+      const averageResponseTime = completedWithDates.length > 0 ? totalResponseTime / completedWithDates.length / (1000 * 60 * 60) : 0; // in hours
+
+      setStats({
+        totalRequests,
+        pendingRequests,
+        inProgressRequests,
+        completedRequests,
+        averageResponseTime
+      });
+
+      // Set recent requests
+      setRecentRequests(requests.slice(0, 5));
+
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const exportInvoicePDF = (invoice: Invoice) => {
+  const fetchMyInvoices = async () => {
+    if (!user) return;
+    try {
+      const q = query(collection(db, 'invoices'), where('fromId', '==', user.id));
+      const snapshot = await getDocs(q);
+      const invoicesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      // Filter out invoices hidden for this user and those with invalid Firestore IDs (must be exactly 20 chars)
+      const visibleInvoices = invoicesData.filter((inv: any) =>
+        (!inv.hiddenFor || !inv.hiddenFor.includes(user.id)) && typeof inv.id === 'string' && inv.id.length === 20
+      );
+      setMyInvoices(visibleInvoices);
+    } catch (error) {
+      console.error('Error fetching invoices:', error);
+    }
+  };
+
+  const handleStatusChange = async (id: string, newStatus: string) => {
+    setAssignedRequests(prev => prev.map(req => req.id === id ? { ...req, status: newStatus as import('@/types').RequestStatus } : req));
+    try {
+      await updateDoc(doc(db, 'maintenance_requests', id), { status: newStatus });
+    } catch (error) {
+      console.error('Failed to update request status in Firestore:', error);
+    }
+  };
+
+  // Handler for opening details modal
+  const handleViewDetails = (request: MaintenanceRequest) => {
+    setShowDetails(request);
+    // TODO: Fetch chat messages for this request
+    setChatMessages([
+      // Example messages
+      { sender: 'A', text: 'thanks for your patience', timestamp: new Date().toLocaleString() },
+      { sender: 'S', text: 'hi there', timestamp: new Date().toLocaleString() },
+      { sender: 'S', text: 'Status updated to "completed" by Service Provider 2.', timestamp: new Date().toLocaleString() },
+    ]);
+  };
+
+  // Handler for sending a chat message
+  const handleSendMessage = () => {
+    if (!newMessage.trim()) return;
+    setChatMessages([...chatMessages, { sender: 'S', text: newMessage, timestamp: new Date().toLocaleString() }]);
+    setNewMessage('');
+    // TODO: Save message to Firestore
+  };
+
+  // Handler for creating invoice
+  const handleCreateInvoice = async (requestId: string) => {
+    if (!user) return;
+    const q = query(collection(db, 'invoices'), where('fromId', '==', user.id), where('maintenanceRequestId', '==', requestId));
+    const snapshot = await getDocs(q);
+    if (!snapshot.empty) {
+      // Invoice exists, allow editing
+      const existingInvoice = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as any;
+      setInvoiceForm({ description: existingInvoice.description || '', amount: existingInvoice.totalAmount || '' });
+      setInvoiceModal({ open: true, requestId, editId: existingInvoice.id });
+    } else {
+      setInvoiceForm({ description: '', amount: '' });
+      setInvoiceModal({ open: true, requestId });
+    }
+  };
+
+  // Handler for exporting invoice as PDF
+  const handleExportPDF = (invoice: any) => {
     const doc = new jsPDF();
-    doc.text(`Invoice from: ${invoice.from}`, 14, 16);
-    doc.text(`Date: ${invoice.invoiceDate ? new Date(invoice.invoiceDate).toLocaleDateString() : 'N/A'}`, 14, 22);
-    doc.text(`Status: ${getStatusInfo(invoice.status).text}`, 14, 28);
-    
+    doc.setFontSize(22);
+    doc.text('Invoice from: ' + (invoice.from || 'Service Provider'), 30, 40);
+    doc.setFontSize(16);
+    const dateStr = invoice.issuedDate || invoice.createdAt || invoice.invoiceDate;
+    const dateDisplay = dateStr ? new Date(dateStr).toLocaleDateString() : 'N/A';
+    doc.text('Date: ' + dateDisplay, 30, 55);
+
     autoTable(doc, {
-      startY: 35,
+      startY: 70,
       head: [['Description', 'Amount']],
-      body: [[
-        invoice.description || '',
-        `RM${invoice.totalAmount?.toFixed(2) || '0.00'}`
-      ]],
-      foot: [['Total', `RM${invoice.totalAmount?.toFixed(2) || '0.00'}`]]
+      body: [
+        [invoice.description || '', `RM${isNaN(Number(invoice.totalAmount)) ? '0.00' : Number(invoice.totalAmount).toFixed(2)}`]
+      ],
+      foot: [['Total', `RM${isNaN(Number(invoice.totalAmount)) ? '0.00' : Number(invoice.totalAmount).toFixed(2)}`]],
+      theme: 'grid',
+      headStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold', fontSize: 13 },
+      footStyles: { fillColor: [41, 128, 185], textColor: 255, fontStyle: 'bold', fontSize: 13 },
+      bodyStyles: { fontSize: 12 },
+      styles: { halign: 'left', cellPadding: 6 },
+      columnStyles: {
+        1: { halign: 'right' }
+      }
     });
     doc.save(`invoice-${invoice.id}.pdf`);
+  };
+
+  const handleCancelInvoice = async (invoiceId: string) => {
+    if (!invoiceId || typeof invoiceId !== 'string' || invoiceId.trim() === '' || invoiceId.length < 10) {
+      alert('Invalid invoice ID.');
+      return;
+    }
+    if (!user) return;
+    try {
+      console.log('Soft deleting invoice for user:', invoiceId, user.id);
+      await updateDoc(doc(db, 'invoices', invoiceId), { hiddenFor: arrayUnion(user.id) });
+      await fetchMyInvoices();
+    } catch (error) {
+      console.error('Failed to delete invoice:', error); // Improved error logging
+      alert('Failed to delete invoice.');
+    }
+  };
+
+  const handleSubmitInvoice = async () => {
+    if (!invoiceForm.description || !invoiceForm.amount || !invoiceModal.requestId || !user) return;
+    setCreatingInvoice(true);
+    try {
+      const now = new Date();
+      if (invoiceModal.editId) {
+        // Edit existing invoice
+        await updateDoc(doc(db, 'invoices', invoiceModal.editId), {
+          description: invoiceForm.description,
+          totalAmount: Number(invoiceForm.amount),
+          updatedAt: now.toISOString(),
+        });
+      } else {
+        // Create new invoice
+        const newInvoice = {
+          fromId: user.id,
+          from: user.fullName,
+          toId: 'admin',
+          to: 'Admin',
+          maintenanceRequestId: invoiceModal.requestId,
+          description: invoiceForm.description,
+          totalAmount: Number(invoiceForm.amount),
+          status: 'pending_payment',
+          createdAt: now.toISOString(),
+          issuedDate: now.toISOString(),
+        };
+        await addDoc(collection(db, 'invoices'), newInvoice);
+      }
+      await fetchMyInvoices();
+      setInvoiceModal({ open: false });
+      setInvoiceForm({ description: '', amount: '' });
+    } catch (e) {
+      alert('Failed to create or update invoice.');
+    } finally {
+      setCreatingInvoice(false);
+    }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-indigo-500"></div>
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Welcome Section */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-blue-100 rounded-full">
-            <FaTools className="h-6 w-6 text-blue-600" />
-          </div>
+    <div className="space-y-6">
+      {/* Top Summary Section */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 flex flex-col md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Welcome, Service Provider 2</h1>
+          <p className="text-gray-500 mt-1">Service Type: General Services</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white p-6 rounded-lg shadow flex items-center justify-between">
           <div>
-            <h2 className="text-2xl font-bold text-gray-900">
-              Welcome, {user?.fullName || 'Service Provider'}
-            </h2>
-            <p className="text-gray-500">Service Type: {user?.serviceType || 'General Services'}</p>
+            <p className="text-sm font-medium text-gray-600">Total Requests</p>
+            <p className="text-2xl font-bold text-gray-900 mt-2">{stats.totalRequests}</p>
           </div>
+          <FaTools className="h-8 w-8 text-blue-600" />
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-600">Pending</p>
+            <p className="text-2xl font-bold text-yellow-600 mt-2">{stats.pendingRequests}</p>
+          </div>
+          <FaClock className="h-8 w-8 text-yellow-600" />
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-600">In Progress</p>
+            <p className="text-2xl font-bold text-blue-600 mt-2">{stats.inProgressRequests}</p>
+          </div>
+          <FaExclamationTriangle className="h-8 w-8 text-blue-600" />
+        </div>
+        <div className="bg-white p-6 rounded-lg shadow flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-600">Completed</p>
+            <p className="text-2xl font-bold text-green-600 mt-2">{stats.completedRequests}</p>
+          </div>
+          <FaCheckCircle className="h-8 w-8 text-green-600" />
         </div>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Requests</p>
-              <p className="text-2xl font-bold text-gray-900 mt-2">{stats.total}</p>
-            </div>
-            <div className="p-3 bg-blue-100 rounded-full">
-              <FaTools className="h-6 w-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Pending</p>
-              <p className="text-2xl font-bold text-yellow-600 mt-2">{stats.pending}</p>
-            </div>
-            <div className="p-3 bg-yellow-100 rounded-full">
-              <FaClock className="h-6 w-6 text-yellow-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">In Progress</p>
-              <p className="text-2xl font-bold text-blue-600 mt-2">{stats.inProgress}</p>
-            </div>
-            <div className="p-3 bg-blue-100 rounded-full">
-              <FaExclamationTriangle className="h-6 w-6 text-blue-600" />
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Completed</p>
-              <p className="text-2xl font-bold text-green-600 mt-2">{stats.completed}</p>
-            </div>
-            <div className="p-3 bg-green-100 rounded-full">
-              <FaCheckCircle className="h-6 w-6 text-green-600" />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Recent Requests */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="p-6 border-b">
-          <h3 className="text-xl font-semibold">My Assigned Requests</h3>
-          <p className="text-gray-500 mt-1">Requests assigned to you by admin</p>
+      {/* My Assigned Requests Table */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold text-gray-900">My Assigned Requests</h3>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={hideCompleted}
+              onChange={e => setHideCompleted(e.target.checked)}
+              className="rounded"
+            />
+            Hide Completed Requests
+          </label>
         </div>
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Request</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Priority</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Assigned Date</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Request</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Priority</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Assigned Date</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {requests.length > 0 ? requests.map(req => (
-                <tr key={req.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-900">{req.issueDescription}</div>
-                    <div className="text-sm text-gray-500">{req.serviceType}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{req.unitProperty}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      req.priority === 'High' ? 'bg-red-100 text-red-800' :
-                      req.priority === 'Medium' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-green-100 text-green-800'
-                    }`}>
-                      {req.priority || 'Normal'}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <StatusUpdater
-                      currentStatus={req.status}
-                      onStatusChange={(newStatus) => handleStatusChange(req.id, newStatus)}
-                    />
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{formatDate(req.assignedAt)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {req.status === 'completed' ? (
-                      <Link href={`/dashboard/invoices/create?requestId=${req.id}`} className="text-indigo-600 hover:text-indigo-900">
-                        Create Invoice
-                      </Link>
-                    ) : (
-                      <Link href={`/dashboard/maintenance/request-item?id=${req.id}`} className="text-gray-600 hover:text-indigo-900">
-                        Details
-                      </Link>
-                    )}
-                  </td>
-                </tr>
-              )) : (
-                <tr>
-                  <td colSpan={6} className="text-center py-10 text-gray-500">
-                    You have no assigned requests.
-                  </td>
-                </tr>
+              {(hideCompleted ? assignedRequests.filter(req => req.status !== 'completed') : assignedRequests).map((req) => {
+                const canCreateInvoice = req.status === 'completed' && req.assignedTo === user?.id;
+                return (
+                  <tr key={req.id}>
+                    <td className="px-4 py-2 font-medium text-gray-900">{req.issueDescription}</td>
+                    <td className="px-4 py-2">{req.unitProperty}</td>
+                    <td className="px-4 py-2">
+                      <span className={`px-2 py-1 rounded-full text-xs font-semibold ${req.priority === 'High' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>{req.priority || '-'}</span>
+                    </td>
+                    <td className="px-4 py-2">
+                      <select className="border rounded px-2 py-1 text-xs" value={req.status} onChange={e => handleStatusChange(req.id, e.target.value)} disabled={req.assignedTo !== user?.id}>
+                        <option value="pending">Pending</option>
+                        <option value="in progress">In progress</option>
+                        <option value="completed">Completed</option>
+                        <option value="delayed">Delayed</option>
+                        <option value="faced an issue">Faced an issue</option>
+                      </select>
+                    </td>
+                    <td className="px-4 py-2">{req.createdAt && (typeof req.createdAt === 'object' && 'toDate' in req.createdAt ? req.createdAt.toDate().toLocaleDateString() : new Date(req.createdAt).toLocaleDateString())}</td>
+                    <td className="px-4 py-2 space-x-2">
+                      <button className="text-indigo-600 hover:underline text-xs" onClick={() => handleViewDetails(req)}>View Details</button>
+                      {canCreateInvoice && (
+                        <>
+                          <button className="text-green-600 hover:underline text-xs" onClick={() => handleCreateInvoice(req.id)}>Create Invoice</button>
+                          <button className="text-red-600 hover:underline text-xs" onClick={() => setConfirmDeleteId(req.id)}>Delete</button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {(hideCompleted ? assignedRequests.filter(req => req.status !== 'completed') : assignedRequests).length === 0 && (
+                <tr><td colSpan={6} className="text-center py-4 text-gray-500">No assigned requests</td></tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Submitted Invoices */}
-      <div className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="p-6 border-b">
-          <h3 className="text-xl font-semibold">My Submitted Invoices</h3>
-          <p className="text-gray-500 mt-1">Invoices you have submitted to the admin</p>
-        </div>
-        <div className="overflow-x-auto">
-          {invoices.length === 0 ? (
-            <div className="text-center py-12">
-              <FaFilePdf className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No invoices</h3>
-              <p className="mt-1 text-sm text-gray-500">You haven't submitted any invoices yet.</p>
+      {/* View Details Modal */}
+      {showDetails && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white bg-opacity-80">
+          <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-gray-900">{showDetails.issueDescription}</h2>
+              <button
+                onClick={() => setShowDetails(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ×
+              </button>
             </div>
-          ) : (
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {invoices.map((invoice) => (
-                  <tr key={invoice.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{invoice.description}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600">RM{invoice.totalAmount?.toFixed(2)}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {invoice.invoiceDate ? new Date(invoice.invoiceDate).toLocaleDateString() : 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        getStatusInfo(invoice.status).style
-                      }`}>
-                        {getStatusInfo(invoice.status).text}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex flex-col items-end space-y-2">
-                        <button
-                          onClick={() => exportInvoicePDF(invoice)}
-                          className="text-indigo-600 hover:text-indigo-900 flex items-center"
-                        >
-                          <FaFilePdf className="mr-1.5" />
-                          Export
-                        </button>
-                        {invoice.status === 'pending_payment' && (
-                          <button
-                            onClick={() => handleCancelInvoice(invoice.id)}
-                            className="text-red-600 hover:text-red-900 flex items-center"
-                          >
-                            <FaTimes className="mr-1.5" />
-                            Cancel
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
+            <div className="mb-4 flex gap-4">
+              <div><span className="font-semibold">Unit:</span> {showDetails.unitProperty}</div>
+              <div><span className="font-semibold">Status:</span> <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">{showDetails.status}</span></div>
+              <div><span className="font-semibold">Priority:</span> {showDetails.priority || '-'}</div>
+            </div>
+            <div className="border-t pt-4">
+              <div className="h-64 overflow-y-auto bg-gray-50 rounded p-4 mb-4">
+                {chatMessages.map((msg, idx) => (
+                  <div key={idx} className={`mb-2 flex ${msg.sender === 'S' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`px-3 py-2 rounded-lg text-sm ${msg.sender === 'A' ? 'bg-gray-200 text-gray-900' : 'bg-blue-100 text-blue-900'}`}>
+                      {msg.text}
+                      <div className="text-xs text-gray-400 mt-1">{msg.timestamp}</div>
+                    </div>
+                  </div>
                 ))}
-              </tbody>
-            </table>
-          )}
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  className="flex-1 border rounded px-3 py-2"
+                  placeholder="Type your message..."
+                  value={newMessage}
+                  onChange={e => setNewMessage(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleSendMessage(); }}
+                />
+                <button className="bg-blue-600 text-white px-4 py-2 rounded" onClick={handleSendMessage}>
+                  <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* My Submitted Invoices Section */}
+      <div className="bg-white p-6 rounded-lg shadow">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">My Submitted Invoices</h3>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Action</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {myInvoices.map((inv) => (
+                <tr key={inv.id}>
+                  <td className="px-4 py-2">{inv.description}</td>
+                  <td className="px-4 py-2 font-semibold text-green-700">RM{inv.totalAmount}</td>
+                  <td className="px-4 py-2">{inv.issuedDate ? new Date(inv.issuedDate).toLocaleDateString() : inv.createdAt ? new Date(inv.createdAt).toLocaleDateString() : 'N/A'}</td>
+                  <td className="px-4 py-2">
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${inv.status === 'Paid' ? 'bg-green-100 text-green-800' : inv.status === 'pending_payment' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>{inv.status === 'pending_payment' ? 'Pending' : inv.status}</span>
+                  </td>
+                  <td className="px-4 py-2 space-x-2">
+                    <button className="text-blue-600 hover:underline text-xs" onClick={() => handleExportPDF(inv)}>Export</button>
+                    {inv.status === 'pending_payment' && typeof inv.id === 'string' && inv.id.length === 20 && (
+                      <button className="text-red-600 hover:underline text-xs" onClick={() => handleCancelInvoice(inv.id)}>Cancel</button>
+                    )}
+                    {inv.status === 'paid' && typeof inv.id === 'string' && inv.id.length === 20 && (
+                      <button className="text-red-600 hover:underline text-xs" onClick={() => handleCancelInvoice(inv.id)}>Delete</button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {myInvoices.length === 0 && (
+                <tr><td colSpan={5} className="text-center py-4 text-gray-500">No invoices submitted</td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
+
+      {/* Create Invoice Modal */}
+      {invoiceModal.open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-20">
+          <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-gray-900">Create Invoice</h2>
+              <button
+                onClick={() => setInvoiceModal({ open: false })}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ×
+              </button>
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1">Description</label>
+              <input
+                type="text"
+                className="border rounded px-3 py-2 w-full"
+                value={invoiceForm.description}
+                onChange={e => setInvoiceForm({ ...invoiceForm, description: e.target.value })}
+                placeholder="Invoice description"
+              />
+            </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1">Amount (RM)</label>
+              <input
+                type="number"
+                min="0"
+                className="border rounded px-3 py-2 w-full"
+                value={invoiceForm.amount}
+                onChange={e => setInvoiceForm({ ...invoiceForm, amount: e.target.value })}
+                placeholder="Amount"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400"
+                onClick={() => setInvoiceModal({ open: false })}
+                disabled={creatingInvoice}
+              >Cancel</button>
+              <button
+                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+                onClick={handleSubmitInvoice}
+                disabled={creatingInvoice || !invoiceForm.description || !invoiceForm.amount}
+              >{creatingInvoice ? 'Creating...' : 'Submit'}</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-sm mx-2">
+            <h2 className="text-lg font-bold mb-4">Delete Request?</h2>
+            <p className="mb-6">Are you sure you want to delete this completed request? This will hide it from your view but not from admin or tenant.</p>
+            <div className="flex justify-end gap-2">
+              <button
+                className="bg-gray-200 text-gray-700 px-4 py-2 rounded hover:bg-gray-300"
+                onClick={() => setConfirmDeleteId(null)}
+              >Cancel</button>
+              <button
+                className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
+                onClick={async () => {
+                  if (!user) return;
+                  await updateDoc(doc(db, 'maintenance_requests', confirmDeleteId), { hiddenFor: arrayUnion(user.id) });
+                  setAssignedRequests(prev => prev.filter(r => r.id !== confirmDeleteId));
+                  setConfirmDeleteId(null);
+                }}
+              >Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
-
-export default ServiceProviderDashboard; 
+} 

@@ -3,14 +3,14 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, serverTimestamp, getDoc, doc, updateDoc, arrayUnion } from 'firebase/firestore';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { FaPaperPlane } from 'react-icons/fa';
 
 interface Message {
   sender: string;
   senderName: string;
   text: string;
-  timestamp: any;
+  timestamp: string | Date;
 }
 interface MaintenanceRequest {
   id: string;
@@ -24,7 +24,7 @@ interface MaintenanceRequest {
   tenantName: string;
   tenantPhone: string;
   buildingName: string;
-  createdAt: any;
+  createdAt: string | Date;
   scheduledDate?: string;
   assignedTo?: string;
   assignedProviderName?: string;
@@ -143,7 +143,6 @@ export default function RequestItemPage() {
       setNewMessage('');
 
       // Create notifications
-      const recipientRole = user.role === 'admin' ? 'tenant' : 'admin';
       const recipientId = user.role === 'admin' ? request.userId : 'some-admin-id-placeholder'; // Requires a method to target admins
       
       await addDoc(collection(db, 'notifications'), {
@@ -176,9 +175,11 @@ export default function RequestItemPage() {
     return <div className="text-center py-10">No request details available.</div>;
   }
   // Helper to convert various timestamp formats to a Date object
-  const toDate = (timestamp: any): Date | null => {
+  const toDate = (timestamp: unknown): Date | null => {
     if (!timestamp) return null;
-    if (timestamp.toDate) return timestamp.toDate(); // Firestore Timestamp
+    if (typeof timestamp === 'object' && timestamp !== null && 'toDate' in timestamp) {
+      return (timestamp as { toDate(): Date }).toDate(); // Firestore Timestamp
+    }
     if (typeof timestamp === 'string') return new Date(timestamp); // ISO String or other date string
     if (typeof timestamp === 'number') return new Date(timestamp); // Unix timestamp
     return null;

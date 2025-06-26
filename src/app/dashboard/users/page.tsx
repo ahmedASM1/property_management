@@ -37,7 +37,7 @@ export default function UsersPage() {
           });
         }
         setUsers(usersData);
-      } catch (error) {
+      } catch {
         toast.error('Failed to load users');
       } finally {
         setLoading(false);
@@ -85,7 +85,7 @@ export default function UsersPage() {
     if (!editUser) return;
     setSavingEdit(true);
     try {
-      const updateData: any = {
+      const updateData: Partial<User> = {
         fullName: editUser.fullName,
         phoneNumber: editUser.phoneNumber,
         role: editUser.role,

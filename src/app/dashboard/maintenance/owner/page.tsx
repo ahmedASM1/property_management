@@ -7,10 +7,6 @@ import { db } from '@/lib/firebase';
 import { Property } from '@/types';
 import { 
   FaTools, 
-  FaBuilding,
-  FaCalendarAlt,
-  FaUser,
-  FaPhone,
   FaExclamationTriangle,
   FaCheckCircle,
   FaClock,
@@ -29,13 +25,23 @@ interface MaintenanceRequest {
   userId: string;
   tenantName: string;
   tenantPhone: string;
-  createdAt: any;
+  createdAt: unknown;
   scheduledDate?: string;
   assignedTo?: string;
   assignedProviderName?: string;
-  completedAt?: any;
-  messages: { sender: string; text: string; timestamp: any; senderName?: string }[];
+  completedAt?: unknown;
+  messages: { sender: string; text: string; timestamp: unknown; senderName?: string }[];
 }
+
+// Helper function to safely convert timestamps
+const safeToDate = (timestamp: unknown): Date => {
+  if (!timestamp) return new Date();
+  if (typeof timestamp === 'object' && timestamp !== null && 'toDate' in timestamp) {
+    return (timestamp as { toDate(): Date }).toDate();
+  }
+  if (typeof timestamp === 'string') return new Date(timestamp);
+  return new Date(timestamp as number);
+};
 
 export default function OwnerMaintenancePage() {
   const { user } = useAuth();
@@ -86,9 +92,9 @@ export default function OwnerMaintenancePage() {
 
         // Sort by creation date (newest first)
         allRequests.sort((a, b) => {
-          const dateA = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
-          const dateB = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
-          return dateB.getTime() - dateA.getTime();
+          const dateA = safeToDate(a.createdAt).getTime();
+          const dateB = safeToDate(b.createdAt).getTime();
+          return dateB - dateA;
         });
 
         setMaintenanceRequests(allRequests);
@@ -288,7 +294,7 @@ export default function OwnerMaintenancePage() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-500">
-                        {request.createdAt?.toDate ? request.createdAt.toDate().toLocaleDateString() : 'N/A'}
+                        {safeToDate(request.createdAt).toLocaleDateString()}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">

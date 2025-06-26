@@ -8,7 +8,7 @@ import { Invoice } from '@/types';
 export default function PaymentsPage() {
   const auth = useAuth();
   const user = auth?.user;
-  const [invoices, setInvoices] = useState<any[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -16,7 +16,7 @@ export default function PaymentsPage() {
       if (!user) return;
       setLoading(true);
       const snapshot = await getDocs(collection(db, 'invoices'));
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Invoice));
       setInvoices(data.filter(inv => inv.tenantId === user.id && !inv.isPaid));
       setLoading(false);
     }

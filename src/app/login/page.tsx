@@ -63,7 +63,7 @@ const LoginForm: React.FC = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setAuthError(null);
     
@@ -73,13 +73,13 @@ const LoginForm: React.FC = () => {
     try {
       await signIn(formData.email, formData.password);
       // Redirect is handled in AuthContext
-    } catch (error: any) {
+    } catch (error: unknown) {
       let message = 'An unexpected error occurred. Please try again.';
-      if (error.message.includes('auth/invalid-credential')) {
+      if (error instanceof Error && error.message.includes('auth/invalid-credential')) {
         message = 'Invalid email or password. Please check your credentials.';
-      } else if (error.message.includes('not-approved')) {
+      } else if (error instanceof Error && error.message.includes('not-approved')) {
         message = 'Your account is pending admin approval.';
-      } else if (error.message.includes('profile-not-found')) {
+      } else if (error instanceof Error && error.message.includes('profile-not-found')) {
         message = 'No profile found for this user.';
       }
       setAuthError(message);
@@ -208,44 +208,44 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <div className="max-w-md w-full space-y-8 bg-white p-8 sm:p-10 rounded-2xl shadow-lg">
-        {/* Header */}
-        <header className="flex flex-col items-center">
-          <div className="mb-6">
-            <Image 
-              src="/Green Bridge.png" 
-              alt="Green Bridge Logo" 
-              width={64} 
-              height={64}
-              className="object-contain"
-              priority
-            />
-          </div>
-          <h1 className="text-3xl font-extrabold text-gray-900 text-center">
-            Welcome back
-          </h1>
-          <p className="mt-2 text-sm text-gray-600 text-center">
-            Sign in to your Green Bridge account
-          </p>
-        </header>
+          {/* Header */}
+          <header className="flex flex-col items-center">
+            <div className="mb-6">
+              <Image 
+                src="/Green Bridge.png" 
+                alt="Green Bridge Logo" 
+                width={64} 
+                height={64}
+                className="object-contain"
+                priority
+              />
+            </div>
+            <h1 className="text-3xl font-extrabold text-gray-900 text-center">
+              Welcome back
+            </h1>
+            <p className="mt-2 text-sm text-gray-600 text-center">
+              Sign in to your Green Bridge account
+            </p>
+          </header>
 
-        {/* Login Form */}
-        <main>
-          <LoginForm />
-        </main>
+          {/* Login Form */}
+          <main>
+            <LoginForm />
+          </main>
 
-        {/* Footer - Register Link */}
-        <footer className="text-center">
-          <p className="text-sm text-gray-600">
-            Don't have an account?{' '}
-            <Link 
-              href="/register" 
-              className="font-medium text-green-700 hover:text-green-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 rounded"
-            >
+          {/* Footer - Register Link */}
+          <footer className="text-center">
+            <p className="text-sm text-gray-600 mt-4">
+              Don&apos;t have an account?{' '}
+              <Link 
+                href="/register" 
+                className="font-medium text-green-700 hover:text-green-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 rounded"
+              >
               Create your account
-            </Link>
-          </p>
-        </footer>
-      </div>
+              </Link>
+            </p>
+          </footer>
+        </div>
     </div>
   );
 }

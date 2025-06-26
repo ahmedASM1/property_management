@@ -11,16 +11,12 @@ import {
   FaMoneyBillWave, 
   FaTools, 
   FaCalendarAlt,
-  FaCheckCircle,
-  FaClock,
-  FaExclamationTriangle,
   FaBuilding,
-  FaMapMarkerAlt,
-  FaPhone,
-  FaEnvelope
+  FaMapMarkerAlt
 } from 'react-icons/fa';
+import Link from 'next/link';
 
-interface PropertyWithDetails extends Property {
+type PropertyWithDetails = Property & {
   currentTenant?: Tenant;
   recentInvoices?: Invoice[];
   maintenanceCount?: number;
@@ -30,7 +26,8 @@ interface PropertyWithDetails extends Property {
   rentalType: string;
   contractStartDate?: string;
   contractEndDate?: string;
-}
+  roomNumber?: string | number;
+};
 
 export default function PropertiesPage() {
   const { user } = useAuth();
@@ -187,117 +184,62 @@ export default function PropertiesPage() {
 
               {/* Property Details */}
               <div className="p-6">
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FaMoneyBillWave className="h-4 w-4 text-green-600" />
-                      <span className="text-sm font-medium text-gray-700">Monthly Rent</span>
-                    </div>
-                    <p className="text-lg font-bold text-green-600">RM {property.monthlyRent.toLocaleString()}</p>
-                  </div>
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FaTools className="h-4 w-4 text-blue-600" />
-                      <span className="text-sm font-medium text-gray-700">Maintenance</span>
-                    </div>
-                    <p className="text-lg font-bold text-blue-600">{property.maintenanceCount || 0}</p>
-                  </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-2">{property.unitNumber}</h3>
+                <p className="text-sm text-gray-500 flex items-center gap-1 mb-1">
+                  <FaBuilding className="h-3 w-3" /> {property.buildingName}
+                </p>
+                <p className="text-sm text-gray-500 flex items-center gap-1 mb-1">
+                  <FaMapMarkerAlt className="h-3 w-3" /> {property.address}
+                </p>
+                <span className={`px-3 py-1 text-sm font-semibold rounded-full ${
+                  property.status === 'occupied' ? 'bg-green-100 text-green-800' :
+                  property.status === 'vacant' ? 'bg-yellow-100 text-yellow-800' :
+                  'bg-red-100 text-red-800'
+                }`}>
+                  {property.status.charAt(0).toUpperCase() + property.status.slice(1)}
+                </span>
+
+                {/* Rental Type & Price */}
+                <div className="mt-4">
+                  <p className="text-sm font-medium text-gray-700">Rental Type: <span className="font-semibold">{property.rentalType === 'room' ? `Room ${(property as any).roomNumber ?? ''}` : 'Whole Unit'}</span></p>
+                  <p className="text-sm font-medium text-gray-700">Rent Price: <span className="font-semibold text-green-700">RM {property.monthlyRent?.toLocaleString() || '0'}</span></p>
                 </div>
 
                 {/* Current Tenant */}
-                {property.currentTenant && (
-                  <div className="bg-green-50 rounded-lg p-4 mb-6 border border-green-200">
-                    <h4 className="text-sm font-semibold text-green-900 mb-3 flex items-center gap-2">
-                      <FaUsers className="h-4 w-4" />
-                      Current Tenant
+                <div className="mt-4">
+                  <h4 className="text-sm font-semibold text-green-900 mb-1 flex items-center gap-2">
+                    <FaUsers className="h-4 w-4" /> Current Tenant
                     </h4>
-                    <div className="space-y-2">
-                      <p className="text-sm">
-                        <span className="font-medium text-gray-700">Name:</span> {property.currentTenant.fullName}
-                      </p>
-                      <p className="text-sm">
-                        <span className="font-medium text-gray-700">Phone:</span> 
-                        <a href={`tel:${property.currentTenant.phoneNumber}`} className="text-blue-600 hover:underline ml-1">
-                          {property.currentTenant.phoneNumber}
-                        </a>
-                      </p>
-                      <p className="text-sm">
-                        <span className="font-medium text-gray-700">Email:</span> 
-                        <a href={`mailto:${property.currentTenant.email}`} className="text-blue-600 hover:underline ml-1">
-                          {property.currentTenant.email}
-                        </a>
-                      </p>
+                  {property.currentTenant ? (
+                    <div className="space-y-1">
+                      <p className="text-sm"><span className="font-medium text-gray-700">Name:</span> {property.currentTenant.fullName}</p>
+                      <p className="text-sm"><span className="font-medium text-gray-700">Phone:</span> {property.currentTenant.phoneNumber}</p>
+                      <p className="text-sm"><span className="font-medium text-gray-700">Email:</span> {property.currentTenant.email}</p>
                       {property.contractStartDate && (
-                        <p className="text-sm">
-                          <span className="font-medium text-gray-700">Contract:</span> 
-                          <span className="ml-1">
-                            {new Date(property.contractStartDate).toLocaleDateString()} - {new Date(property.contractEndDate || '').toLocaleDateString()}
-                          </span>
-                        </p>
+                        <p className="text-sm"><span className="font-medium text-gray-700">Contract:</span> {new Date(property.contractStartDate).toLocaleDateString()} - {new Date(property.contractEndDate || '').toLocaleDateString()}</p>
                       )}
                     </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">Vacant</p>
+                  )}
                   </div>
-                )}
 
                 {/* Financial Summary */}
-                <div className="bg-blue-50 rounded-lg p-4 mb-6 border border-blue-200">
-                  <h4 className="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
-                    <FaMoneyBillWave className="h-4 w-4" />
-                    Financial Summary
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
+                <div className="mt-4 grid grid-cols-2 gap-4">
+                  <div className="bg-green-50 rounded-lg p-4 text-center">
                       <p className="text-xs text-gray-600">Total Income</p>
                       <p className="text-lg font-bold text-green-600">RM {property.totalIncome?.toLocaleString() || '0'}</p>
                     </div>
-                    <div>
-                      <p className="text-xs text-gray-600">Overdue Amount</p>
+                  <div className="bg-red-50 rounded-lg p-4 text-center">
+                    <p className="text-xs text-gray-600">Overdue</p>
                       <p className="text-lg font-bold text-red-600">RM {property.overdueAmount?.toLocaleString() || '0'}</p>
-                    </div>
                   </div>
                 </div>
 
-                {/* Recent Invoices */}
-                {property.recentInvoices && property.recentInvoices.length > 0 && (
-                  <div className="mb-6">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-3">Recent Invoices</h4>
-                    <div className="space-y-2">
-                      {property.recentInvoices.slice(0, 3).map((invoice) => (
-                        <div key={invoice.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
-                          <div>
-                            <p className="text-sm font-medium">{invoice.month} {invoice.year}</p>
-                            <p className="text-xs text-gray-500">Invoice #{invoice.id.slice(-6)}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm font-bold">RM {invoice.totalAmount?.toLocaleString()}</p>
-                            <span className={`px-2 py-1 text-xs rounded-full ${
-                              invoice.isPaid ? 'bg-green-100 text-green-800' :
-                              invoice.status === 'overdue' ? 'bg-red-100 text-red-800' :
-                              'bg-yellow-100 text-yellow-800'
-                            }`}>
-                              {invoice.isPaid ? 'Paid' : invoice.status || 'Pending'}
-                            </span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex gap-3">
-                  <button 
-                    onClick={() => setSelectedProperty(property)}
-                    className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition font-medium"
-                  >
-                    View Details
-                  </button>
-                  <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-                    <FaTools className="h-4 w-4" />
-                  </button>
-                  <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
-                    <FaCalendarAlt className="h-4 w-4" />
-                  </button>
+                {/* Maintenance Count */}
+                <div className="mt-4 bg-blue-50 rounded-lg p-4 text-center">
+                  <p className="text-xs text-gray-600">Maintenance Requests</p>
+                  <p className="text-lg font-bold text-blue-600">{property.maintenanceCount || 0}</p>
                 </div>
               </div>
             </div>

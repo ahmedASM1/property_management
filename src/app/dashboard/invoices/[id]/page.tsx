@@ -2,10 +2,9 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { db, storage } from '@/lib/firebase';
+import { db } from '@/lib/firebase';
 import { Invoice, Tenant } from '@/types';
 import { useRouter, useParams } from 'next/navigation';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import toast from 'react-hot-toast';
 import jsPDF from 'jspdf';
 import Image from 'next/image';
@@ -13,13 +12,7 @@ import { sendInvoiceEmail } from '@/lib/email';
 import Link from 'next/link';
 import { FaArrowLeft } from 'react-icons/fa';
 
-interface InvoiceDetailPageProps {
-  params: {
-    id: string;
-  };
-}
-
-export default function InvoiceDetailPage({ params: initialParams }: InvoiceDetailPageProps) {
+export default function InvoiceDetailPage() {
   const auth = useAuth();
   const user = auth?.user;
   const router = useRouter();
@@ -28,7 +21,6 @@ export default function InvoiceDetailPage({ params: initialParams }: InvoiceDeta
   const [loading, setLoading] = useState(true);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [isRequesting, setIsRequesting] = useState(false);
-  const [editForm, setEditForm] = useState<Partial<Invoice> | null>(null);
 
   useEffect(() => {
     if (!invoiceId || !user) {
@@ -76,38 +68,6 @@ export default function InvoiceDetailPage({ params: initialParams }: InvoiceDeta
 
     fetchInvoice();
   }, [invoiceId, user, router]);
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file || !invoice) return;
-
-    try {
-      setLoading(true);
-
-      // Upload file to Firebase Storage
-      const storageRef = ref(storage, `receipts/${invoice.id}/${file.name}`);
-      await uploadBytes(storageRef, file);
-      const downloadUrl = await getDownloadURL(storageRef);
-
-      // Update invoice with receipt URL
-      await updateDoc(doc(db, 'invoices', invoice.id), {
-        receiptUrl: downloadUrl,
-        updatedAt: new Date()
-      });
-
-      setInvoice(prev => prev ? {
-        ...prev,
-        receiptUrl: downloadUrl
-      } : null);
-
-      toast.success('Receipt uploaded successfully');
-    } catch (error) {
-      console.error('Error uploading receipt:', error);
-      toast.error('Failed to upload receipt');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleRequestStatusChange = async (newStatus: string) => {
     if (!invoice || !user) return;
@@ -204,18 +164,18 @@ export default function InvoiceDetailPage({ params: initialParams }: InvoiceDeta
       docToPdf.text('3-38, Kompleks Kantonmen Prima, 698, Jalan Sultan Azlan Shah, Batu 4½, Jalan Ipoh, 51200 Kuala Lumpur, W.P. Kuala Lumpur, Malaysia', leftMargin + 60, y + 30);
       docToPdf.text('Tel: 011-23583397 | Email: myroom8685@gmail.com', leftMargin + 60, y + 45);
       y += 80;
-
+      
       // Invoice Title
       docToPdf.setFontSize(20);
       docToPdf.setFont('helvetica', 'bold');
       docToPdf.text('INVOICE', leftMargin, y);
       y += 30;
-
+      
       // Invoice Details
       docToPdf.setFontSize(12);
       docToPdf.setFont('helvetica', 'normal');
       docToPdf.text(`Invoice #: ${invoice.id.substring(0, 8).toUpperCase()}`, leftMargin, y); y += 20;
-      docToPdf.text(`Date: ${safeDate(invoice.createdAt).toLocaleDateString()}`, leftMargin, y); y += 20;
+      docToPdf.text(`Date: ${safeDate(invoice.createdAt)}`, leftMargin, y); y += 20;
       docToPdf.text(`Due Date: ${invoice.dueDate ? new Date(invoice.dueDate).toLocaleDateString() : 'N/A'}`, leftMargin, y); y += 30;
 
       // Tenant Information
@@ -310,11 +270,17 @@ export default function InvoiceDetailPage({ params: initialParams }: InvoiceDeta
   };
 
   // Helper for safe date formatting
-  function safeDate(date: any) {
-    if (!date) return new Date();
-    if (date.toDate) return date.toDate();
-    if (date.seconds) return new Date(date.seconds * 1000);
-    return new Date(date);
+  function safeDate(date: unknown): string {
+    if (!date) return 'N/A';
+    let dateObj: Date;
+    if (typeof date === 'object' && date !== null && 'toDate' in date) {
+      dateObj = (date as { toDate(): Date }).toDate();
+    } else if (typeof date === 'object' && date !== null && 'seconds' in date) {
+      dateObj = new Date((date as { seconds: number }).seconds * 1000);
+    } else {
+      dateObj = new Date(date as string | number | Date);
+    }
+    return dateObj.toLocaleDateString();
   }
 
   if (loading) {
@@ -486,7 +452,7 @@ export default function InvoiceDetailPage({ params: initialParams }: InvoiceDeta
             {invoice.statusChangeRequest ? (
               <div className="text-center p-4 bg-blue-100 text-blue-800 rounded-lg">
                 <p className="font-semibold">Request Pending</p>
-                <p className="text-sm">Your request to change the status to "{invoice.statusChangeRequest.requestedStatus}" is awaiting admin approval.</p>
+                <p className="text-sm">Your request to change the status to &quot;{invoice.statusChangeRequest.requestedStatus}&quot; is awaiting admin approval.</p>
               </div>
             ) : (
               <div>
@@ -497,24 +463,17 @@ export default function InvoiceDetailPage({ params: initialParams }: InvoiceDeta
                 <div className="flex flex-wrap gap-3">
                   <button 
                     onClick={() => handleRequestStatusChange('paid')} 
-                    disabled={isRequesting} 
-                    className="px-4 py-2 bg-green-600 text-white rounded-md shadow hover:bg-green-700 disabled:opacity-50 transition-colors"
+                    disabled={isRequesting}
+                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
                   >
                     Mark as Paid
                   </button>
                   <button 
-                    onClick={() => handleRequestStatusChange('delayed')} 
-                    disabled={isRequesting} 
-                    className="px-4 py-2 bg-yellow-500 text-white rounded-md shadow hover:bg-yellow-600 disabled:opacity-50 transition-colors"
-                  >
-                    Payment Delayed
-                  </button>
-                  <button 
                     onClick={() => handleRequestStatusChange('queried')} 
-                    disabled={isRequesting} 
-                    className="px-4 py-2 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                    disabled={isRequesting}
+                    className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 disabled:opacity-50"
                   >
-                    Have a Question
+                    Query Invoice
                   </button>
                 </div>
               </div>

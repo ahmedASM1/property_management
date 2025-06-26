@@ -7,6 +7,7 @@ import { db } from '@/lib/firebase';
 import { User } from '@/types';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { FaArrowLeft, FaUserCircle, FaEnvelope, FaPhone, FaMapMarkerAlt, FaFileContract } from 'react-icons/fa';
 
 export default function TenantDetailPage() {
@@ -83,7 +84,7 @@ export default function TenantDetailPage() {
           <div className="flex items-center space-x-6">
             <div className="flex-shrink-0">
               {tenant.profileImage ? (
-                <img className="h-24 w-24 rounded-full object-cover" src={tenant.profileImage} alt={tenant.fullName} />
+                <Image className="h-24 w-24 rounded-full object-cover" src={tenant.profileImage} alt={tenant.fullName} width={96} height={96} />
               ) : (
                 <FaUserCircle className="h-24 w-24 text-gray-300" />
               )}

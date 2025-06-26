@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell } from 'recharts';
 import { db } from '../lib/firebase';
-import { collection, query, getDocs } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { FileText, Clock, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface Contract {
@@ -30,11 +30,7 @@ export default function ContractAnalytics() {
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchAnalyticsData();
-  }, []);
-
-  const fetchAnalyticsData = async () => {
+  const fetchAnalyticsData = useCallback(async () => {
     try {
       const contractsRef = collection(db, 'contracts');
       const querySnapshot = await getDocs(contractsRef);
@@ -74,7 +70,11 @@ export default function ContractAnalytics() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchAnalyticsData();
+  }, [fetchAnalyticsData]);
 
   const calculateMonthlyRevenue = (contracts: Contract[]) => {
     const monthlyData: { [key: string]: number } = {};

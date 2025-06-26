@@ -52,8 +52,8 @@ export interface Invoice {
   paidAt?: string;
   dueDate?: string;
   status: 'pending_payment' | 'paid' | 'unpaid' | 'overdue' | 'pending_approval' | 'queried' | 'rejected';
-  createdAt: any;
-  updatedAt?: any;
+  createdAt: Date | string;
+  updatedAt?: Date | string;
   utilities?: {
     water: number;
     electricity: number;
@@ -75,7 +75,7 @@ export interface Invoice {
   statusChangeRequest?: {
     requestedStatus: string;
     tenantName?: string;
-    requestedAt?: any;
+    requestedAt?: Date | string;
   } | null;
   tenantDetails?: {
     fullName: string;
@@ -109,17 +109,17 @@ export interface Contract {
   resent?: boolean;
   resentAt?: Date;
   archived?: boolean;
-  archivedAt?: any; // Firestore Timestamp
+  archivedAt?: Date | string; // Firestore Timestamp
   reminderSent?: boolean;
-  createdAt: any; // Firestore Timestamp
-  updatedAt: any; // Firestore Timestamp
+  createdAt: Date | string; // Firestore Timestamp
+  updatedAt: Date | string; // Firestore Timestamp
 }
 
 export interface Comment {
   id: string;
   author: 'tenant' | 'admin' | 'propertyOwner' | 'service';
   message: string;
-  timestamp: any; // Firestore Timestamp
+  timestamp: Date | string; // Firestore Timestamp
 }
 
 export interface Property {
@@ -143,7 +143,7 @@ export type RequestStatus = 'pending' | 'in progress' | 'completed' | 'delayed' 
 export interface Message {
   sender: string;
   text: string;
-  timestamp: any; // Can be Firestore Timestamp or ISO string
+  timestamp: Date | string; // Can be Firestore Timestamp or ISO string
   senderName?: string;
 }
 

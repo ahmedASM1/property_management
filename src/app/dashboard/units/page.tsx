@@ -94,7 +94,7 @@ export default function UnitsPage() {
 
   async function handleEditSave(id: string) {
     if (!editUnit.buildingName || !editUnit.unitNumber || !editUnit.status) return;
-    const updateData: any = {
+    const updateData: Partial<Unit> = {
       buildingName: editUnit.buildingName,
       unitNumber: editUnit.unitNumber,
       status: editUnit.status,

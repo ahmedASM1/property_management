@@ -190,12 +190,13 @@ export default function NavBar() {
   };
 
   const handleSignOut = async () => {
-    if (signOut) {
+    try {
       await signOut();
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
     }
   };
-
-  const hasNotifications = notifications.some(n => !n.read);
 
   return (
     <header className="w-full bg-white shadow-sm sticky top-0 z-50">

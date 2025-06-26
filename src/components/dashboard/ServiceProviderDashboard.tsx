@@ -1,11 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, updateDoc, doc, query, where, deleteDoc, arrayUnion } from 'firebase/firestore';
+import { collection, getDocs, addDoc, updateDoc, doc, query, where, arrayUnion } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { MaintenanceRequest } from '@/types';
-import { FaTools, FaClock, FaCheckCircle, FaExclamationTriangle, FaCalendarAlt } from 'react-icons/fa';
-import Link from 'next/link';
+import { MaintenanceRequest, Invoice } from '@/types';
+import { FaTools, FaClock, FaCheckCircle, FaExclamationTriangle } from 'react-icons/fa';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +17,12 @@ interface DashboardStats {
   averageResponseTime: number;
 }
 
+interface ChatMessage {
+  sender: string;
+  text: string;
+  timestamp: string;
+}
+
 export default function ServiceProviderDashboard() {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
@@ -28,18 +33,12 @@ export default function ServiceProviderDashboard() {
     averageResponseTime: 0
   });
   const [loading, setLoading] = useState(true);
-  const [recentRequests, setRecentRequests] = useState<MaintenanceRequest[]>([]);
   const [assignedRequests, setAssignedRequests] = useState<MaintenanceRequest[]>([]);
-  // Mock invoices data for demonstration
-  const [invoices] = useState([
-    { id: '1', description: 'Invoice for service on unit D-11-1', amount: 132.0 },
-    { id: '2', description: 'Invoice for service on unit D-11-2', amount: 99.5 },
-  ]);
   const [showDetails, setShowDetails] = useState<MaintenanceRequest | null>(null);
-  const [chatMessages, setChatMessages] = useState<any[]>([]); // Replace any with your message type
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [invoiceModal, setInvoiceModal] = useState<{ open: boolean, requestId?: string, editId?: string }>({ open: false });
-  const [myInvoices, setMyInvoices] = useState<any[]>([]); // Replace any with your invoice type
+  const [myInvoices, setMyInvoices] = useState<Invoice[]>([]);
   const [hideCompleted, setHideCompleted] = useState(false);
   // Add state for invoice form
   const [invoiceForm, setInvoiceForm] = useState({ description: '', amount: '' });
@@ -91,9 +90,6 @@ export default function ServiceProviderDashboard() {
         averageResponseTime
       });
 
-      // Set recent requests
-      setRecentRequests(requests.slice(0, 5));
-
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -106,9 +102,9 @@ export default function ServiceProviderDashboard() {
     try {
       const q = query(collection(db, 'invoices'), where('fromId', '==', user.id));
       const snapshot = await getDocs(q);
-      const invoicesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      const invoicesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Invoice));
       // Filter out invoices hidden for this user and those with invalid Firestore IDs (must be exactly 20 chars)
-      const visibleInvoices = invoicesData.filter((inv: any) =>
+      const visibleInvoices = invoicesData.filter((inv: Invoice) =>
         (!inv.hiddenFor || !inv.hiddenFor.includes(user.id)) && typeof inv.id === 'string' && inv.id.length === 20
       );
       setMyInvoices(visibleInvoices);
@@ -153,8 +149,8 @@ export default function ServiceProviderDashboard() {
     const snapshot = await getDocs(q);
     if (!snapshot.empty) {
       // Invoice exists, allow editing
-      const existingInvoice = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as any;
-      setInvoiceForm({ description: existingInvoice.description || '', amount: existingInvoice.totalAmount || '' });
+      const existingInvoice = { id: snapshot.docs[0].id, ...snapshot.docs[0].data() } as Invoice;
+      setInvoiceForm({ description: existingInvoice.description || '', amount: String(existingInvoice.totalAmount || '') });
       setInvoiceModal({ open: true, requestId, editId: existingInvoice.id });
     } else {
       setInvoiceForm({ description: '', amount: '' });
@@ -163,7 +159,7 @@ export default function ServiceProviderDashboard() {
   };
 
   // Handler for exporting invoice as PDF
-  const handleExportPDF = (invoice: any) => {
+  const handleExportPDF = (invoice: Invoice) => {
     const doc = new jsPDF();
     doc.setFontSize(22);
     doc.text('Invoice from: ' + (invoice.from || 'Service Provider'), 30, 40);
@@ -238,7 +234,7 @@ export default function ServiceProviderDashboard() {
       await fetchMyInvoices();
       setInvoiceModal({ open: false });
       setInvoiceForm({ description: '', amount: '' });
-    } catch (e) {
+    } catch {
       alert('Failed to create or update invoice.');
     } finally {
       setCreatingInvoice(false);
@@ -262,34 +258,53 @@ export default function ServiceProviderDashboard() {
           <p className="text-gray-500 mt-1">Service Type: General Services</p>
         </div>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-600">Total Requests</p>
-            <p className="text-2xl font-bold text-gray-900 mt-2">{stats.totalRequests}</p>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Total Requests</p>
+              <p className="text-2xl font-bold text-gray-900">{stats.totalRequests}</p>
+            </div>
+            <div className="p-3 bg-blue-100 rounded-full">
+              <FaTools className="h-6 w-6 text-blue-600" />
+            </div>
           </div>
-          <FaTools className="h-8 w-8 text-blue-600" />
         </div>
-        <div className="bg-white p-6 rounded-lg shadow flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-600">Pending</p>
-            <p className="text-2xl font-bold text-yellow-600 mt-2">{stats.pendingRequests}</p>
+
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Pending</p>
+              <p className="text-2xl font-bold text-yellow-600">{stats.pendingRequests}</p>
+            </div>
+            <div className="p-3 bg-yellow-100 rounded-full">
+              <FaClock className="h-6 w-6 text-yellow-600" />
+            </div>
           </div>
-          <FaClock className="h-8 w-8 text-yellow-600" />
         </div>
-        <div className="bg-white p-6 rounded-lg shadow flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-600">In Progress</p>
-            <p className="text-2xl font-bold text-blue-600 mt-2">{stats.inProgressRequests}</p>
+
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">In Progress</p>
+              <p className="text-2xl font-bold text-blue-600">{stats.inProgressRequests}</p>
+            </div>
+            <div className="p-3 bg-blue-100 rounded-full">
+              <FaExclamationTriangle className="h-6 w-6 text-blue-600" />
+            </div>
           </div>
-          <FaExclamationTriangle className="h-8 w-8 text-blue-600" />
         </div>
-        <div className="bg-white p-6 rounded-lg shadow flex items-center justify-between">
-          <div>
-            <p className="text-sm font-medium text-gray-600">Completed</p>
-            <p className="text-2xl font-bold text-green-600 mt-2">{stats.completedRequests}</p>
+
+        <div className="bg-white rounded-xl shadow-sm p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Completed</p>
+              <p className="text-2xl font-bold text-green-600">{stats.completedRequests}</p>
+            </div>
+            <div className="p-3 bg-green-100 rounded-full">
+              <FaCheckCircle className="h-6 w-6 text-green-600" />
+            </div>
           </div>
-          <FaCheckCircle className="h-8 w-8 text-green-600" />
         </div>
       </div>
 
@@ -427,7 +442,7 @@ export default function ServiceProviderDashboard() {
                   <td className="px-4 py-2 font-semibold text-green-700">RM{inv.totalAmount}</td>
                   <td className="px-4 py-2">{inv.issuedDate ? new Date(inv.issuedDate).toLocaleDateString() : inv.createdAt ? new Date(inv.createdAt).toLocaleDateString() : 'N/A'}</td>
                   <td className="px-4 py-2">
-                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${inv.status === 'Paid' ? 'bg-green-100 text-green-800' : inv.status === 'pending_payment' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>{inv.status === 'pending_payment' ? 'Pending' : inv.status}</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-semibold ${inv.status === 'paid' ? 'bg-green-100 text-green-800' : inv.status === 'pending_payment' ? 'bg-yellow-100 text-yellow-800' : 'bg-blue-100 text-blue-800'}`}>{inv.status === 'pending_payment' ? 'Pending' : inv.status}</span>
                   </td>
                   <td className="px-4 py-2 space-x-2">
                     <button className="text-blue-600 hover:underline text-xs" onClick={() => handleExportPDF(inv)}>Export</button>

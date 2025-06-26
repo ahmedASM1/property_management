@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, query, where } from 'firebase/firestore';
+import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import Link from 'next/link';
@@ -76,7 +76,6 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
 
   const [reminding, setReminding] = useState(false);
   const [maintenanceCount, setMaintenanceCount] = useState<number | null>(null);
-  const [receivedInvoicesCount, setReceivedInvoicesCount] = useState<number | null>(null);
 
   useEffect(() => {
     async function fetchMaintenance() {
@@ -84,19 +83,12 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
       setMaintenanceCount(snap.size);
     }
     
-    async function fetchReceivedInvoices() {
-      const q = query(collection(db, 'invoices'), where('toId', '==', 'admin'), where('status', '==', 'pending_payment'));
-      const snap = await getDocs(q);
-      setReceivedInvoicesCount(snap.size);
-    }
-
     async function fetchUnits() {
       const snap = await getDocs(collection(db, 'units'));
       setTotalUnits(snap.size);
     }
 
     fetchMaintenance();
-    fetchReceivedInvoices();
     fetchUnits();
   }, []);
 
@@ -168,10 +160,6 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
     });
     doc.save('invoices.pdf');
   }
-
-  const formatCurrency = (n: number) => {
-    return `RM${n.toFixed(2)}`;
-  };
 
   return (
     <div className="min-h-screen bg-gray-50">

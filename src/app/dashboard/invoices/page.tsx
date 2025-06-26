@@ -58,9 +58,6 @@ export default function InvoicesPage() {
   const [tax, setTax] = useState(0);
   const [dueDate, setDueDate] = useState('');
 
-  // Filtering
-  const [statusFilter, setStatusFilter] = useState('all');
-
   const updateLineItem = useCallback((idx: number, field: string, value: string | number) =>
     setLineItems(currentLineItems =>
       currentLineItems.map((item, i) =>
@@ -340,7 +337,7 @@ export default function InvoicesPage() {
         </div>
         {/* Filter and Search Bar */}
         <div className="flex flex-col md:flex-row gap-4 mb-4 items-center">
-          <select value={typeFilter} onChange={e => setTypeFilter(e.target.value as any)} className="border rounded px-3 py-2">
+          <select value={typeFilter} onChange={e => setTypeFilter(e.target.value as 'all' | 'tenant' | 'service')} className="border rounded px-3 py-2">
             <option value="all">All</option>
             <option value="tenant">Tenant Invoices</option>
             <option value="service">Service Provider Invoices</option>

@@ -135,7 +135,7 @@ export default function LoginForm() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
           <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-sm mx-2">
             <h2 className="text-lg font-bold mb-4">Reset Password</h2>
-            <p className="mb-4 text-sm text-gray-600">Enter your email address and we'll send you a link to reset your password.</p>
+            <p className="mb-4 text-sm text-gray-600">Enter your email address and we&apos;ll send you a link to reset your password.</p>
             <input
               type="email"
               className="border rounded px-3 py-2 w-full mb-4"
@@ -161,8 +161,9 @@ export default function LoginForm() {
                     toast.success('Password reset email sent! Check your inbox.');
                     setShowReset(false);
                     setResetEmail('');
-                  } catch (err: any) {
-                    toast.error(err.message || 'Failed to send reset email.');
+                  } catch (err: unknown) {
+                    const errorMessage = err instanceof Error ? err.message : 'Failed to send reset email.';
+                    toast.error(errorMessage);
                   } finally {
                     setResetting(false);
                   }

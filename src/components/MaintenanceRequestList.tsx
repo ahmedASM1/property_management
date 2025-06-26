@@ -30,20 +30,22 @@ interface Request {
   unitProperty: string;
   priority: 'Low' | 'Normal' | 'High' | 'Critical';
   fileUrls?: string[];
-  createdAt?: any;
+  createdAt?: Date | string;
   status?: string;
   adminReply?: string;
-  scheduledDate?: any;
-  messages?: { sender: 'admin' | 'tenant' | 'service'; text: string; timestamp: any }[];
+  scheduledDate?: Date | string;
+  messages?: { sender: 'admin' | 'tenant' | 'service'; text: string; timestamp: Date | string }[];
   serviceType?: string;
+  customServiceType?: string;
   assignedTo?: string;
   userId?: string;
   hiddenFor?: string[];
+  type?: string;
 }
 
-function formatDate(date: any) {
+function formatDate(date: Date | string | undefined) {
   if (!date) return '-';
-  const d = typeof date === 'string' ? new Date(date) : date.toDate ? date.toDate() : new Date(date);
+  const d = typeof date === 'string' ? new Date(date) : date instanceof Date ? date : new Date(date);
   return isNaN(d.getTime()) ? '-' : d.toLocaleDateString();
 }
 
@@ -56,15 +58,15 @@ export default function MaintenanceRequestList() {
   const [status, setStatus] = useState('in progress');
   const [scheduledDate, setScheduledDate] = useState<Date | null>(null);
   const [saving, setSaving] = useState(false);
-  const [messages, setMessages] = useState<{ sender: 'admin' | 'tenant' | 'service'; text: string; timestamp: any }[]>([]);
+  const [messages, setMessages] = useState<{ sender: 'admin' | 'tenant' | 'service'; text: string; timestamp: Date | string }[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [serviceProviders, setServiceProviders] = useState<ServiceProvider[]>([]);
   const [serviceType, setServiceType] = useState<string>('');
   const [assignedTo, setAssignedTo] = useState<string>('');
 
-  if (!user) return;
-
   useEffect(() => {
+    if (!user) return;
+    
     async function fetchRequests() {
       setLoading(true);
       let q;
@@ -101,15 +103,15 @@ export default function MaintenanceRequestList() {
     setScheduledDate(null);
   };
   const handleSave = async () => {
-    if (!selected) return;
+    if (!selected || !user) return;
     setSaving(true);
-    const docData: any = {
+    const docData: Partial<Request> = {
       userId: selected.userId,
       unitProperty: selected.unitProperty,
       issueDescription: selected.issueDescription,
       type: 'maintenance',
       status: status,
-      createdAt: serverTimestamp(),
+      createdAt: new Date(),
       messages: messages,
     };
     if (selected.priority) docData.priority = selected.priority;
@@ -120,17 +122,22 @@ export default function MaintenanceRequestList() {
         docData.serviceType = selected.serviceType;
       }
     }
-    if (selected.scheduledDate) docData.scheduledDate = selected.scheduledDate.toISOString();
+    if (selected.scheduledDate) {
+      const date = typeof selected.scheduledDate === 'string' ? new Date(selected.scheduledDate) : selected.scheduledDate;
+      docData.scheduledDate = date.toISOString();
+    }
     if (selected.assignedTo) docData.assignedTo = selected.assignedTo;
     await updateDoc(doc(db, 'maintenance_requests', selected.id), docData);
     setRequests(reqs => reqs.map(r => r.id === selected.id ? { ...r, ...docData } : r));
     // Notify tenant
-    await addDoc(collection(db, 'notifications'), {
-      userId: selected.userId,
-      message: `Your request has been updated. Status: ${status}${selected.assignedTo ? ', Assigned to provider.' : ''}`,
-      read: false,
-      createdAt: serverTimestamp(),
-    });
+    if (selected.userId) {
+      await addDoc(collection(db, 'notifications'), {
+        userId: selected.userId,
+        message: `Your request has been updated. Status: ${status}${selected.assignedTo ? ', Assigned to provider.' : ''}`,
+        read: false,
+        createdAt: serverTimestamp(),
+      });
+    }
     // Notify provider if assigned
     if (selected.assignedTo) {
       await addDoc(collection(db, 'notifications'), {
@@ -144,7 +151,7 @@ export default function MaintenanceRequestList() {
     closeModal();
   };
   const handleSendMessage = async () => {
-    if (!selected || !newMessage.trim()) return;
+    if (!selected || !newMessage.trim() || !user) return;
     const msg = {
       sender: user.role as 'admin' | 'tenant' | 'service',
       text: newMessage,
@@ -158,6 +165,8 @@ export default function MaintenanceRequestList() {
     setNewMessage('');
     setRequests(reqs => reqs.map(r => r.id === selected.id ? { ...r, messages: updatedMessages } : r));
   };
+
+  if (!user) return null;
 
   const visibleRequests = requests.filter(req => !Array.isArray(req.hiddenFor) || !req.hiddenFor.includes(user?.id));
 

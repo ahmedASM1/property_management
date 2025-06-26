@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { FileText, Download, Upload, Eye } from 'lucide-react';
 import { db, storage } from '../lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
@@ -39,11 +39,7 @@ export default function TenantContractView({ tenantId }: TenantContractViewProps
   const [loading, setLoading] = useState(true);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  useEffect(() => {
-    fetchContracts();
-  }, [tenantId]);
-
-  const fetchContracts = async () => {
+  const fetchContracts = useCallback(async () => {
     try {
       const q = query(
         collection(db, 'contracts'),
@@ -60,7 +56,11 @@ export default function TenantContractView({ tenantId }: TenantContractViewProps
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId]);
+
+  useEffect(() => {
+    fetchContracts();
+  }, [fetchContracts]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {

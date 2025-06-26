@@ -8,13 +8,9 @@ import { Property, Tenant, Invoice } from '@/types';
 import { 
   FaHome, 
   FaUsers, 
-  FaMoneyBillWave, 
-  FaTools, 
-  FaCalendarAlt,
   FaBuilding,
   FaMapMarkerAlt
 } from 'react-icons/fa';
-import Link from 'next/link';
 
 type PropertyWithDetails = Property & {
   currentTenant?: Tenant;
@@ -201,7 +197,7 @@ export default function PropertiesPage() {
 
                 {/* Rental Type & Price */}
                 <div className="mt-4">
-                  <p className="text-sm font-medium text-gray-700">Rental Type: <span className="font-semibold">{property.rentalType === 'room' ? `Room ${(property as any).roomNumber ?? ''}` : 'Whole Unit'}</span></p>
+                  <p className="text-sm font-medium text-gray-700">Rental Type: <span className="font-semibold">{property.rentalType === 'room' ? `Room ${(property as PropertyWithDetails).roomNumber ?? ''}` : 'Whole Unit'}</span></p>
                   <p className="text-sm font-medium text-gray-700">Rent Price: <span className="font-semibold text-green-700">RM {property.monthlyRent?.toLocaleString() || '0'}</span></p>
                 </div>
 

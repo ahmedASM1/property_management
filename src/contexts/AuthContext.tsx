@@ -1,7 +1,6 @@
 'use client';
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { 
-  User as FirebaseUser,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
@@ -16,7 +15,7 @@ import { useRouter } from 'next/navigation';
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  registerUser: (userData: any) => Promise<void>;
+  registerUser: (userData: Partial<User> & { email: string; password: string }) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -58,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setUser(null);
             console.error('User profile not found in Firestore. Signed out.');
           }
-        } catch (error: any) {
+        } catch (error: unknown) {
           console.error('Error during auth state change processing:', error);
           // Ensure user is signed out on any error during the check
           await firebaseSignOut(auth).catch(e => console.error("Sign out failed", e));
@@ -73,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const registerUser = async (userData: any) => {
+  const registerUser = async (userData: Partial<User> & { email: string; password: string }) => {
     const { email, password, ...rest } = userData;
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -119,13 +118,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       } as User);
 
       router.push('/dashboard');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Login error:', error);
-      if (error.message === 'not-approved') {
-        throw new Error('Your account is pending approval');
-      }
-      if (error.message === 'profile-not-found') {
-        throw new Error('User profile not found');
+      if (error instanceof Error) {
+        if (error.message === 'not-approved') {
+          throw new Error('Your account is pending approval');
+        }
+        if (error.message === 'profile-not-found') {
+          throw new Error('User profile not found');
+        }
       }
       throw error;
     }

@@ -15,7 +15,6 @@ import {
   FaBuilding,
   FaMapMarkerAlt
 } from 'react-icons/fa';
-import Link from 'next/link';
 
 interface PropertyWithDetails extends Property {
   buildingName: string;

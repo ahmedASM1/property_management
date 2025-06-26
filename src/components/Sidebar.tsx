@@ -1,14 +1,21 @@
 'use client';
 import {
   FaHome, FaFileContract, FaFileInvoiceDollar, FaTools, FaChartLine, FaUsers,
-  FaUser, FaBuilding, FaUserCog, FaSignOutAlt, FaBars, FaTimes
+  FaBuilding, FaUserCog, FaSignOutAlt, FaBars, FaTimes
 } from 'react-icons/fa';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useState } from 'react';
+import { UserRole } from '@/types';
 
-const linksByRole = {
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+const linksByRole: Record<UserRole, NavItem[]> = {
   admin: [
     { href: '/dashboard', label: 'Dashboard', icon: FaHome },
     { href: '/dashboard/contracts', label: 'Contracts', icon: FaFileContract },
@@ -17,7 +24,7 @@ const linksByRole = {
     { href: '/dashboard/reports', label: 'Reports', icon: FaChartLine },
     { href: '/dashboard/users', label: 'Users', icon: FaUsers },
   ],
-  owner: [
+  propertyOwner: [
   { href: '/dashboard', label: 'Dashboard', icon: FaHome },
   { href: '/dashboard/properties', label: 'My Properties', icon: FaBuilding },
     { href: '/dashboard/reports', label: 'Reports', icon: FaChartLine },
@@ -29,6 +36,10 @@ const linksByRole = {
     { href: '/dashboard/maintenance', label: 'Maintenance', icon: FaTools },
   ],
   service: [
+  { href: '/dashboard', label: 'Dashboard', icon: FaHome },
+    { href: '/dashboard/invoices/create', label: 'Create Invoice', icon: FaFileInvoiceDollar },
+  ],
+  mixedProvider: [
   { href: '/dashboard', label: 'Dashboard', icon: FaHome },
     { href: '/dashboard/invoices/create', label: 'Create Invoice', icon: FaFileInvoiceDollar },
   ],

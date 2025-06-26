@@ -219,7 +219,11 @@ export default function TenantContractPage() {
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-medium text-sm">{comment.author === 'tenant' ? 'You' : 'Admin'}</span>
                       <span className="text-xs text-gray-500">
-                        {comment.timestamp?.toDate?.().toLocaleString()}
+                        {typeof comment.timestamp === 'string'
+                          ? new Date(comment.timestamp).toLocaleString()
+                          : comment.timestamp instanceof Date
+                            ? comment.timestamp.toLocaleString()
+                            : ''}
                       </span>
                     </div>
                     <p className="text-gray-700 text-sm">{comment.message}</p>

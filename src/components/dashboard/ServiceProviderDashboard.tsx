@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { collection, getDocs, addDoc, updateDoc, doc, query, where, arrayUnion } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { MaintenanceRequest, Invoice } from '@/types';
@@ -46,12 +46,7 @@ export default function ServiceProviderDashboard() {
   // Add state for delete confirmation
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchDashboardData();
-    fetchMyInvoices();
-  }, [user]);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       const requestsSnapshot = await getDocs(collection(db, 'maintenance_requests'));
       let requests = requestsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MaintenanceRequest));
@@ -95,9 +90,9 @@ export default function ServiceProviderDashboard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
 
-  const fetchMyInvoices = async () => {
+  const fetchMyInvoices = useCallback(async () => {
     if (!user) return;
     try {
       const q = query(collection(db, 'invoices'), where('fromId', '==', user.id));
@@ -111,7 +106,12 @@ export default function ServiceProviderDashboard() {
     } catch (error) {
       console.error('Error fetching invoices:', error);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    fetchDashboardData();
+    fetchMyInvoices();
+  }, [fetchDashboardData, fetchMyInvoices]);
 
   const handleStatusChange = async (id: string, newStatus: string) => {
     setAssignedRequests(prev => prev.map(req => req.id === id ? { ...req, status: newStatus as import('@/types').RequestStatus } : req));

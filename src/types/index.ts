@@ -1,4 +1,4 @@
-import { Timestamp } from 'firebase/firestore';
+import { Timestamp, FieldValue } from 'firebase/firestore';
 
 export type UserRole = 'admin' | 'tenant' | 'service' | 'propertyOwner' | 'mixedProvider';
 
@@ -109,10 +109,10 @@ export interface Contract {
   resent?: boolean;
   resentAt?: Date;
   archived?: boolean;
-  archivedAt?: Date | string; // Firestore Timestamp
+  archivedAt?: Date | string | FieldValue; // Firestore Timestamp
   reminderSent?: boolean;
-  createdAt: Date | string; // Firestore Timestamp
-  updatedAt: Date | string; // Firestore Timestamp
+  createdAt: Date | string | FieldValue; // Firestore Timestamp
+  updatedAt: Date | string | FieldValue; // Firestore Timestamp
 }
 
 export interface Comment {

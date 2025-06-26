@@ -96,7 +96,7 @@ export default function RegisterPage() {
         }
         setLoading(true);
         try {
-            let userData: Record<string, unknown> = { email, password, fullName, phone, role };
+            let userData: { email: string; password: string; } & Record<string, unknown> = { email, password, fullName, phone, role };
             if (role === 'tenant') {
                 userData = { ...userData, buildingName: buildingName === 'Other' ? otherBuilding : buildingName, passport, unitNumber, rentType };
             } else if (role === 'service-provider') {

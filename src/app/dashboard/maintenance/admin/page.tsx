@@ -127,7 +127,7 @@ export default function AdminMaintenancePage() {
     fetchProviders();
 
     return () => unsubscribe();
-  }, [loading]);
+  }, [loading, adminUser?.id]);
 
   async function handleDeleteRequest(requestId: string) {
     setDeletingId(requestId);

@@ -8,6 +8,7 @@ import jsPDF from 'jspdf';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, BarChart, Bar, XAxis, YAxis, Legend, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts';
 import { saveAs } from 'file-saver';
 import Link from 'next/link';
+import Image from 'next/image';
 
 const categories = [
   'Utilities',
@@ -433,10 +434,12 @@ export default function ExpensesPage() {
           {receipts.length > 0 && (
             <div className="flex flex-wrap gap-2 mt-2">
               {receipts.map((file, idx) => file.type.startsWith('image/') ? (
-                <img
+                <Image
                   key={idx}
                   src={URL.createObjectURL(file)}
                   alt="preview"
+                  width={48}
+                  height={48}
                   className="w-12 h-12 object-cover rounded border"
                 />
               ) : (
@@ -476,7 +479,7 @@ export default function ExpensesPage() {
                     <div className="flex flex-wrap gap-2">
                       {exp.receiptUrls.map((url, idx) => url.match(/\.(jpg|jpeg|png)$/i) ? (
                         <a key={idx} href={url} target="_blank" rel="noopener noreferrer">
-                          <img src={url} alt="receipt" className="w-10 h-10 object-cover rounded border" />
+                          <Image src={url} alt="receipt" width={40} height={40} className="w-10 h-10 object-cover rounded border" />
                         </a>
                       ) : (
                         <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">PDF</a>
@@ -519,7 +522,7 @@ export default function ExpensesPage() {
               {exp.receiptUrls && exp.receiptUrls.length > 0 ? (
                 exp.receiptUrls.map((url, idx) => url.match(/\.(jpg|jpeg|png)$/i) ? (
                   <a key={idx} href={url} target="_blank" rel="noopener noreferrer">
-                    <img src={url} alt="receipt" className="w-10 h-10 object-cover rounded border" />
+                    <Image src={url} alt="receipt" width={40} height={40} className="w-10 h-10 object-cover rounded border" />
                   </a>
                 ) : (
                   <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">PDF</a>

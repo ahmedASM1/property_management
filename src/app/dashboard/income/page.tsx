@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Property, Invoice } from '@/types';
 import { 
@@ -78,7 +78,9 @@ export default function IncomePage() {
                 utilitiesAmount,
                 totalAmount: invoice.totalAmount || 0,
                 status: invoice.isPaid ? 'paid' : (invoice.status as 'pending' | 'overdue') || 'pending',
-                paidAt: invoice.createdAt?.toDate ? invoice.createdAt.toDate() : new Date(invoice.createdAt)
+                paidAt: invoice.createdAt instanceof Timestamp
+                  ? invoice.createdAt.toDate()
+                  : new Date(invoice.createdAt)
               });
             });
           } catch (error) {

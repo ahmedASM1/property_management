@@ -114,7 +114,7 @@ export default function DashboardPage() {
         return <AdminDashboard data={data} />;
       case 'service':
         return <ServiceProviderDashboard />;
-      case 'owner':
+      case 'propertyOwner':
         return <PropertyOwnerDashboard />;
       case 'tenant':
       default:

@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import { Invoice, Tenant } from '@/types';
 import AdminDashboard from '@/components/dashboard/AdminDashboard';
 import TenantDashboard from '@/components/dashboard/TenantDashboard';
+import AdminNotifications from '@/components/AdminNotifications';
 import dynamic from 'next/dynamic';
 
 const ServiceProviderDashboard = dynamic(() => import('@/components/dashboard/ServiceProviderDashboard'), {
@@ -111,7 +112,12 @@ export default function DashboardPage() {
   const renderDashboard = () => {
     switch (user.role) {
       case 'admin':
-        return <AdminDashboard data={data} />;
+        return (
+          <div className="space-y-8">
+            <AdminNotifications />
+            <AdminDashboard data={data} />
+          </div>
+        );
       case 'service':
         return <ServiceProviderDashboard />;
       case 'propertyOwner':

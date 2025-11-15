@@ -6,6 +6,7 @@ import { db } from '@/lib/firebase';
 import Link from 'next/link';
 import jsPDF from 'jspdf';
 import { Contract, Comment } from '@/types';
+import { generateComprehensiveContractPDF, ContractFields } from '@/utils/contractGenerator';
 
 export default function TenantContractPage() {
   const auth = useAuth();
@@ -62,31 +63,44 @@ export default function TenantContractPage() {
   };
 
   const handleExportPDF = () => {
-    if (!contract) return;
-    const docPDF = new jsPDF({ unit: 'pt', format: 'a4' });
-    let y = 40;
-    docPDF.setFontSize(20);
-    docPDF.setFont('helvetica', 'bold');
-    docPDF.text('Active Tenancy Contract', 40, y);
-    y += 30;
-    docPDF.setFontSize(12);
-    docPDF.setFont('helvetica', 'normal');
-    docPDF.text(`Tenant: ${user?.fullName || ''}`, 40, y); y += 18;
-    docPDF.text(`Property: ${contract.propertyAddress}`, 40, y); y += 18;
-    docPDF.text(`Term: ${contract.term}`, 40, y); y += 18;
-    docPDF.text(`Move-in Date: ${new Date(contract.moveInDate).toLocaleDateString()}`, 40, y); y += 18;
-    docPDF.text(`Expiry Date: ${new Date(contract.expiryDate).toLocaleDateString()}`, 40, y); y += 18;
-    docPDF.text(`Rental per Month: RM${contract.rentalPerMonth}`, 40, y); y += 18;
-    docPDF.text(`Security Deposit: RM${contract.securityDeposit}`, 40, y); y += 18;
-    docPDF.text(`Utility Deposit: RM${contract.utilityDeposit}`, 40, y); y += 18;
-    docPDF.text(`Access Card Deposit: RM${contract.accessCardDeposit}`, 40, y); y += 18;
-    docPDF.text(`Agreement Fee: RM${contract.agreementFee}`, 40, y); y += 24;
-    docPDF.text(`Date of Agreement: ${contract.dateOfAgreement}`, 40, y); y += 18;
-    docPDF.text(`Company: GREEN BRIDGE REALTY SDN. BHD.`, 40, y); y += 18;
-    docPDF.text(`Company No: 202301042822 (1536738-K)`, 40, y); y += 18;
-    docPDF.text(`Company Address: 3-38, Kompleks Kantonmen Prima, 698, Jalan Sultan Azlan Shah, Batu 4½, Jalan Ipoh, 51200 Kuala Lumpur, W.P. Kuala Lumpur, Malaysia`, 40, y, { maxWidth: 500 }); y += 36;
-    docPDF.text(`Company Tel: 011-23583397 | Company Email: myroom8685@gmail.com`, 40, y); y += 18;
-    docPDF.save(`Contract_${user?.fullName || ''}_${contract.dateOfAgreement}.pdf`);
+    if (!contract || !user) return;
+    
+    // Create a mock tenant object from user data
+    const tenant = {
+      id: user.uid,
+      fullName: user.fullName || '',
+      email: user.email || '',
+      phoneNumber: user.phoneNumber || '',
+      nric: user.nric || '',
+      role: 'tenant' as const,
+      isApproved: true,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    // Create contract fields from contract data
+    const contractFields: ContractFields = {
+      propertyAddress: contract.propertyAddress,
+      unitNumber: '',
+      term: contract.term,
+      moveInDate: contract.moveInDate,
+      expiryDate: contract.expiryDate,
+      rentalPerMonth: contract.rentalPerMonth,
+      securityDeposit: contract.securityDeposit,
+      utilityDeposit: contract.utilityDeposit,
+      accessCardDeposit: contract.accessCardDeposit,
+      agreementFee: contract.agreementFee,
+      dateOfAgreement: contract.dateOfAgreement,
+      companySignName: contract.companySignName,
+      companySignNRIC: contract.companySignNRIC,
+      companySignDesignation: contract.companySignDesignation,
+      companyAddress: '3-38, Kompleks Kantonmen Prima, 698, Jalan Sultan Azlan Shah, Batu 4½, Jalan Ipoh, 51200 Kuala Lumpur, W.P. Kuala Lumpur, Malaysia',
+      companyPhone: '011-23583397',
+      companyEmail: 'myroom8685@gmail.com'
+    };
+
+    const docPDF = generateComprehensiveContractPDF(tenant, contractFields);
+    docPDF.save(`Contract_${user.fullName || ''}_${contract.dateOfAgreement}.pdf`);
   };
 
   // Sign contract handler

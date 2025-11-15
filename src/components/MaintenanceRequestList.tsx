@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs, query, where, updateDoc, doc, addDoc, serverTimestamp, arrayUnion } from 'firebase/firestore';
+import { createNotification, NotificationMessages } from '@/utils/notificationUtils';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import DatePicker from 'react-datepicker';
@@ -131,20 +131,20 @@ export default function MaintenanceRequestList() {
     setRequests(reqs => reqs.map(r => r.id === selected.id ? { ...r, ...docData } : r));
     // Notify tenant
     if (selected.userId) {
-      await addDoc(collection(db, 'notifications'), {
-        userId: selected.userId,
+      await createNotification({
         message: `Your request has been updated. Status: ${status}${selected.assignedTo ? ', Assigned to provider.' : ''}`,
-        read: false,
-        createdAt: serverTimestamp(),
+        type: 'info',
+        userId: selected.userId,
+        priority: 'medium'
       });
     }
     // Notify provider if assigned
     if (selected.assignedTo) {
-      await addDoc(collection(db, 'notifications'), {
+      await createNotification({
+        message: NotificationMessages.MAINTENANCE_ASSIGNED(selected.assignedProviderName || 'Service Provider', selected.unitProperty),
+        type: 'info',
         userId: selected.assignedTo,
-        message: `A new request has been assigned to you. Status: ${status}`,
-        read: false,
-        createdAt: serverTimestamp(),
+        priority: 'medium'
       });
     }
     setSaving(false);

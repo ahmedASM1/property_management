@@ -9,6 +9,7 @@ import emailjs from '@emailjs/browser';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '@/contexts/AuthContext';
 import { getContractExpiryStatus, getExpiryBadgeClass } from '@/lib/utils';
+import { generateComprehensiveContractPDF, ContractFields, generateAgreementText } from '@/utils/contractGenerator';
 
 // EmailJS configuration (replace with your actual credentials)
 const EMAILJS_SERVICE_ID = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || 'YOUR_SERVICE_ID';
@@ -17,6 +18,7 @@ const EMAILJS_PUBLIC_KEY = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || 'YOUR_P
 
 const initialContractFields = {
   propertyAddress: '',
+  unitNumber: '',
   term: '',
   moveInDate: '',
   expiryDate: '',
@@ -29,6 +31,9 @@ const initialContractFields = {
   companySignName: 'ALWAELI MOHAMMED',
   companySignNRIC: '09308729',
   companySignDesignation: 'Managing Director',
+  companyAddress: 'Kuala Lumpur, Malaysia',
+  companyPhone: '+60 3-1234 5678',
+  companyEmail: 'info@greenbridgerealty.com',
 };
 
 const storage = getStorage();
@@ -38,10 +43,12 @@ export default function ContractsPage() {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
+  const [tenantOverrides, setTenantOverrides] = useState<{ fullName?: string; idNumber?: string; phoneNumber?: string; email?: string }>({});
   const [fields, setFields] = useState<Omit<Contract, 'id' | 'tenantId' | 'tenantName' | 'contractUrl' | 'createdAt' | 'updatedAt' | 'archived' | 'archivedAt' | 'status'>>({
     ...initialContractFields,
     acknowledged: false
   });
+  const [previewHtml, setPreviewHtml] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [view, setView] = useState<'list' | 'create' | 'edit'>('list');
@@ -53,10 +60,13 @@ export default function ContractsPage() {
       if (!user) return;
       setLoading(true);
       try {
+        console.log('Fetching tenants and contracts...');
+        
         // Fetch tenants
         const tenantsQuery = query(collection(db, 'users'), where('role', '==', 'tenant'));
         const tenantsSnapshot = await getDocs(tenantsQuery);
         const tenantsData = tenantsSnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Tenant));
+        console.log('Tenants loaded:', tenantsData.length);
         setTenants(tenantsData);
 
         // Fetch contracts
@@ -71,6 +81,7 @@ export default function ContractsPage() {
             tenantName: tenant?.fullName || 'Unknown Tenant',
           } as Contract;
         });
+        console.log('Contracts loaded:', contractsData.length);
         setContracts(contractsData);
 
         // Automated expiry notifications
@@ -78,7 +89,7 @@ export default function ContractsPage() {
 
       } catch (error) {
         console.error("Failed to load data:", error);
-        toast.error('Failed to load data.');
+        toast.error('Failed to load data: ' + (error as Error).message);
       } finally {
         setLoading(false);
       }
@@ -116,16 +127,52 @@ export default function ContractsPage() {
     const isNumber = type === 'number';
     setFields(prev => ({ ...prev, [name]: isNumber ? parseFloat(value) || 0 : value }));
   };
+
+  const handleTenantOverrideChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setTenantOverrides(prev => ({ ...prev, [name]: value }));
+  };
   
+  const contractTotal = useMemo(() => {
+    return (fields.rentalPerMonth || 0) + (fields.securityDeposit || 0) + (fields.utilityDeposit || 0) + (fields.accessCardDeposit || 0) + (fields.agreementFee || 0);
+  }, [fields]);
+
+  const getContractTenant = (): Tenant | null => {
+    if (!selectedTenant) return null;
+    return {
+      ...selectedTenant,
+      fullName: tenantOverrides.fullName || selectedTenant.fullName,
+      idNumber: tenantOverrides.idNumber || selectedTenant.idNumber,
+      phoneNumber: tenantOverrides.phoneNumber || selectedTenant.phoneNumber,
+      email: tenantOverrides.email || selectedTenant.email,
+    } as Tenant;
+  };
+
   const generateContractPDF = (tenant: Tenant, contractFields: typeof fields) => {
-    const doc = new jsPDF();
-    // This is a simplified version. The actual text generation should be more robust.
-    doc.text(`Tenancy Agreement for ${tenant.fullName}`, 10, 10);
-    doc.text(`Property: ${contractFields.propertyAddress}`, 10, 20);
-    doc.text(`Rent: RM${contractFields.rentalPerMonth}/month`, 10, 30);
-    // ... add all other fields
-    return doc;
+    return generateComprehensiveContractPDF(tenant, contractFields as ContractFields);
   }
+
+  const handleGeneratePreview = () => {
+    const t = getContractTenant();
+    if (!t) {
+      toast.error('Please select a tenant.');
+      return;
+    }
+    const html = generateAgreementText(t, fields as unknown as ContractFields);
+    setPreviewHtml(html);
+    toast.success('Contract preview generated');
+  };
+
+  const handleDownloadPdf = () => {
+    const t = getContractTenant();
+    if (!t) {
+      toast.error('Please select a tenant.');
+      return;
+    }
+    const pdfDoc = generateContractPDF(t, fields);
+    const fileName = `tenancy_agreement_${t.fullName.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+    pdfDoc.save(fileName);
+  };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -136,7 +183,8 @@ export default function ContractsPage() {
     setIsSubmitting(true);
 
     try {
-      const pdfDoc = generateContractPDF(selectedTenant, fields);
+      const t = getContractTenant() as Tenant;
+      const pdfDoc = generateContractPDF(t, fields);
       const pdfBase64 = pdfDoc.output('datauristring').split(',')[1];
       
       const fileName = `contract_${selectedTenant.id}_${Date.now()}.pdf`;
@@ -146,9 +194,10 @@ export default function ContractsPage() {
 
       const contractData: Omit<Contract, 'id'> = {
         tenantId: selectedTenant.id,
-        tenantName: selectedTenant.fullName,
+        tenantName: t.fullName,
         contractUrl: pdfUrl,
         ...fields,
+        agreementText: previewHtml || generateAgreementText(t, fields as unknown as ContractFields),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
         archived: false,
@@ -305,6 +354,7 @@ export default function ContractsPage() {
           onChange={(e) => {
             const tenant = tenants.find(t => t.id === e.target.value);
             setSelectedTenant(tenant || null);
+            setTenantOverrides({});
           }}
           className="w-full px-3 py-2 border border-gray-300 rounded-md"
           required
@@ -314,8 +364,34 @@ export default function ContractsPage() {
         </select>
       </div>
 
+      {/* Tenant Overrides */}
+      {selectedTenant && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+          <div>
+            <label htmlFor="fullName" className="block text-sm font-medium text-gray-700">Tenant Name</label>
+            <input type="text" name="fullName" id="fullName" value={tenantOverrides.fullName ?? selectedTenant.fullName} onChange={handleTenantOverrideChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
+          </div>
+          <div>
+            <label htmlFor="idNumber" className="block text-sm font-medium text-gray-700">Passport / NRIC Number</label>
+            <input type="text" name="idNumber" id="idNumber" value={tenantOverrides.idNumber ?? selectedTenant.idNumber ?? ''} onChange={handleTenantOverrideChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
+          </div>
+          <div>
+            <label htmlFor="phoneNumber" className="block text-sm font-medium text-gray-700">Phone Number</label>
+            <input type="text" name="phoneNumber" id="phoneNumber" value={tenantOverrides.phoneNumber ?? selectedTenant.phoneNumber ?? ''} onChange={handleTenantOverrideChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
+          </div>
+          <div>
+            <label htmlFor="email" className="block text-sm font-medium text-gray-700">Email</label>
+            <input type="email" name="email" id="email" value={tenantOverrides.email ?? selectedTenant.email} onChange={handleTenantOverrideChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
+          </div>
+        </div>
+      )}
+
       {/* Form Fields */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div>
+            <label htmlFor="unitNumber" className="block text-sm font-medium text-gray-700">Unit Number</label>
+            <input type="text" name="unitNumber" id="unitNumber" value={fields.unitNumber} onChange={handleFieldChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" placeholder="e.g., A-01-01" />
+        </div>
         <div>
             <label htmlFor="propertyAddress" className="block text-sm font-medium text-gray-700">Property Address</label>
             <input type="text" name="propertyAddress" id="propertyAddress" value={fields.propertyAddress} onChange={handleFieldChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required />
@@ -348,9 +424,13 @@ export default function ContractsPage() {
             <label htmlFor="accessCardDeposit" className="block text-sm font-medium text-gray-700">Access Card Deposit (RM)</label>
             <input type="number" name="accessCardDeposit" id="accessCardDeposit" value={fields.accessCardDeposit} onChange={handleFieldChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
         </div>
-         <div>
+        <div>
             <label htmlFor="agreementFee" className="block text-sm font-medium text-gray-700">Agreement Fee (RM)</label>
             <input type="number" name="agreementFee" id="agreementFee" value={fields.agreementFee} onChange={handleFieldChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
+        </div>
+        <div>
+            <label className="block text-sm font-medium text-gray-700">Total Payable (RM)</label>
+            <input type="text" value={contractTotal} readOnly className="mt-1 block w-full rounded-md border-gray-200 bg-gray-50 shadow-sm" />
         </div>
         <div>
             <label htmlFor="dateOfAgreement" className="block text-sm font-medium text-gray-700">Date of Agreement</label>
@@ -358,14 +438,45 @@ export default function ContractsPage() {
         </div>
       </div>
 
-      <div className="mt-8 flex justify-end gap-4">
-        <button type="button" onClick={() => setView('list')} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300">
-          Cancel
-        </button>
-        <button type="submit" disabled={isSubmitting} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50">
-          {isSubmitting ? 'Saving...' : (selectedContract ? 'Update Contract' : 'Create Contract')}
-        </button>
+      {/* Company Information Section */}
+      <div className="mt-8">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4">Company Information</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label htmlFor="companyAddress" className="block text-sm font-medium text-gray-700">Company Address</label>
+            <input type="text" name="companyAddress" id="companyAddress" value={fields.companyAddress} onChange={handleFieldChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
+          </div>
+          <div>
+            <label htmlFor="companyPhone" className="block text-sm font-medium text-gray-700">Company Phone</label>
+            <input type="text" name="companyPhone" id="companyPhone" value={fields.companyPhone} onChange={handleFieldChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
+          </div>
+          <div>
+            <label htmlFor="companyEmail" className="block text-sm font-medium text-gray-700">Company Email</label>
+            <input type="email" name="companyEmail" id="companyEmail" value={fields.companyEmail} onChange={handleFieldChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" />
+          </div>
+        </div>
       </div>
+
+      <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <button type="button" onClick={handleGeneratePreview} className="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700">Generate Contract</button>
+        <button type="button" onClick={handleDownloadPdf} className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Download PDF</button>
+        <div className="flex justify-end">
+          <button type="button" onClick={() => setView('list')} className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md hover:bg-gray-300 mr-2">
+            Cancel
+          </button>
+          <button type="submit" disabled={isSubmitting} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:opacity-50">
+            {isSubmitting ? 'Saving...' : (selectedContract ? 'Save Changes' : 'Save Contract')}
+          </button>
+        </div>
+      </div>
+
+      {/* Preview */}
+      {previewHtml && (
+        <div className="mt-8 border rounded-md p-6 bg-white">
+          <h3 className="text-lg font-semibold mb-4">Preview</h3>
+          <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: previewHtml }} />
+        </div>
+      )}
     </form>
   );
 

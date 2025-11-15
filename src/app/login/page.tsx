@@ -8,11 +8,28 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { Eye, EyeOff, Mail, Lock, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'react-hot-toast';
 
 /**
  * Login Form Component
  */
-const LoginForm: React.FC = () => {
+interface LoginFormProps {
+  showReset: boolean;
+  setShowReset: (show: boolean) => void;
+  resetEmail: string;
+  setResetEmail: (email: string) => void;
+  resetting: boolean;
+  setResetting: (resetting: boolean) => void;
+}
+
+const LoginForm: React.FC<LoginFormProps> = ({
+  showReset,
+  setShowReset,
+  resetEmail,
+  setResetEmail,
+  resetting,
+  setResetting
+}) => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -177,12 +194,13 @@ const LoginForm: React.FC = () => {
             Remember me
           </label>
         </div>
-        <Link
-          href="/forgot-password"
+        <button
+          type="button"
+          onClick={() => setShowReset(true)}
           className="text-sm text-green-600 hover:text-green-500 font-medium"
         >
           Forgot password?
-        </Link>
+        </button>
       </div>
 
       {/* Submit Button */}
@@ -205,6 +223,10 @@ const LoginForm: React.FC = () => {
  * Login Page Component
  */
 export default function LoginPage() {
+  const [showReset, setShowReset] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetting, setResetting] = useState(false);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <div className="max-w-md w-full space-y-8 bg-white p-8 sm:p-10 rounded-2xl shadow-lg">
@@ -230,22 +252,87 @@ export default function LoginPage() {
 
           {/* Login Form */}
           <main>
-            <LoginForm />
+            <LoginForm 
+              showReset={showReset}
+              setShowReset={setShowReset}
+              resetEmail={resetEmail}
+              setResetEmail={setResetEmail}
+              resetting={resetting}
+              setResetting={setResetting}
+            />
           </main>
 
-          {/* Footer - Register Link */}
+          {/* Footer - Registration Link */}
           <footer className="text-center">
             <p className="text-sm text-gray-600 mt-4">
-              Don&apos;t have an account?{' '}
-              <Link 
-                href="/register" 
-                className="font-medium text-green-700 hover:text-green-600 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 rounded"
-              >
-              Create your account
+              Don't have an account?{' '}
+              <Link href="/register" className="font-medium text-green-600 hover:text-green-500">
+                Create one here
               </Link>
+            </p>
+            <p className="text-xs text-gray-500 mt-2">
+              Need help? Contact your administrator for assistance.
             </p>
           </footer>
         </div>
+
+        {/* Password Reset Modal */}
+        {showReset && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-30">
+            <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-sm mx-2">
+              <h2 className="text-lg font-bold mb-4">Reset Password</h2>
+              <p className="mb-4 text-sm text-gray-600">
+                Enter your email address and we'll send you a link to reset your password.
+              </p>
+              <input
+                type="email"
+                className="form-input mb-4"
+                placeholder="Enter your email"
+                value={resetEmail}
+                onChange={(e) => setResetEmail(e.target.value)}
+                autoFocus
+              />
+              <div className="flex justify-end gap-2">
+                <button
+                  className="btn-secondary"
+                  onClick={() => setShowReset(false)}
+                  disabled={resetting}
+                >
+                  Cancel
+                </button>
+                <button
+                  className="btn-primary"
+                  disabled={resetting || !resetEmail}
+                  onClick={async () => {
+                    setResetting(true);
+                    try {
+                      const response = await fetch('/api/auth/reset-password', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: resetEmail })
+                      });
+                      
+                      if (response.ok) {
+                        toast.success('Password reset link sent! Check your email.');
+                        setShowReset(false);
+                        setResetEmail('');
+                      } else {
+                        const error = await response.json();
+                        toast.error(error.error || 'Failed to send reset link');
+                      }
+                    } catch (err) {
+                      toast.error('Failed to send reset link');
+                    } finally {
+                      setResetting(false);
+                    }
+                  }}
+                >
+                  {resetting ? 'Sending...' : 'Send Reset Link'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }

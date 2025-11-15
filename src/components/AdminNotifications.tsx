@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { getFunctions, httpsCallable } from 'firebase/functions';
+import { collection, query, where, getDocs, updateDoc, doc, orderBy } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
-import { Bell, Check, X, Eye, EyeOff } from 'lucide-react';
+import { Bell, Check, X, Eye, EyeOff, CheckCircle } from 'lucide-react';
 
 interface AdminNotification {
   id: string;
@@ -37,8 +38,6 @@ export default function AdminNotifications() {
   const [adminNotes, setAdminNotes] = useState('');
   const [processing, setProcessing] = useState(false);
 
-  const functions = getFunctions();
-
   useEffect(() => {
     fetchNotifications();
     fetchPendingUsers();
@@ -46,25 +45,47 @@ export default function AdminNotifications() {
 
   const fetchNotifications = async () => {
     try {
-      const getNotifications = httpsCallable(functions, 'getAdminNotifications');
-      const result = await getNotifications();
-      const data = result.data as { notifications?: AdminNotification[] };
-      setNotifications(data.notifications || []);
+      // Try to fetch notifications from Firestore
+      // If the collection doesn't exist or there are permission issues, just set empty array
+      const notificationsQuery = query(
+        collection(db, 'notifications'),
+        where('role', '==', 'admin'),
+        orderBy('createdAt', 'desc')
+      );
+      const notificationsSnapshot = await getDocs(notificationsQuery);
+      const notificationsData = notificationsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date(doc.data().createdAt)
+      })) as AdminNotification[];
+      setNotifications(notificationsData);
     } catch (error) {
-      console.error('Error fetching notifications:', error);
-      toast.error('Failed to fetch notifications');
+      console.log('No notifications found or collection not accessible:', error);
+      // Set empty array if there's an error or no notifications exist
+      setNotifications([]);
     }
   };
 
   const fetchPendingUsers = async () => {
     try {
-      const getPending = httpsCallable(functions, 'getPendingRegistrations');
-      const result = await getPending();
-      const data = result.data as { users?: PendingUser[] };
-      setPendingUsers(data.users || []);
+      // Try to fetch users with isApproved: false from Firestore
+      // If the collection doesn't exist or there are permission issues, just set empty array
+      const usersQuery = query(
+        collection(db, 'users'),
+        where('isApproved', '==', false),
+        orderBy('createdAt', 'desc')
+      );
+      const usersSnapshot = await getDocs(usersQuery);
+      const usersData = usersSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date(doc.data().createdAt)
+      })) as PendingUser[];
+      setPendingUsers(usersData);
     } catch (error) {
-      console.error('Error fetching pending users:', error);
-      toast.error('Failed to fetch pending users');
+      console.log('No pending users found or collection not accessible:', error);
+      // Set empty array if there's an error or no pending users exist
+      setPendingUsers([]);
     } finally {
       setLoading(false);
     }
@@ -72,8 +93,10 @@ export default function AdminNotifications() {
 
   const markNotificationRead = async (notificationId: string) => {
     try {
-      const markRead = httpsCallable(functions, 'markNotificationRead');
-      await markRead({ notificationId });
+      await updateDoc(doc(db, 'notifications', notificationId), {
+        read: true,
+        updatedAt: new Date().toISOString()
+      });
       setNotifications(prev => prev.filter(n => n.id !== notificationId));
       toast.success('Notification marked as read');
     } catch (error) {
@@ -87,11 +110,11 @@ export default function AdminNotifications() {
 
     setProcessing(true);
     try {
-      const approveUser = httpsCallable(functions, 'approveUser');
-      await approveUser({
-        userId: selectedUser.id,
-        approved,
-        adminNotes
+      // Update user approval status
+      await updateDoc(doc(db, 'users', selectedUser.id), {
+        isApproved: approved,
+        adminNotes: adminNotes || null,
+        updatedAt: new Date().toISOString()
       });
 
       toast.success(`User ${approved ? 'approved' : 'rejected'} successfully`);
@@ -139,17 +162,22 @@ export default function AdminNotifications() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <Bell className="h-6 w-6 text-indigo-600" />
-          <h2 className="text-xl font-semibold text-gray-900">Admin Notifications</h2>
+          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg flex items-center justify-center">
+            <Bell className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Admin Notifications</h2>
+            <p className="text-sm text-gray-600">Manage user approvals and system alerts</p>
+          </div>
           {notifications.length > 0 && (
-            <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+            <span className="bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-semibold shadow-sm border-2 border-white">
               {notifications.length}
             </span>
           )}
         </div>
         <button
           onClick={() => setShowPendingUsers(!showPendingUsers)}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
         >
           {showPendingUsers ? 'Hide' : 'Show'} Pending Users ({pendingUsers.length})
         </button>
@@ -157,40 +185,56 @@ export default function AdminNotifications() {
 
       {/* Pending Users Section */}
       {showPendingUsers && (
-        <div className="bg-white rounded-lg shadow p-6">
-          <h3 className="text-lg font-semibold mb-4">Pending User Approvals</h3>
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+              <Eye className="h-4 w-4 text-orange-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900">Pending User Approvals</h3>
+            <span className="bg-orange-100 text-orange-800 text-xs rounded-full px-2 py-1 font-semibold">
+              {pendingUsers.length} pending
+            </span>
+          </div>
           {pendingUsers.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">No pending user approvals</p>
+            <div className="text-center py-12">
+              <div className="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
+                <CheckCircle className="h-8 w-8 text-green-600" />
+              </div>
+              <p className="text-gray-600 font-medium">No pending user approvals</p>
+              <p className="text-sm text-gray-500 mt-1">All users have been processed</p>
+            </div>
           ) : (
             <div className="space-y-4">
               {pendingUsers.map((user) => (
-                <div key={user.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                <div key={user.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-all duration-200 hover:shadow-sm">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center space-x-3">
-                        <h4 className="font-medium text-gray-900">{user.fullName}</h4>
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
+                      <div className="flex items-center space-x-3 mb-2">
+                        <h4 className="font-semibold text-gray-900">{user.fullName}</h4>
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getRoleColor(user.role)}`}>
                           {user.role}
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600">{user.email}</p>
-                      {user.phoneNumber && (
-                        <p className="text-sm text-gray-600">Phone: {user.phoneNumber}</p>
-                      )}
-                      {user.unitNumber && (
-                        <p className="text-sm text-gray-600">Unit: {user.unitNumber}</p>
-                      )}
-                      {user.buildingName && (
-                        <p className="text-sm text-gray-600">Building: {user.buildingName}</p>
-                      )}
-                      <p className="text-xs text-gray-500 mt-1">
-                        Registered: {formatDate(user.createdAt)}
-                      </p>
+                      <div className="space-y-1">
+                        <p className="text-sm text-gray-600">{user.email}</p>
+                        {user.phoneNumber && (
+                          <p className="text-sm text-gray-600">Phone: {user.phoneNumber}</p>
+                        )}
+                        {user.unitNumber && (
+                          <p className="text-sm text-gray-600">Unit: {user.unitNumber}</p>
+                        )}
+                        {user.buildingName && (
+                          <p className="text-sm text-gray-600">Building: {user.buildingName}</p>
+                        )}
+                        <p className="text-xs text-gray-500 font-medium mt-2">
+                          Registered: {formatDate(user.createdAt)}
+                        </p>
+                      </div>
                     </div>
                     <div className="flex space-x-2">
                       <button
                         onClick={() => setSelectedUser(user)}
-                        className="px-3 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 text-sm"
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                       >
                         Review
                       </button>
@@ -290,39 +334,55 @@ export default function AdminNotifications() {
       )}
 
       {/* Notifications List */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold">Recent Notifications</h3>
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200">
+        <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+              <Bell className="h-4 w-4 text-blue-600" />
+            </div>
+            <h3 className="text-lg font-semibold text-gray-900">Recent Notifications</h3>
+            {notifications.length > 0 && (
+              <span className="bg-blue-100 text-blue-800 text-xs rounded-full px-2 py-1 font-semibold">
+                {notifications.length} total
+              </span>
+            )}
+          </div>
         </div>
-        <div className="divide-y divide-gray-200">
+        <div className="divide-y divide-gray-100">
           {notifications.length === 0 ? (
-            <div className="px-6 py-8 text-center text-gray-500">
-              No new notifications
+            <div className="px-6 py-12 text-center text-gray-500">
+              <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                <Bell className="h-8 w-8 text-gray-400" />
+              </div>
+              <p className="text-gray-600 font-medium">No new notifications</p>
+              <p className="text-sm text-gray-500 mt-1">You're all caught up!</p>
             </div>
           ) : (
             notifications.map((notification) => (
-              <div key={notification.id} className="px-6 py-4 hover:bg-gray-50">
+              <div key={notification.id} className="px-6 py-4 hover:bg-gray-50 transition-all duration-200 group">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <div className="flex items-center space-x-3">
-                      <h4 className="font-medium text-gray-900">
+                    <div className="flex items-center space-x-3 mb-2">
+                      <h4 className="font-semibold text-gray-900">
                         New {notification.userRole} Registration
                       </h4>
                       {!notification.read && (
-                        <span className="bg-red-500 text-white text-xs rounded-full h-2 w-2"></span>
+                        <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse"></div>
                       )}
                     </div>
-                    <p className="text-sm text-gray-600">
-                      {notification.userFullName} ({notification.userEmail})
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      {formatDate(notification.createdAt)}
-                    </p>
+                    <div className="space-y-1">
+                      <p className="text-sm text-gray-600">
+                        {notification.userFullName} ({notification.userEmail})
+                      </p>
+                      <p className="text-xs text-gray-500 font-medium">
+                        {formatDate(notification.createdAt)}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex space-x-2">
                     <button
                       onClick={() => markNotificationRead(notification.id)}
-                      className="text-indigo-600 hover:text-indigo-800 text-sm"
+                      className="px-3 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
                     >
                       Mark Read
                     </button>

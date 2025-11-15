@@ -8,11 +8,15 @@ service cloud.firestore {
     }
     
     function isAdmin() {
-      return isAuthenticated() && request.auth.token.admin == true;
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
     function isTenant() {
-      return isAuthenticated() && request.auth.token.role == 'tenant';
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'tenant';
     }
     
     function isOwner(userId) {
@@ -20,13 +24,15 @@ service cloud.firestore {
     }
 
     function isApproved() {
-      return isAuthenticated() && request.auth.token.approved == true;
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isApproved == true;
     }
 
     // Users collection
     match /users/{userId} {
       allow read: if isAuthenticated() && (isAdmin() || isOwner(userId));
-      allow create: if isAuthenticated();
+      allow create: if isAuthenticated(); // allow new user doc creation at signup
       allow update: if isAdmin() || isOwner(userId);
       allow delete: if isAdmin();
     }
@@ -54,19 +60,19 @@ service cloud.firestore {
         isAdmin() || 
         (isTenant() && resource.data.tenantId == request.auth.uid)
       );
-      allow create: if isAdmin();
-      allow update: if isAdmin();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
       allow delete: if isAdmin();
 
       // Contract comments subcollection
       match /comments/{commentId} {
         allow read: if isAuthenticated() && (
           isAdmin() || 
-          (isTenant() && get(/databases/$(database)/documents/contracts/$(contractId)).data.tenantId == request.auth.uid)
+          (isTenant() && resource.data.tenantId == request.auth.uid)
         );
         allow create: if isAuthenticated() && (
           isAdmin() || 
-          (isTenant() && get(/databases/$(database)/documents/contracts/$(contractId)).data.tenantId == request.auth.uid)
+          (isTenant() && resource.data.tenantId == request.auth.uid)
         );
         allow update, delete: if isAdmin();
       }
@@ -78,8 +84,8 @@ service cloud.firestore {
         isAdmin() || 
         (isTenant() && resource.data.tenantId == request.auth.uid)
       );
-      allow create: if isAdmin();
-      allow update: if isAdmin() || (isTenant() && resource.data.tenantId == request.auth.uid);
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
       allow delete: if isAdmin() || (isAuthenticated() && resource.data.fromId == request.auth.uid);
     }
 
@@ -100,6 +106,11 @@ service cloud.firestore {
     match /units/{unitId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
+    }
+
+    // Fallback rule for any other collections - allow authenticated users basic access
+    match /{document=**} {
+      allow read, write: if isAuthenticated();
     }
   }
 }

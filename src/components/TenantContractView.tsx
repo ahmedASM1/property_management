@@ -4,6 +4,7 @@ import { db, storage } from '../lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import jsPDF from 'jspdf';
+import { generateComprehensiveContractPDF, ContractFields } from '@/utils/contractGenerator';
 
 interface Contract {
   id: string;
@@ -99,19 +100,41 @@ export default function TenantContractView({ tenantId }: TenantContractViewProps
 
   const exportContractAsPDF = async (contract: Contract) => {
     try {
-      const doc = new jsPDF();
-      
-      // Add contract content
-      doc.setFontSize(16);
-      doc.text('SUB-TENANCY AGREEMENT', 20, 20);
-      
-      doc.setFontSize(12);
-      doc.text(`Date: ${contract.dateOfAgreement}`, 20, 30);
-      doc.text('BETWEEN:', 20, 40);
-      doc.text('Company: GREEN BRIDGE REALTY SDN. BHD', 20, 50);
-      doc.text(`Tenant: ${contract.tenantName}`, 20, 60);
-      
-      // Add more contract details...
+      // Create a mock tenant object from contract data
+      const tenant = {
+        id: contract.tenantId,
+        fullName: contract.tenantName,
+        email: '',
+        phoneNumber: '',
+        nric: '',
+        role: 'tenant' as const,
+        isApproved: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      // Create contract fields from contract data
+      const contractFields: ContractFields = {
+        propertyAddress: contract.propertyAddress,
+        unitNumber: '',
+        term: contract.term,
+        moveInDate: contract.moveInDate,
+        expiryDate: contract.expiryDate,
+        rentalPerMonth: parseFloat(contract.rentalPerMonth) || 0,
+        securityDeposit: parseFloat(contract.securityDeposit) || 0,
+        utilityDeposit: parseFloat(contract.utilityDeposit) || 0,
+        accessCardDeposit: parseFloat(contract.accessCardDeposit) || 0,
+        agreementFee: parseFloat(contract.agreementFee) || 0,
+        dateOfAgreement: contract.dateOfAgreement,
+        companySignName: contract.companySignName,
+        companySignNRIC: contract.companySignNRIC,
+        companySignDesignation: contract.companySignDesignation,
+        companyAddress: 'Kuala Lumpur, Malaysia',
+        companyPhone: '+60 3-1234 5678',
+        companyEmail: 'info@greenbridgerealty.com'
+      };
+
+      const doc = generateComprehensiveContractPDF(tenant, contractFields);
       
       // Save the PDF
       doc.save(`contract-${contract.id}.pdf`);

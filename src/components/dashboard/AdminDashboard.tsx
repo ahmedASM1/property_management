@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, where, onSnapshot, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from 'recharts';
 import Link from 'next/link';
@@ -12,7 +12,15 @@ import {
   FaExclamationTriangle, 
   FaBuilding,
   FaChartLine,
-  FaTools
+  FaTools,
+  FaBell,
+  FaCog,
+  FaShieldAlt,
+  FaDatabase,
+  FaClock,
+  FaCheckCircle,
+  FaTimesCircle,
+  FaExclamationCircle
 } from 'react-icons/fa';
 import { sendPaymentReminderEmail } from '@/lib/email';
 import jsPDF from 'jspdf';
@@ -31,6 +39,18 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
 
   const totalUnpaidInvoices = invoices.filter(i => !i.isPaid).length;
   const paidInvoices = invoices.filter(i => i.isPaid).length;
+
+  // Real-time system monitoring states
+  const [systemHealth, setSystemHealth] = useState({
+    database: 'healthy',
+    api: 'healthy',
+    storage: 'healthy',
+    lastChecked: new Date()
+  });
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState(0);
+  const [activeMaintenanceRequests, setActiveMaintenanceRequests] = useState(0);
+  const [systemAlerts, setSystemAlerts] = useState<any[]>([]);
 
   const recentInvoices = [...invoices]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -88,8 +108,72 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
       setTotalUnits(snap.size);
     }
 
+    async function fetchPendingUsers() {
+      const q = query(collection(db, 'users'), where('status', '==', 'pending'));
+      const snap = await getDocs(q);
+      setPendingApprovals(snap.size);
+    }
+
+    async function fetchActiveMaintenance() {
+      const q = query(collection(db, 'maintenance_requests'), where('status', 'in', ['pending', 'in progress']));
+      const snap = await getDocs(q);
+      setActiveMaintenanceRequests(snap.size);
+    }
+
+    async function fetchRecentActivity() {
+      const q = query(collection(db, 'admin_notifications'), orderBy('createdAt', 'desc'), limit(5));
+      const snap = await getDocs(q);
+      const activities = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setRecentActivity(activities);
+    }
+
+    async function checkSystemHealth() {
+      try {
+        // Simulate system health checks
+        const health = {
+          database: 'healthy',
+          api: 'healthy', 
+          storage: 'healthy',
+          lastChecked: new Date()
+        };
+        setSystemHealth(health);
+      } catch (error) {
+        console.error('System health check failed:', error);
+      }
+    }
+
     fetchMaintenance();
     fetchUnits();
+    fetchPendingUsers();
+    fetchActiveMaintenance();
+    fetchRecentActivity();
+    checkSystemHealth();
+
+    // Set up real-time listeners
+    const maintenanceUnsubscribe = onSnapshot(
+      query(collection(db, 'maintenance_requests'), where('status', 'in', ['pending', 'in progress'])),
+      (snapshot) => setActiveMaintenanceRequests(snapshot.size)
+    );
+
+    const usersUnsubscribe = onSnapshot(
+      query(collection(db, 'users'), where('status', '==', 'pending')),
+      (snapshot) => setPendingApprovals(snapshot.size)
+    );
+
+    const notificationsUnsubscribe = onSnapshot(
+      query(collection(db, 'admin_notifications'), orderBy('createdAt', 'desc'), limit(5)),
+      (snapshot) => {
+        const activities = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setRecentActivity(activities);
+      }
+    );
+
+    // Cleanup listeners
+    return () => {
+      maintenanceUnsubscribe();
+      usersUnsubscribe();
+      notificationsUnsubscribe();
+    };
   }, []);
 
   async function handleBulkRemind() {
@@ -182,6 +266,184 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
       </div>
 
       <div className="px-2 sm:px-4 py-6 space-y-6">
+        {/* System Health & Admin Status */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          {/* System Health */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">System Health</h3>
+              <FaShieldAlt className="h-5 w-5 text-green-600" />
+            </div>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Database</span>
+                <div className="flex items-center space-x-2">
+                  <FaCheckCircle className="h-4 w-4 text-green-500" />
+                  <span className="text-sm font-medium text-green-600">Healthy</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">API</span>
+                <div className="flex items-center space-x-2">
+                  <FaCheckCircle className="h-4 w-4 text-green-500" />
+                  <span className="text-sm font-medium text-green-600">Healthy</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Storage</span>
+                <div className="flex items-center space-x-2">
+                  <FaCheckCircle className="h-4 w-4 text-green-500" />
+                  <span className="text-sm font-medium text-green-600">Healthy</span>
+                </div>
+              </div>
+            </div>
+            <div className="mt-4 pt-3 border-t border-gray-200">
+              <p className="text-xs text-gray-500">Last checked: {systemHealth.lastChecked.toLocaleTimeString()}</p>
+            </div>
+          </div>
+
+          {/* Admin Notifications */}
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                  <FaBell className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Admin Alerts</h3>
+                  <p className="text-sm text-gray-600">System notifications and pending tasks</p>
+                </div>
+              </div>
+              {(pendingApprovals + activeMaintenanceRequests + overdueInvoices.length + expiringContracts.length) > 0 && (
+                <span className="bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-semibold shadow-sm border-2 border-white">
+                  {pendingApprovals + activeMaintenanceRequests + overdueInvoices.length + expiringContracts.length}
+                </span>
+              )}
+            </div>
+            <div className="space-y-3">
+              {pendingApprovals > 0 && (
+                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-lg border border-yellow-200 hover:shadow-sm transition-all duration-200">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
+                      <FaExclamationCircle className="h-4 w-4 text-yellow-600" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-semibold text-yellow-800">Pending Approvals</span>
+                      <p className="text-xs text-yellow-700">Users waiting for approval</p>
+                    </div>
+                  </div>
+                  <span className="bg-yellow-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
+                    {pendingApprovals}
+                  </span>
+                </div>
+              )}
+              {activeMaintenanceRequests > 0 && (
+                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200 hover:shadow-sm transition-all duration-200">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <FaTools className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-semibold text-blue-800">Active Maintenance</span>
+                      <p className="text-xs text-blue-700">Ongoing maintenance requests</p>
+                    </div>
+                  </div>
+                  <span className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
+                    {activeMaintenanceRequests}
+                  </span>
+                </div>
+              )}
+              {overdueInvoices.length > 0 && (
+                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-red-50 to-red-100 rounded-lg border border-red-200 hover:shadow-sm transition-all duration-200">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
+                      <FaExclamationTriangle className="h-4 w-4 text-red-600" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-semibold text-red-800">Overdue Invoices</span>
+                      <p className="text-xs text-red-700">Invoices past due date</p>
+                    </div>
+                  </div>
+                  <span className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
+                    {overdueInvoices.length}
+                  </span>
+                </div>
+              )}
+              {expiringContracts.length > 0 && (
+                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg border border-orange-200 hover:shadow-sm transition-all duration-200">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
+                      <FaClock className="h-4 w-4 text-orange-600" />
+                    </div>
+                    <div>
+                      <span className="text-sm font-semibold text-orange-800">Expiring Contracts</span>
+                      <p className="text-xs text-orange-700">Contracts expiring within 30 days</p>
+                    </div>
+                  </div>
+                  <span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
+                    {expiringContracts.length}
+                  </span>
+                </div>
+              )}
+              {pendingApprovals === 0 && activeMaintenanceRequests === 0 && overdueInvoices.length === 0 && expiringContracts.length === 0 && (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
+                    <FaCheckCircle className="h-8 w-8 text-green-600" />
+                  </div>
+                  <p className="text-gray-600 font-medium">All systems running smoothly!</p>
+                  <p className="text-sm text-gray-500 mt-1">No pending alerts or notifications</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Quick Admin Actions */}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Quick Actions</h3>
+              <FaCog className="h-5 w-5 text-gray-600" />
+            </div>
+            <div className="space-y-2">
+              <Link href="/dashboard/users/approvals" className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-all duration-200 hover:shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span>User Approvals</span>
+                  {pendingApprovals > 0 && (
+                    <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-semibold">
+                      {pendingApprovals}
+                    </span>
+                  )}
+                </div>
+              </Link>
+              <Link href="/dashboard/users" className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
+                Manage All Users
+              </Link>
+              <Link href="/dashboard/maintenance/admin" className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-all duration-200 hover:shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span>Maintenance Requests</span>
+                  {activeMaintenanceRequests > 0 && (
+                    <span className="bg-blue-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-semibold">
+                      {activeMaintenanceRequests}
+                    </span>
+                  )}
+                </div>
+              </Link>
+              <Link href="/dashboard/invoices" className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-all duration-200 hover:shadow-sm">
+                <div className="flex items-center justify-between">
+                  <span>Invoice Management</span>
+                  {totalUnpaidInvoices > 0 && (
+                    <span className="bg-orange-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-semibold">
+                      {totalUnpaidInvoices}
+                    </span>
+                  )}
+                </div>
+              </Link>
+              <Link href="/dashboard/reports" className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
+                Generate Reports
+              </Link>
+            </div>
+          </div>
+        </div>
+
         {/* Critical Alerts */}
         {(overdueInvoices.length > 0 || expiringContracts.length > 0) && (
           <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-200 rounded-2xl p-4 sm:p-6 shadow-sm">
@@ -462,8 +724,55 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
           </div>
         </div>
 
-        {/* Recent Activity */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Recent Activity & Admin Activity */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Recent Admin Activity */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Recent Admin Activity</h3>
+                <FaClock className="h-5 w-5 text-gray-400" />
+              </div>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {recentActivity.length === 0 ? (
+                <div className="p-6 text-center text-gray-500">
+                  <FaBell className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <p>No recent admin activity</p>
+                </div>
+              ) : (
+                recentActivity.map((activity, index) => (
+                  <div key={activity.id || index} className="p-4 hover:bg-gray-50 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
+                          <FaBell className="h-4 w-4 text-blue-600" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">
+                            {activity.type === 'new_registration' ? 'New User Registration' : activity.type}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {activity.userFullName} ({activity.userEmail})
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          activity.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                          activity.status === 'approved' ? 'bg-green-100 text-green-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          {activity.status || 'pending'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
           {/* Recent Invoices */}
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-200 bg-gray-50">

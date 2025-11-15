@@ -9,13 +9,13 @@ import {
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
-import { User } from '@/types';
+import { User, UserStatus } from '@/types';
 import { useRouter } from 'next/navigation';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  registerUser: (userData: Partial<User> & { email: string; password: string }) => Promise<void>;
+  registerUser: (userData: { email: string; password: string; fullName: string }) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -30,37 +30,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      // Avoid race conditions during registration: if a registration is in progress,
+      // skip auth-state handling until it completes.
+      try {
+        if (typeof window !== 'undefined' && localStorage.getItem('gb_pending_registration') === '1') {
+          setLoading(false);
+          return;
+        }
+      } catch {}
+      
       if (firebaseUser) {
         try {
           const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
           if (userDoc.exists()) {
             const userData = userDoc.data();
-            // Check if user is approved
-            if (!userData.isApproved) {
-              // Don't throw an error here, just sign out and clear user
+            
+            // Check if user is approved (using new status field or legacy isApproved)
+            const isApproved = userData.status === 'approved' || userData.isApproved === true;
+            
+            if (isApproved) {
+              setUser({
+                id: firebaseUser.uid,
+                email: firebaseUser.email || '',
+                ...userData,
+                status: userData.status || (userData.isApproved ? 'approved' : 'pending'),
+              } as User);
+            } else {
+              // User exists but not approved - sign them out
               await firebaseSignOut(auth);
               setUser(null);
-              // Optionally, you can redirect or show a toast from a component
-              // that listens to this state change.
-              // For now, we'll just log it client-side.
-              console.log('User is not approved. Signed out.');
-              return; // Stop further execution for this user
             }
-            setUser({
-              id: firebaseUser.uid,
-              email: firebaseUser.email || '',
-              ...userData,
-            } as User);
           } else {
-            // This case might happen if a user is in auth but not firestore. Sign out.
+            // User doesn't exist in Firestore - sign them out
             await firebaseSignOut(auth);
             setUser(null);
-            console.error('User profile not found in Firestore. Signed out.');
           }
         } catch (error: unknown) {
           console.error('Error during auth state change processing:', error);
-          // Ensure user is signed out on any error during the check
-          await firebaseSignOut(auth).catch(e => console.error("Sign out failed", e));
+          // Don't sign out on error, just set user to null and continue
           setUser(null);
         }
       } else {
@@ -72,24 +79,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const registerUser = async (userData: Partial<User> & { email: string; password: string }) => {
-    const { email, password, ...rest } = userData;
+  const registerUser = async (userData: { email: string; password: string; fullName: string }) => {
+    const { email, password, fullName } = userData;
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
       
+      // Create user document with pending status
       await setDoc(doc(db, 'users', user.uid), {
-          ...rest,
-          email,
-          isApproved: false, // Default to not approved
-          createdAt: new Date().toISOString(),
+        email,
+        fullName,
+        role: 'tenant', // Default role - admin will assign proper role
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        // Legacy field for backward compatibility
+        isApproved: false,
       });
   
-      // It's critical to sign out the user immediately after registration
-      // because their account is not yet approved.
+      // Don't set user in context - they need admin approval
+      // Sign them out immediately after registration
       await firebaseSignOut(auth);
     } catch (error) {
-      // It's important to catch and re-throw the error so the calling component can handle it.
       console.error("Registration failed:", error);
       throw error;
     }
@@ -101,33 +112,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
       
       if (!userDoc.exists()) {
+        // User doesn't exist in Firestore
         await firebaseSignOut(auth);
-        throw new Error('profile-not-found');
+        throw new Error('Account not found. Please contact your administrator.');
+      } else {
+        const userData = userDoc.data();
+        
+        // Check if user is approved (using new status field or legacy isApproved)
+        const isApproved = userData.status === 'approved' || userData.isApproved === true;
+        
+        if (!isApproved) {
+          await firebaseSignOut(auth);
+          if (userData.status === 'rejected') {
+            throw new Error('Your account has been rejected. Please contact your administrator.');
+          } else {
+            throw new Error('Your account is pending admin approval. Please wait for approval before signing in.');
+          }
+        }
+        
+        // Check if user has set their password (for admin-created accounts)
+        if (userData.hasSetPassword === false) {
+          await firebaseSignOut(auth);
+          throw new Error('Please complete your account setup by clicking the link sent to your email.');
+        }
+        
+        setUser({
+          id: userCredential.user.uid,
+          email: userCredential.user.email || '',
+          ...userData,
+          status: userData.status || (userData.isApproved ? 'approved' : 'pending'),
+        } as User);
       }
-
-      const userData = userDoc.data();
-      if (!userData.isApproved) {
-        await firebaseSignOut(auth);
-        throw new Error('not-approved');
-      }
-
-      setUser({
-        id: userCredential.user.uid,
-        email: userCredential.user.email || '',
-        ...userData,
-      } as User);
 
       router.push('/dashboard');
     } catch (error: unknown) {
       console.error('Login error:', error);
-      if (error instanceof Error) {
-        if (error.message === 'not-approved') {
-          throw new Error('Your account is pending approval');
-        }
-        if (error.message === 'profile-not-found') {
-          throw new Error('User profile not found');
-        }
-      }
       throw error;
     }
   };

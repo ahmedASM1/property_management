@@ -1,394 +1,497 @@
 'use client';
-import { useEffect, useState } from 'react';
-import { collection, getDocs, addDoc, updateDoc, doc, query, where } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import Link from 'next/link';
-import { User } from '@/types';
+import { Unit, Building, User, RentalType } from '@/types';
+import { toast } from 'react-hot-toast';
+import { FaPlus, FaEdit, FaTrash, FaHome, FaUser } from 'react-icons/fa';
 
-interface Unit {
-  id: string;
-  buildingName: string;
-  unitNumber: string;
-  status: 'available' | 'booked' | 'rented out' | 'in service';
-  ownerId?: string;
-  rentalType?: string;
-  rentPrice?: string | number;
-}
-
-const statusOptions = ['available', 'booked', 'rented out', 'in service'] as const;
-
-const buildingNameOptions = [
-  'Sky Suite KLCC',
-  'Vortex Suite KLCC',
-  'Mutiara Ville Cyberjaya',
-  'Tamarind Suite Cyberjaya',
-  'Cybersquare Cyberjaya',
-  '10 Stonor KLCC',
-  'Holiday place KLCC',
-  'Summer suite KLCC',
-  'Cormar Suite KLCC',
-  'Star Residences KLCC',
-  'Other',
-];
-
-const rentalTypeOptions = [
-  'Whole Unit',
-  'Room 1',
-  'Room 2',
-  'Room 3',
-  'Studio',
-];
+const rentalTypes: RentalType[] = ['Room1', 'Room2', 'Room3', 'Studio', 'Whole Unit'];
 
 export default function UnitsPage() {
   const [units, setUnits] = useState<Unit[]>([]);
-  const [newUnit, setNewUnit] = useState({ buildingName: '', unitNumber: '', status: 'available' as Unit['status'], ownerId: '', rentalType: '', rentPrice: '' });
-  const [customBuildingName, setCustomBuildingName] = useState('');
-  const [isManaged, setIsManaged] = useState(false);
-  const [owners, setOwners] = useState<User[]>([]);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editUnit, setEditUnit] = useState<Partial<Unit & { rentPrice: string }>>({});
+  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [tenants, setTenants] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
+  const [editingUnit, setEditingUnit] = useState<Unit | null>(null);
+  const [formData, setFormData] = useState({
+    buildingId: '',
+    buildingName: '',
+    block: '',
+    floor: 0,
+    unitNumber: '',
+    monthlyRent: 0,
+    rentalType: 'Room1' as RentalType,
+    size: 0,
+    bedrooms: 0,
+    bathrooms: 0,
+    currentTenantId: '',
+    amenities: [] as string[]
+  });
 
   useEffect(() => {
-    async function fetchInitialData() {
-      // Fetch units
-      const unitsSnapshot = await getDocs(collection(db, 'units'));
-      setUnits(unitsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Unit)));
-      
-      // Fetch owners
-      const ownersQuery = query(collection(db, 'users'), where('role', '==', 'owner'));
-      const ownersSnapshot = await getDocs(ownersQuery);
-      setOwners(ownersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)));
-    }
-    fetchInitialData();
+    fetchData();
   }, []);
 
-  async function fetchUnits() {
-    const snapshot = await getDocs(collection(db, 'units'));
-    setUnits(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Unit)));
-  }
+  const fetchData = async () => {
+    try {
+      // Fetch buildings
+      const buildingsQuery = query(collection(db, 'buildings'), orderBy('name'));
+      const buildingsSnapshot = await getDocs(buildingsQuery);
+      const buildingsData = buildingsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt || new Date()),
+          updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : (data.updatedAt || new Date())
+        };
+      }) as Building[];
+      setBuildings(buildingsData);
 
-  async function handleAddUnit(e: React.FormEvent) {
+      // Fetch tenants
+      const tenantsQuery = query(collection(db, 'users'), where('role', '==', 'tenant'));
+      const tenantsSnapshot = await getDocs(tenantsQuery);
+      const tenantsData = tenantsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt || new Date()),
+          updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : (data.updatedAt || new Date())
+        };
+      }) as User[];
+      setTenants(tenantsData);
+
+      // Fetch units
+      const unitsQuery = query(collection(db, 'units'), orderBy('fullUnitNumber'));
+      const unitsSnapshot = await getDocs(unitsQuery);
+      const unitsData = unitsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt || new Date()),
+          updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : (data.updatedAt || new Date())
+        };
+      }) as Unit[];
+      setUnits(unitsData);
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast.error('Failed to fetch data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateFullUnitNumber = (block: string, floor: number, unitNumber: string) => {
+    return `${block}-${floor.toString().padStart(2, '0')}-${unitNumber.padStart(2, '0')}`;
+  };
+
+  const cleanDataForFirestore = (data: any) => {
+    const cleaned = { ...data };
+    Object.keys(cleaned).forEach(key => {
+      if (cleaned[key] === undefined) {
+        delete cleaned[key];
+      }
+    });
+    return cleaned;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const finalBuildingName = newUnit.buildingName === 'Other' ? customBuildingName : newUnit.buildingName;
+    try {
+      const selectedBuilding = buildings.find(b => b.id === formData.buildingId);
+      if (!selectedBuilding) {
+        toast.error('Please select a building');
+        return;
+      }
 
-    if (!finalBuildingName || !newUnit.unitNumber) return;
-    
-    const unitToAdd: Omit<Unit, 'id'> = {
-      buildingName: finalBuildingName,
-      unitNumber: newUnit.unitNumber,
-      status: newUnit.status,
-      rentalType: newUnit.status === 'rented out' ? newUnit.rentalType : '',
-      rentPrice: newUnit.status === 'rented out' ? Number(newUnit.rentPrice) : undefined,
-    };
+      const fullUnitNumber = generateFullUnitNumber(formData.block, formData.floor, formData.unitNumber);
+      
+      // Check for duplicate unit number in the same building
+      const existingUnit = units.find(u => 
+        u.buildingId === formData.buildingId && 
+        u.fullUnitNumber === fullUnitNumber && 
+        u.id !== editingUnit?.id
+      );
+      
+      if (existingUnit) {
+        toast.error('A unit with this number already exists in this building');
+        return;
+      }
 
-    if (isManaged && newUnit.ownerId) {
-      unitToAdd.ownerId = newUnit.ownerId;
+      const unitData = {
+        ...formData,
+        buildingName: selectedBuilding.name,
+        fullUnitNumber,
+        status: formData.currentTenantId ? 'occupied' : 'vacant',
+        currentTenantName: formData.currentTenantId ? 
+          tenants.find(t => t.id === formData.currentTenantId)?.fullName || null : null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      const cleanedUnitData = cleanDataForFirestore(unitData);
+
+      if (editingUnit) {
+        await updateDoc(doc(db, 'units', editingUnit.id), {
+          ...cleanedUnitData,
+          updatedAt: new Date()
+        });
+        toast.success('Unit updated successfully');
+      } else {
+        await addDoc(collection(db, 'units'), cleanedUnitData);
+        toast.success('Unit added successfully');
+      }
+
+      setShowModal(false);
+      setEditingUnit(null);
+      resetForm();
+      fetchData();
+    } catch (error) {
+      console.error('Error saving unit:', error);
+      toast.error('Failed to save unit');
     }
-
-    await addDoc(collection(db, 'units'), unitToAdd);
-    setNewUnit({ buildingName: '', unitNumber: '', status: 'available', ownerId: '', rentalType: '', rentPrice: '' });
-    setCustomBuildingName('');
-    setIsManaged(false);
-    fetchUnits();
-  }
-
-  async function handleEditSave(id: string) {
-    if (!editUnit.buildingName || !editUnit.unitNumber || !editUnit.status) return;
-    const updateData: Partial<Unit> = {
-      buildingName: editUnit.buildingName,
-      unitNumber: editUnit.unitNumber,
-      status: editUnit.status,
-      rentalType: editUnit.status === 'rented out' ? (editUnit.rentalType || '') : '',
-    };
-    if (editUnit.status === 'rented out') {
-      updateData.rentPrice = Number(editUnit.rentPrice);
-    }
-    await updateDoc(doc(db, 'units', id), updateData);
-    setEditingId(null);
-    setEditUnit({});
-    fetchUnits();
-  }
+  };
 
   const handleEdit = (unit: Unit) => {
-    setEditingId(unit.id);
-    setEditUnit({
-      ...unit,
-      rentPrice: unit.rentPrice !== undefined ? String(unit.rentPrice) : '',
+    setEditingUnit(unit);
+    setFormData({
+      buildingId: unit.buildingId,
+      buildingName: unit.buildingName,
+      block: unit.block,
+      floor: unit.floor,
+      unitNumber: unit.unitNumber,
+      monthlyRent: unit.monthlyRent,
+      rentalType: unit.rentalType,
+      size: unit.size || 0,
+      bedrooms: unit.bedrooms || 0,
+      bathrooms: unit.bathrooms || 0,
+      currentTenantId: unit.currentTenantId || '',
+      amenities: unit.amenities || []
+    });
+    setShowModal(true);
+  };
+
+  const handleDelete = async (unit: Unit) => {
+    if (window.confirm(`Are you sure you want to delete unit ${unit.fullUnitNumber}?`)) {
+      try {
+        await deleteDoc(doc(db, 'units', unit.id));
+        toast.success('Unit deleted successfully');
+        fetchData();
+      } catch (error) {
+        console.error('Error deleting unit:', error);
+        toast.error('Failed to delete unit');
+      }
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      buildingId: '',
+      buildingName: '',
+      block: '',
+      floor: 0,
+      unitNumber: '',
+      monthlyRent: 0,
+      rentalType: 'Room1',
+      size: 0,
+      bedrooms: 0,
+      bathrooms: 0,
+      currentTenantId: '',
+      amenities: []
     });
   };
 
-  return (
-    <div className="max-w-3xl mx-auto py-8 px-2 sm:px-0">
-      <div className="mb-4 flex justify-start">
-        <Link href="/dashboard">
-          <span className="inline-block px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 font-medium">&larr; Back to Dashboard</span>
-        </Link>
-      </div>
-      <h2 className="text-2xl font-bold mb-6 text-center">Unit Management</h2>
-      {/* Add Unit Form */}
-      <form onSubmit={handleAddUnit} className="mb-6 p-4 bg-gray-50 rounded-lg border">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-          <div>
-            <label className="block text-sm font-medium mb-1">Building Name</label>
-            <select
-              className="border rounded px-3 py-2 w-full"
-          value={newUnit.buildingName}
-          onChange={e => setNewUnit({ ...newUnit, buildingName: e.target.value })}
-              required
-            >
-              <option value="">Select Building</option>
-              {buildingNameOptions.map(name => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
-          </div>
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setEditingUnit(null);
+    resetForm();
+  };
 
-          {newUnit.buildingName === 'Other' && (
-            <div>
-              <label className="block text-sm font-medium mb-1">Custom Building Name</label>
-              <input
-                type="text"
-                placeholder="Enter Building Name"
-                className="border rounded px-3 py-2 w-full"
-                value={customBuildingName}
-                onChange={e => setCustomBuildingName(e.target.value)}
-          required
-        />
-            </div>
-          )}
-          
-          <div>
-            <label className="block text-sm font-medium mb-1">Unit Number</label>
-        <input
-          type="text"
-          placeholder="Unit Number"
-              className="border rounded px-3 py-2 w-full"
-          value={newUnit.unitNumber}
-          onChange={e => setNewUnit({ ...newUnit, unitNumber: e.target.value })}
-          required
-        />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Status</label>
-        <select
-              className="border rounded px-3 py-2 w-full"
-          value={newUnit.status}
-          onChange={e => setNewUnit({ ...newUnit, status: e.target.value as Unit['status'] })}
-        >
-          {statusOptions.map(status => (
-            <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
-          ))}
-        </select>
-          </div>
-        </div>
-        <div className="mt-4">
-            <label className="flex items-center gap-2">
-              <input 
-                type="checkbox"
-                checked={isManaged}
-                onChange={(e) => setIsManaged(e.target.checked)}
-                className="rounded"
-              />
-              <span>Assign to a property owner</span>
-            </label>
-        </div>
-        {isManaged && (
-          <div className="mt-4">
-            <label className="block text-sm font-medium mb-1">Select Owner</label>
-            <select
-              className="border rounded px-3 py-2 w-full"
-              value={newUnit.ownerId}
-              onChange={e => setNewUnit({ ...newUnit, ownerId: e.target.value })}
-              required
-            >
-              <option value="">-- Select an Owner --</option>
-              {owners.map(owner => (
-                <option key={owner.id} value={owner.id}>{owner.fullName}</option>
-              ))}
-            </select>
-          </div>
-        )}
-        {newUnit.status === 'rented out' && (
-          <>
-            <div className="mt-4">
-              <label className="block text-sm font-medium mb-1">Rental Type</label>
-              <select
-                className="border rounded px-3 py-2 w-full"
-                value={newUnit.rentalType}
-                onChange={e => setNewUnit({ ...newUnit, rentalType: e.target.value })}
-                required
-              >
-                <option value="">Select Rental Type</option>
-                {rentalTypeOptions.map(type => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
-            </div>
-            <div className="mt-4">
-              <label className="block text-sm font-medium mb-1">Rent Price (RM)</label>
-              <input
-                type="number"
-                min="0"
-                className="border rounded px-3 py-2 w-full"
-                value={newUnit.rentPrice}
-                onChange={e => setNewUnit({ ...newUnit, rentPrice: e.target.value })}
-                required
-              />
-            </div>
-          </>
-        )}
-        <div className="mt-6 flex justify-end">
-            <button type="submit" className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700">Add Unit</button>
-        </div>
-      </form>
-      {/* Table for desktop */}
-      <div className="overflow-x-auto hidden md:block">
-        <table className="min-w-full bg-white rounded shadow text-sm md:text-base">
-          <thead>
-            <tr>
-              <th className="py-2 px-4 border-b">Building Name</th>
-              <th className="py-2 px-4 border-b">Unit Number</th>
-              <th className="py-2 px-4 border-b">Status</th>
-              <th className="py-2 px-4 border-b">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {units.map(unit => (
-              <tr key={unit.id} className="border-b last:border-b-0">
-                {editingId === unit.id ? (
-                  <>
-                    <td className="py-2 px-4"><input className="border rounded px-2 py-1 w-full" value={editUnit.buildingName || ''} onChange={e => setEditUnit({ ...editUnit, buildingName: e.target.value })} /></td>
-                    <td className="py-2 px-4"><input className="border rounded px-2 py-1 w-full" value={editUnit.unitNumber || ''} onChange={e => setEditUnit({ ...editUnit, unitNumber: e.target.value })} /></td>
-                    <td className="py-2 px-4">
-                      <select className="border rounded px-2 py-1 w-full" value={editUnit.status || 'available'} onChange={e => setEditUnit({ ...editUnit, status: e.target.value as Unit['status'] })}>
-                        {statusOptions.map(status => (
-                          <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
-                        ))}
-                      </select>
-                      {editUnit.status === 'rented out' && (
-                        <>
-                          <div className="mt-2">
-                            <label className="block text-xs font-medium mb-1">Rental Type</label>
-                            <select
-                              className="border rounded px-2 py-1 w-full"
-                              value={editUnit.rentalType || ''}
-                              onChange={e => setEditUnit({ ...editUnit, rentalType: e.target.value })}
-                              required
-                            >
-                              <option value="">Select Rental Type</option>
-                              {rentalTypeOptions.map(type => (
-                                <option key={type} value={type}>{type}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="mt-2">
-                            <label className="block text-xs font-medium mb-1">Rent Price (RM)</label>
-                            <input
-                              type="number"
-                              min="0"
-                              className="border rounded px-2 py-1 w-full"
-                              value={editUnit.rentPrice || ''}
-                              onChange={e => setEditUnit({ ...editUnit, rentPrice: e.target.value })}
-                              required
-                            />
-                          </div>
-                        </>
-                      )}
-                    </td>
-                    <td className="py-2 px-4">
-                      <button className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 mr-2" onClick={() => handleEditSave(unit.id)}>Save</button>
-                      <button className="bg-gray-300 text-gray-700 px-3 py-1 rounded hover:bg-gray-400" onClick={() => { setEditingId(null); setEditUnit({}); }}>Cancel</button>
-                    </td>
-                  </>
-                ) : (
-                  <>
-                    <td className="py-2 px-4">{unit.buildingName}</td>
-                    <td className="py-2 px-4">{unit.unitNumber}</td>
-                    <td className="py-2 px-4">
-                      <span className={`px-2 py-1 rounded-full text-xs font-semibold 
-                        ${unit.status === 'available' ? 'bg-green-100 text-green-700' : ''}
-                        ${unit.status === 'booked' ? 'bg-yellow-100 text-yellow-700' : ''}
-                        ${unit.status === 'rented out' ? 'bg-red-100 text-red-700' : ''}
-                        ${unit.status === 'in service' ? 'bg-blue-100 text-blue-700' : ''}
-                      `}>
-                        {unit.status.charAt(0).toUpperCase() + unit.status.slice(1)}
-                      </span>
-                    </td>
-                    <td className="py-2 px-4">
-                      <button className="bg-indigo-600 text-white px-3 py-1 rounded hover:bg-indigo-700" onClick={() => handleEdit(unit)}>Edit</button>
-                    </td>
-                  </>
-                )}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'occupied': return 'bg-green-100 text-green-800';
+      case 'vacant': return 'bg-gray-100 text-gray-800';
+      case 'maintenance': return 'bg-yellow-100 text-yellow-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
       </div>
-      {/* Mobile cards */}
-      <div className="block md:hidden mt-6 space-y-4">
-        {units.map(unit => (
-          <div key={unit.id} className="bg-white rounded shadow p-4 flex flex-col gap-2">
-            {editingId === unit.id ? (
-              <>
-                <input className="border rounded px-2 py-1 mb-2" value={editUnit.buildingName || ''} onChange={e => setEditUnit({ ...editUnit, buildingName: e.target.value })} />
-                <input className="border rounded px-2 py-1 mb-2" value={editUnit.unitNumber || ''} onChange={e => setEditUnit({ ...editUnit, unitNumber: e.target.value })} />
-                <select className="border rounded px-2 py-1 mb-2" value={editUnit.status || 'available'} onChange={e => setEditUnit({ ...editUnit, status: e.target.value as Unit['status'] })}>
-                  {statusOptions.map(status => (
-                    <option key={status} value={status}>{status.charAt(0).toUpperCase() + status.slice(1)}</option>
-                  ))}
-                </select>
-                {editUnit.status === 'rented out' && (
-                  <>
-                    <div className="mt-2">
-                      <label className="block text-xs font-medium mb-1">Rental Type</label>
-                      <select
-                        className="border rounded px-2 py-1 w-full"
-                        value={editUnit.rentalType || ''}
-                        onChange={e => setEditUnit({ ...editUnit, rentalType: e.target.value })}
-                        required
-                      >
-                        <option value="">Select Rental Type</option>
-                        {rentalTypeOptions.map(type => (
-                          <option key={type} value={type}>{type}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="mt-2">
-                      <label className="block text-xs font-medium mb-1">Rent Price (RM)</label>
-                      <input
-                        type="number"
-                        min="0"
-                        className="border rounded px-2 py-1 w-full"
-                        value={editUnit.rentPrice || ''}
-                        onChange={e => setEditUnit({ ...editUnit, rentPrice: e.target.value })}
-                        required
-                      />
-                    </div>
-                  </>
-                )}
-                <div className="flex gap-2">
-                  <button className="bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700" onClick={() => handleEditSave(unit.id)}>Save</button>
-                  <button className="bg-gray-300 text-gray-700 px-3 py-1 rounded hover:bg-gray-400" onClick={() => { setEditingId(null); setEditUnit({}); }}>Cancel</button>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">Units Management</h1>
+          <p className="text-gray-600 mt-2">Manage your property units</p>
+        </div>
+        <button
+          onClick={() => setShowModal(true)}
+          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+        >
+          <FaPlus /> Add Unit
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {units.map((unit) => (
+          <div key={unit.id} className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <FaHome className="text-blue-600" />
                 </div>
-              </>
-            ) : (
-              <>
-                <div className="font-semibold">{unit.buildingName}</div>
-                <div className="text-xs text-gray-500">Unit: {unit.unitNumber}</div>
-                <div className="text-xs">
-                  Status: <span className={`px-2 py-1 rounded-full text-xs font-semibold 
-                    ${unit.status === 'available' ? 'bg-green-100 text-green-700' : ''}
-                    ${unit.status === 'booked' ? 'bg-yellow-100 text-yellow-700' : ''}
-                    ${unit.status === 'rented out' ? 'bg-red-100 text-red-700' : ''}
-                    ${unit.status === 'in service' ? 'bg-blue-100 text-blue-700' : ''}
-                  `}>{unit.status.charAt(0).toUpperCase() + unit.status.slice(1)}</span>
+                <div>
+                  <h3 className="font-semibold text-lg text-gray-900">{unit.fullUnitNumber}</h3>
+                  <p className="text-sm text-gray-600">{unit.buildingName}</p>
                 </div>
-                <button className="bg-indigo-600 text-white px-3 py-1 rounded hover:bg-indigo-700 mt-2 w-full" onClick={() => handleEdit(unit)}>Edit</button>
-              </>
-            )}
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleEdit(unit)}
+                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                >
+                  <FaEdit />
+                </button>
+                <button
+                  onClick={() => handleDelete(unit)}
+                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                >
+                  <FaTrash />
+                </button>
+              </div>
+            </div>
+            
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Status:</span>
+                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(unit.status)}`}>
+                  {unit.status}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Rent:</span>
+                <span className="font-medium">RM {unit.monthlyRent.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Type:</span>
+                <span className="font-medium">{unit.rentalType}</span>
+              </div>
+              {unit.currentTenantName && (
+                <div className="flex items-center gap-2 mt-3 pt-3 border-t">
+                  <FaUser className="text-gray-400" />
+                  <span className="text-sm text-gray-600">{unit.currentTenantName}</span>
+                </div>
+              )}
+            </div>
           </div>
         ))}
       </div>
+
+      {units.length === 0 && (
+        <div className="text-center py-12">
+          <FaHome className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No units</h3>
+          <p className="mt-1 text-sm text-gray-500">Get started by adding a new unit.</p>
+        </div>
+      )}
+
+      {/* Add/Edit Unit Modal */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4">
+              {editingUnit ? 'Edit Unit' : 'Add New Unit'}
+            </h2>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Building
+                </label>
+                <select
+                  value={formData.buildingId}
+                  onChange={(e) => {
+                    const selectedBuilding = buildings.find(b => b.id === e.target.value);
+                    setFormData({ 
+                      ...formData, 
+                      buildingId: e.target.value,
+                      buildingName: selectedBuilding?.name || ''
+                    });
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  required
+                >
+                  <option value="">Select a building</option>
+                  {buildings.map((building) => (
+                    <option key={building.id} value={building.id}>
+                      {building.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Block
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.block}
+                    onChange={(e) => setFormData({ ...formData, block: e.target.value.toUpperCase() })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    placeholder="A"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Floor
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formData.floor}
+                    onChange={(e) => setFormData({ ...formData, floor: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Unit Number
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={formData.unitNumber}
+                    onChange={(e) => setFormData({ ...formData, unitNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Monthly Rent (RM)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.monthlyRent}
+                    onChange={(e) => setFormData({ ...formData, monthlyRent: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Rental Type
+                  </label>
+                  <select
+                    value={formData.rentalType}
+                    onChange={(e) => setFormData({ ...formData, rentalType: e.target.value as RentalType })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    required
+                  >
+                    {rentalTypes.map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Size (sq ft)
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.size}
+                    onChange={(e) => setFormData({ ...formData, size: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Bedrooms
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.bedrooms}
+                    onChange={(e) => setFormData({ ...formData, bedrooms: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Bathrooms
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.bathrooms}
+                    onChange={(e) => setFormData({ ...formData, bathrooms: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Assign Tenant (Optional)
+                </label>
+                <select
+                  value={formData.currentTenantId}
+                  onChange={(e) => setFormData({ ...formData, currentTenantId: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                >
+                  <option value="">No tenant assigned</option>
+                  {tenants.map((tenant) => (
+                    <option key={tenant.id} value={tenant.id}>
+                      {tenant.fullName} ({tenant.email})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex justify-end gap-3">
+                <button
+                  type="button"
+                  onClick={handleCloseModal}
+                  className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  {editingUnit ? 'Update' : 'Add'} Unit
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
-} 
+}

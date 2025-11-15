@@ -4,18 +4,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from '@/contexts/AuthContext';
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { FaUserCircle, FaSignOutAlt, FaUsers, FaFileInvoice, FaFileContract, FaHome, FaUser, FaSun, FaMoon, FaTimes } from 'react-icons/fa';
-import { Bell } from 'lucide-react';
-import { collection, query, where, onSnapshot, updateDoc, doc, deleteDoc, writeBatch } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { toast } from 'react-hot-toast';
+import NotificationSystem from './NotificationSystem';
 import Image from 'next/image';
 
-interface Notification {
-  id: string;
-  read: boolean;
-  createdAt: unknown; // Using 'unknown' instead of 'any' for better type safety
-  [key: string]: unknown;
-}
 
 export default function NavBar() {
   const pathname = usePathname();
@@ -29,9 +20,6 @@ export default function NavBar() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [darkMode, setDarkMode] = useState(false);
-  const [notifOpen, setNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const unreadCount = notifications.filter(n => !n.read).length;
 
   function navClassName(href: string, exact: boolean = false) {
     const base = 'px-3 py-2 rounded-md text-sm font-medium transition';
@@ -94,38 +82,6 @@ export default function NavBar() {
     }
   }, [darkMode]);
 
-  useEffect(() => {
-    if (!user) return;
-    
-    const q = query(
-      collection(db, 'notifications'),
-      user.role === 'admin' 
-        ? where('role', '==', 'admin')
-        : where('userId', '==', user.id)
-    );
-
-    const unsub = onSnapshot(q, snap => {
-      const items = snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as Notification));
-      setNotifications(
-        items.sort((a, b) => {
-          const aSeconds = typeof a.createdAt === 'object' && a.createdAt && 'seconds' in a.createdAt ? (a.createdAt as { seconds: number }).seconds : 0;
-          const bSeconds = typeof b.createdAt === 'object' && b.createdAt && 'seconds' in b.createdAt ? (b.createdAt as { seconds: number }).seconds : 0;
-          return bSeconds - aSeconds;
-        })
-      );
-    });
-
-    return () => unsub();
-  }, [user]);
-
-  useEffect(() => {
-    if (notifOpen && unreadCount > 0) {
-      notifications.filter(n => !n.read).forEach(async n => {
-        await updateDoc(doc(db, 'notifications', n.id), { read: true });
-      });
-    }
-    // eslint-disable-next-line
-  }, [notifOpen]);
 
   const openDrawer = () => {
     setDrawerVisible(true);
@@ -137,58 +93,6 @@ export default function NavBar() {
     setDrawerVisible(false);
   };
 
-  // Helper to format Firestore Timestamp or date
-  function formatNotificationDate(date: unknown) {
-    if (!date) return '';
-    if (typeof date === 'string') return date;
-    if (typeof date === 'object' && date !== null && 'toDate' in date) return (date as { toDate(): Date }).toDate().toLocaleString();
-    if (typeof date === 'object' && date !== null && 'seconds' in date) return new Date((date as { seconds: number }).seconds * 1000).toLocaleString();
-    return String(date);
-  }
-
-  const handleNotificationClick = async (notification: Notification) => {
-    try {
-      // Mark notification as read
-      await updateDoc(doc(db, 'notifications', notification.id), {
-        read: true
-      });
-
-      // Update local state
-      setNotifications(prev => prev.filter(n => n.id !== notification.id));
-
-      // Route based on notification content
-      const message = typeof notification.message === 'string' ? notification.message : '';
-      if (message.toLowerCase().includes('maintenance') ||
-          message.toLowerCase().includes('service')) {
-        // Route based on user role
-        if (user?.role === 'admin' || user?.role === 'propertyOwner') {
-          router.push('/dashboard/maintenance/admin');
-        } else if (user?.role === 'tenant') {
-          router.push('/dashboard/maintenance');
-        } else if (user?.role === 'service') {
-          router.push('/dashboard');
-        }
-      } else if (message.toLowerCase().includes('invoice')) {
-        router.push('/dashboard/invoices');
-      } else if (message.toLowerCase().includes('contract')) {
-        router.push('/dashboard/contracts');
-      }
-    } catch (error) {
-      console.error('Error handling notification:', error);
-    }
-  };
-
-  const handleDeleteNotification = async (e: React.MouseEvent, notificationId: string) => {
-    e.stopPropagation(); // Prevent triggering the parent click handler
-    try {
-      await deleteDoc(doc(db, 'notifications', notificationId));
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
-      toast.success('Notification deleted');
-    } catch (error) {
-      console.error('Error deleting notification:', error);
-      toast.error('Failed to delete notification');
-    }
-  };
 
   const handleSignOut = async () => {
     try {
@@ -240,71 +144,7 @@ export default function NavBar() {
              <Link href="/dashboard" className={navClassName('/dashboard', true)}><FaHome className="inline mr-1 mb-1" />Dashboard</Link>
           )}
           <div className="flex items-center gap-4">
-            <div className="relative">
-              <button onClick={() => setNotifOpen(v => !v)} className="relative focus:outline-none">
-                <Bell className="h-6 w-6 text-gray-600" />
-                {unreadCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5">{unreadCount}</span>
-                )}
-              </button>
-              {notifOpen && (
-                <div className="absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-lg py-1 z-50">
-                  <div className="px-4 py-2 border-b border-gray-200 flex justify-between items-center">
-                    <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
-                    {notifications.length > 0 && (
-                      <button
-                        onClick={async () => {
-                          try {
-                            // Mark all as read
-                            const batch = writeBatch(db);
-                            notifications.forEach(notification => {
-                              batch.update(doc(db, 'notifications', notification.id), { read: true });
-                            });
-                            await batch.commit();
-                            setNotifications([]);
-                          } catch (error) {
-                            console.error("Error clearing notifications:", error);
-                            toast.error("Failed to clear notifications.");
-                          }
-                        }}
-                        className="text-sm font-medium text-indigo-600 hover:text-indigo-800"
-                      >
-                        Clear All
-                      </button>
-                    )}
-                  </div>
-                  <ul className="max-h-80 overflow-y-auto">
-                    {notifications.map(notification => (
-                      <li key={notification.id}
-                          className={`border-b border-gray-100 ${notification.read ? '' : 'bg-indigo-50'}`}
-                      >
-                        <a 
-                           href="#"
-                           onClick={(e) => { e.preventDefault(); handleNotificationClick(notification); }}
-                           className="block px-4 py-3 hover:bg-gray-100"
-                        >
-                          <div className="flex items-center justify-between">
-                            <p className="text-sm text-gray-800 truncate">{typeof notification.message === 'string' ? notification.message : ''}</p>
-                          <button
-                            onClick={(e) => handleDeleteNotification(e, notification.id)}
-                            className="ml-2 text-gray-400 hover:text-red-500"
-                          >
-                                <FaTimes />
-                          </button>
-                        </div>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {formatNotificationDate(notification.createdAt)}
-                          </p>
-                        </a>
-                      </li>
-                    ))}
-                    {notifications.length === 0 && (
-                      <li className="px-4 py-3 text-sm text-center text-gray-500">No new notifications.</li>
-                    )}
-                  </ul>
-                </div>
-              )}
-            </div>
+            <NotificationSystem />
             <button onClick={() => setDarkMode(!darkMode)} className="p-2 rounded-full hover:bg-gray-200">
               {darkMode ? <FaSun className="text-yellow-500"/> : <FaMoon className="text-gray-700"/>}
             </button>

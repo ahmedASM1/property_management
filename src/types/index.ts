@@ -1,6 +1,7 @@
 import { Timestamp, FieldValue } from 'firebase/firestore';
 
-export type UserRole = 'admin' | 'tenant' | 'service' | 'propertyOwner' | 'mixedProvider';
+export type UserRole = 'admin' | 'tenant' | 'service_provider' | 'property_owner' | 'mixedProvider';
+export type UserStatus = 'pending' | 'approved' | 'rejected';
 
 export type RentalType = 'Room1' | 'Room2' | 'Room3' | 'Studio' | 'Whole Unit';
 
@@ -9,9 +10,10 @@ export interface User {
   uid?: string;
   email: string;
   fullName: string;
-  idNumber: string;
-  phoneNumber: string;
+  idNumber?: string;
+  phoneNumber?: string;
   role: UserRole;
+  status: UserStatus;
   contractUrl?: string;
   contractStatus?: 'Active' | 'Expiring' | 'Expired' | 'Not Available';
   contractStart?: string | Date;
@@ -24,7 +26,13 @@ export interface User {
   rentalType?: RentalType;
   serviceType?: string;
   companyName?: string;
+  // Legacy field for backward compatibility
   isApproved?: boolean;
+  hasSetPassword?: boolean;
+  magicLinkToken?: string;
+  magicLinkExpires?: string;
+  passwordResetToken?: string;
+  passwordResetExpires?: string;
 }
 
 export interface Tenant extends User {
@@ -90,6 +98,7 @@ export interface Contract {
   tenantId: string;
   tenantName: string;
   contractUrl: string;
+  unitNumber?: string;
   propertyAddress: string;
   term: string;
   moveInDate: string; // or Date
@@ -103,6 +112,9 @@ export interface Contract {
   companySignName: string;
   companySignNRIC: string;
   companySignDesignation: string;
+  companyAddress?: string;
+  companyPhone?: string;
+  companyEmail?: string;
   status: 'active' | 'pending' | 'expired' | 'terminated';
   acknowledged?: boolean;
   acknowledgedAt?: Date;
@@ -113,6 +125,7 @@ export interface Contract {
   reminderSent?: boolean;
   createdAt: Date | string | FieldValue; // Firestore Timestamp
   updatedAt: Date | string | FieldValue; // Firestore Timestamp
+  agreementText?: string;
 }
 
 export interface Comment {
@@ -120,6 +133,40 @@ export interface Comment {
   author: 'tenant' | 'admin' | 'propertyOwner' | 'service';
   message: string;
   timestamp: Date | string; // Firestore Timestamp
+}
+
+export interface Building {
+  id: string;
+  name: string;
+  address: string;
+  totalFloors: number;
+  totalUnits: number;
+  description?: string;
+  amenities?: string[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Unit {
+  id: string;
+  buildingId: string;
+  buildingName: string;
+  block: string;
+  floor: number;
+  unitNumber: string;
+  fullUnitNumber: string; // Format: A-15-02
+  status: 'occupied' | 'vacant' | 'maintenance';
+  monthlyRent: number;
+  rentalType: RentalType;
+  size?: number; // in sq ft
+  bedrooms?: number;
+  bathrooms?: number;
+  currentTenantId?: string;
+  currentTenantName?: string;
+  ownerId?: string;
+  amenities?: string[];
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface Property {

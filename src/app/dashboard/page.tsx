@@ -42,6 +42,8 @@ export default function DashboardPage() {
       if (!user) return;
 
       try {
+        console.log('Fetching dashboard data for role:', user.role);
+        
         if (user.role === 'admin') {
           // Fetch all tenants
           const tenantsQuery = query(collection(db, 'users'), where('role', '==', 'tenant'));
@@ -55,6 +57,7 @@ export default function DashboardPage() {
               updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt),
             };
           }) as Tenant[];
+          console.log('Admin dashboard - tenants loaded:', tenants.length);
 
           // Fetch all invoices
           const invoicesQuery = query(collection(db, 'invoices'));
@@ -68,6 +71,7 @@ export default function DashboardPage() {
               updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt),
             };
           }) as unknown as Invoice[];
+          console.log('Admin dashboard - invoices loaded:', invoices.length);
 
           setData({ tenants, invoices });
         } else if (user.role === 'tenant') {
@@ -86,6 +90,7 @@ export default function DashboardPage() {
               updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt),
             };
           }) as unknown as Invoice[];
+          console.log('Tenant dashboard - invoices loaded:', invoices.length);
 
           setData({ invoices });
         }
@@ -134,6 +139,14 @@ export default function DashboardPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          Welcome back, {user.fullName}
+        </h1>
+        <p className="text-gray-600">
+          Here's what's happening with your {user.role === 'admin' ? 'property management' : user.role === 'tenant' ? 'rental' : 'business'} today.
+        </p>
+      </div>
       {renderDashboard()}
     </div>
   );

@@ -6,12 +6,14 @@ import { usePathname } from "next/navigation";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isAuthPage = pathname === "/login" || pathname === "/register";
+  const isMinimalPage = pathname === "/" || pathname === "/login" || pathname === "/register" || pathname === "/setup-admin";
+  const isDashboardPage = pathname.startsWith("/dashboard");
+  
   return (
     <AuthProvider>
       <Toaster position="top-center" />
-      {!isAuthPage && <NavBar />}
-      <main className={!isAuthPage ? 'min-h-screen bg-gray-50 p-4 pt-24' : ''}>
+      {!isMinimalPage && !isDashboardPage && <NavBar />}
+      <main className={!isMinimalPage && !isDashboardPage ? 'min-h-screen bg-gray-50 p-4 pt-24' : ''}>
         {children}
       </main>
     </AuthProvider>

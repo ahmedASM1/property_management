@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Invoice, Tenant } from '@/types';
+import { mockTenants, mockInvoices, isFirebaseConfigured } from '@/lib/mockData';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import toast from 'react-hot-toast';
@@ -71,24 +72,79 @@ export default function InvoicesPage() {
         setLoading(false);
         return;
       }
-      try {
+      
+      // Check if Firebase is properly configured
+      if (!isFirebaseConfigured()) {
+        console.log('Firebase not configured, using mock data');
         setLoading(true);
-        const tenantsQuery = query(collection(db, 'users'), where('role', '==', 'tenant'));
-        const tenantsSnap = await getDocs(tenantsQuery);
-        const tenantsData = tenantsSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Tenant[];
-        setTenants(tenantsData);
-
-        const invoicesQuery = user.role === 'admin'
-          ? query(collection(db, 'invoices'))
-          : query(collection(db, 'invoices'), where('tenantId', '==', user.id));
-        const invoicesSnap = await getDocs(invoicesQuery);
-        const invoicesData = invoicesSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Invoice[];
-        setInvoices(invoicesData);
-      } catch (error) {
-        console.error('Failed to fetch data:', error);
-      } finally {
-        setLoading(false);
+        try {
+          // Simulate network delay
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          setTenants(mockTenants);
+          setInvoices(mockInvoices);
+          console.log('Mock data loaded:', mockTenants.length, 'tenants,', mockInvoices.length, 'invoices');
+        } catch (error) {
+          console.error('Failed to load mock data:', error);
+          setTenants([]);
+          setInvoices([]);
+        } finally {
+          setLoading(false);
+        }
+        return;
       }
+      
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      const attemptFetch = async (): Promise<void> => {
+        try {
+          setLoading(true);
+          console.log('Fetching tenants and invoices... (attempt', retryCount + 1, ')');
+          
+          // Add timeout to prevent hanging
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Request timeout')), 10000)
+          );
+          
+          const fetchPromise = async () => {
+            const tenantsQuery = query(collection(db, 'users'), where('role', '==', 'tenant'));
+            const tenantsSnap = await getDocs(tenantsQuery);
+            const tenantsData = tenantsSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Tenant[];
+            console.log('Tenants loaded:', tenantsData.length);
+            setTenants(tenantsData);
+
+            const invoicesQuery = user.role === 'admin'
+              ? query(collection(db, 'invoices'))
+              : query(collection(db, 'invoices'), where('tenantId', '==', user.id));
+            const invoicesSnap = await getDocs(invoicesQuery);
+            const invoicesData = invoicesSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Invoice[];
+            console.log('Invoices loaded:', invoicesData.length);
+            setInvoices(invoicesData);
+          };
+          
+          await Promise.race([fetchPromise(), timeoutPromise]);
+          
+        } catch (error) {
+          console.error('Failed to fetch data (attempt', retryCount + 1, '):', error);
+          
+          if (retryCount < maxRetries) {
+            retryCount++;
+            console.log('Retrying in 2 seconds...');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            return attemptFetch();
+          } else {
+            console.error('All retry attempts failed, falling back to mock data');
+            toast.error('Failed to load data from Firebase. Using demo data instead.');
+            // Fallback to mock data
+            setTenants(mockTenants);
+            setInvoices(mockInvoices);
+          }
+        } finally {
+          setLoading(false);
+        }
+      };
+      
+      attemptFetch();
     }
     fetchData();
   }, [user]);
@@ -133,6 +189,17 @@ export default function InvoicesPage() {
   const handleAdminStatusChange = async (invoiceId: string, newStatus: string) => {
     const toastId = toast.loading('Updating status...');
     try {
+        if (!isFirebaseConfigured()) {
+          // Mock status update
+          setInvoices(prev => prev.map(inv =>
+              inv.id === invoiceId
+                  ? { ...inv, status: newStatus as Invoice['status'], isPaid: newStatus === 'paid' }
+                  : inv
+          ));
+          toast.success('Status updated. (Demo mode)', { id: toastId });
+          return;
+        }
+
         await updateDoc(doc(db, 'invoices', invoiceId), {
             status: newStatus,
             isPaid: newStatus === 'paid'
@@ -156,6 +223,23 @@ export default function InvoicesPage() {
     const toastId = toast.loading(approve ? 'Approving...' : 'Rejecting...');
 
     try {
+        if (!isFirebaseConfigured()) {
+          // Mock status request handling
+          setInvoices(prev => prev.map(inv => {
+              if (inv.id === invoice.id) {
+                  const updatedInv = { ...inv, statusChangeRequest: undefined };
+                  if (approve) {
+                      updatedInv.status = requestedStatus as Invoice['status'];
+                      updatedInv.isPaid = requestedStatus === 'paid';
+                  }
+                  return updatedInv;
+              }
+              return inv;
+          }));
+          toast.success(approve ? 'Status change approved (Demo mode)' : 'Status change rejected (Demo mode)', { id: toastId });
+          return;
+        }
+
         const updateData: Partial<Invoice> = {
             statusChangeRequest: null 
         };
@@ -228,6 +312,21 @@ export default function InvoicesPage() {
     };
 
     try {
+      if (!isFirebaseConfigured()) {
+        // Mock invoice creation
+        const newInvoice: Invoice = {
+          id: `inv_${Date.now()}`,
+          ...newInvoiceData,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        setInvoices(prev => [...prev, newInvoice]);
+        alert('Invoice created successfully! (Demo mode)');
+        resetForm();
+        setShowForm(false);
+        return;
+      }
+
       await addDoc(collection(db, 'invoices'), {
         ...newInvoiceData,
         createdAt: serverTimestamp(),

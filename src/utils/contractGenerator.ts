@@ -1,4 +1,4 @@
-import { jsPDF } from 'jspdf';
+import jsPDF from 'jspdf';
 import { Tenant } from '@/types';
 
 export interface ContractFields {

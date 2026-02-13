@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+// Use default import (RoleBasedRoute is export default)
+import RoleBasedRoute from '@/components/auth/RoleBasedRoute';
 import { 
   FaUsers, 
   FaFileInvoice, 
@@ -54,14 +56,14 @@ interface AnalyticsData {
   propertyPerformance: { unitNumber: string; income: number; occupancy: boolean }[];
 }
 
-const AnalyticsPage = () => {
+function AnalyticsPage() {
   const { user } = useAuth() || {};
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchAnalyticsData = async () => {
-      if (!user || user.role !== 'propertyOwner') {
+      if (!user || user.role !== 'property_owner') {
         setLoading(false);
         return;
       }
@@ -149,7 +151,7 @@ const AnalyticsPage = () => {
     return <div className="flex justify-center items-center h-screen"><div className="text-xl">Loading analytics...</div></div>;
   }
 
-  if (!user || user.role !== 'propertyOwner' || !analyticsData) {
+  if (!user || user.role !== 'property_owner' || !analyticsData) {
     return <div className="text-center py-10">You do not have permission to view this page or data is unavailable.</div>;
   }
 
@@ -165,7 +167,7 @@ const AnalyticsPage = () => {
   } = analyticsData;
 
   const occupancyData = {
-    labels: ['Occupied', 'Vacant'],
+    labels: ['Leased', 'Vacant'],
     datasets: [
       {
         data: [propertyOccupancy.occupied, propertyOccupancy.vacant],
@@ -259,7 +261,7 @@ const AnalyticsPage = () => {
               <li key={index} className="flex justify-between items-center">
                 <span>Unit {prop.unitNumber}</span>
                 <span className={`font-semibold ${prop.occupancy ? 'text-green-600' : 'text-red-600'}`}>
-                  {prop.occupancy ? 'Occupied' : 'Vacant'}
+                  {prop.occupancy ? 'Leased' : 'Vacant'}
                     </span>
                 <span className="text-gray-600">${prop.income.toLocaleString()}</span>
               </li>
@@ -271,4 +273,10 @@ const AnalyticsPage = () => {
   );
 };
 
-export default AnalyticsPage; 
+export default function AnalyticsPageWrapper() {
+  return (
+    <RoleBasedRoute allowedRoles={['admin', 'property_owner']}>
+      <AnalyticsPage />
+    </RoleBasedRoute>
+  );
+} 

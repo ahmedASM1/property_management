@@ -12,7 +12,7 @@ interface RoleBasedRouteProps {
   showLoading?: boolean;
 }
 
-export function RoleBasedRoute({
+function RoleBasedRoute({
   children,
   allowedRoles = [],
   fallbackPath = '/dashboard',
@@ -75,6 +75,8 @@ export function RoleBasedRoute({
   return <>{children}</>;
 }
 
+// Support both: import RoleBasedRoute from '...' and import { RoleBasedRoute } from '...'
+export { RoleBasedRoute };
 export default RoleBasedRoute;
 
 // Convenience components for common role checks

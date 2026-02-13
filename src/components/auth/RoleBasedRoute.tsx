@@ -3,7 +3,7 @@ import { ReactNode, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserRole } from '@/types';
-import { FaSpinner, FaShieldAlt, FaExclamationTriangle } from 'react-icons/fa';
+import { FaSpinner, FaShieldAlt } from 'react-icons/fa';
 
 interface RoleBasedRouteProps {
   children: ReactNode;
@@ -12,7 +12,7 @@ interface RoleBasedRouteProps {
   showLoading?: boolean;
 }
 
-export default function RoleBasedRoute({
+export function RoleBasedRoute({
   children,
   allowedRoles = [],
   fallbackPath = '/dashboard',
@@ -59,7 +59,7 @@ export default function RoleBasedRoute({
           <FaShieldAlt className="text-red-500 text-4xl mx-auto mb-4" />
           <h1 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h1>
           <p className="text-gray-600 mb-6">
-            You don't have permission to access this page. Your role ({user.role}) is not authorized.
+            You don&apos;t have permission to access this page. Your role ({user.role}) is not authorized.
           </p>
           <button
             onClick={() => router.push(fallbackPath)}
@@ -74,6 +74,8 @@ export default function RoleBasedRoute({
 
   return <>{children}</>;
 }
+
+export default RoleBasedRoute;
 
 // Convenience components for common role checks
 export function AdminOnlyRoute({ children, ...props }: Omit<RoleBasedRouteProps, 'allowedRoles'>) {

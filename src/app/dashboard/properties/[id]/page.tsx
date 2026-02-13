@@ -23,7 +23,7 @@ export default function PropertyDetailPage() {
 
   useEffect(() => {
     async function fetchPropertyDetails() {
-      if (!user || user.role !== 'propertyOwner' || !propertyId) {
+      if (!user || user.role !== 'property_owner' || !propertyId) {
         setLoading(false);
         return;
       }
@@ -107,7 +107,7 @@ export default function PropertyDetailPage() {
             <h2 className="text-xl font-semibold flex items-center mb-4"><FaBuilding className="mr-3 text-indigo-500"/>Property Info</h2>
             <div className="space-y-2 text-sm">
               <p><strong>Address:</strong> {property.buildingName}</p>
-              <p><strong>Status:</strong> <span className={`font-semibold ${property.status === 'occupied' ? 'text-green-600' : 'text-yellow-600'}`}>{property.status}</span></p>
+              <p><strong>Status:</strong> <span className={`font-semibold ${property.status === 'occupied' ? 'text-green-600' : 'text-yellow-600'}`}>{property.status === 'occupied' ? 'Leased' : property.status.charAt(0).toUpperCase() + property.status.slice(1)}</span></p>
             </div>
           </div>
 

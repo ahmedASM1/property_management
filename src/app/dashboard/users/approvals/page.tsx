@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, getDocs, updateDoc, doc, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { User, UserRole, UserStatus } from '@/types';
+import { User, UserRole } from '@/types';
 import { sendUserApprovalEmail } from '@/lib/userNotifications';
 import { AdminOnlyRoute } from '@/components/auth/RoleBasedRoute';
 import toast from 'react-hot-toast';
@@ -19,10 +19,7 @@ import {
   FaEnvelope, 
   FaCalendar,
   FaSpinner,
-  FaEye,
-  FaUserCheck,
-  FaUserTimes,
-  FaCog
+  FaUserCheck
 } from 'react-icons/fa';
 
 export default function UserApprovalsPage() {
@@ -70,6 +67,9 @@ function UserApprovalsContent() {
   const handleApprove = async (userId: string, role: UserRole) => {
     setProcessingUsers(prev => new Set(prev).add(userId));
     try {
+      // Find the user before removing from state
+      const userToApprove = pendingUsers.find(u => u.id === userId);
+      
       await updateDoc(doc(db, 'users', userId), {
         status: 'approved',
         role: role,
@@ -82,17 +82,19 @@ function UserApprovalsContent() {
       toast.success('User approved successfully');
       
       // Send approval email notification
-      try {
-        await sendUserApprovalEmail({
-          userEmail: user.email,
-          userName: user.fullName,
-          status: 'approved',
-          role: role,
-          adminName: 'Administrator' // You can get this from auth context
-        });
-      } catch (emailError) {
-        console.error('Failed to send approval email:', emailError);
-        // Don't fail the approval if email fails
+      if (userToApprove) {
+        try {
+          await sendUserApprovalEmail({
+            userEmail: userToApprove.email,
+            userName: userToApprove.fullName,
+            status: 'approved',
+            role: role,
+            adminName: 'Administrator' // You can get this from auth context
+          });
+        } catch (emailError) {
+          console.error('Failed to send approval email:', emailError);
+          // Don't fail the approval if email fails
+        }
       }
       
     } catch (error) {
@@ -110,6 +112,9 @@ function UserApprovalsContent() {
   const handleReject = async (userId: string) => {
     setProcessingUsers(prev => new Set(prev).add(userId));
     try {
+      // Find the user before removing from state
+      const userToReject = pendingUsers.find(u => u.id === userId);
+      
       await updateDoc(doc(db, 'users', userId), {
         status: 'rejected',
         updatedAt: new Date().toISOString(),
@@ -121,16 +126,18 @@ function UserApprovalsContent() {
       toast.success('User rejected');
       
       // Send rejection email notification
-      try {
-        await sendUserApprovalEmail({
-          userEmail: user.email,
-          userName: user.fullName,
-          status: 'rejected',
-          adminName: 'Administrator' // You can get this from auth context
-        });
-      } catch (emailError) {
-        console.error('Failed to send rejection email:', emailError);
-        // Don't fail the rejection if email fails
+      if (userToReject) {
+        try {
+          await sendUserApprovalEmail({
+            userEmail: userToReject.email,
+            userName: userToReject.fullName,
+            status: 'rejected',
+            adminName: 'Administrator' // You can get this from auth context
+          });
+        } catch (emailError) {
+          console.error('Failed to send rejection email:', emailError);
+          // Don't fail the rejection if email fails
+        }
       }
       
     } catch (error) {
@@ -212,7 +219,7 @@ function UserApprovalsContent() {
               <FaCalendar className="h-6 w-6 text-blue-600" />
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Today's Registrations</p>
+              <p className="text-sm font-medium text-gray-600">Today&apos;s Registrations</p>
               <p className="text-2xl font-bold text-gray-900">
                 {pendingUsers.filter(user => {
                   const today = new Date();

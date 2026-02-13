@@ -29,9 +29,13 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isApproved == true;
     }
 
-    // Users collection
+    // Users collection: owner can always read own doc (no get); admin can read any
     match /users/{userId} {
-      allow read: if isAuthenticated() && (isAdmin() || isOwner(userId));
+      allow read: if isAuthenticated() && (
+        request.auth.uid == userId ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
       allow create: if isAuthenticated(); // allow new user doc creation at signup
       allow update: if isAdmin() || isOwner(userId);
       allow delete: if isAdmin();

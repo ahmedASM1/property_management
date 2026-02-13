@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import { collection, query, where, onSnapshot, updateDoc, doc, deleteDoc, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
-import { Bell, X, Check, AlertCircle, Info, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Bell, X, AlertCircle, Info, CheckCircle, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 
@@ -14,7 +14,7 @@ interface Notification {
   message: string;
   type: 'info' | 'success' | 'warning' | 'error';
   read: boolean;
-  createdAt: any;
+  createdAt: unknown;
   userId?: string;
   role?: string;
   priority?: 'low' | 'medium' | 'high';
@@ -57,11 +57,14 @@ export default function NotificationSystem({ className = '' }: NotificationSyste
       })) as Notification[];
 
       // Remove duplicates based on message and timestamp
+      const toTime = (c: unknown) => {
+        if (typeof c === 'object' && c !== null && 'seconds' in c) return new Date((c as { seconds: number }).seconds * 1000).getTime();
+        return new Date(c as string | number).getTime();
+      };
       const uniqueItems = items.filter((item, index, self) => 
         index === self.findIndex(t => 
           t.message === item.message && 
-          Math.abs(new Date(t.createdAt?.seconds ? t.createdAt.seconds * 1000 : t.createdAt).getTime() - 
-                   new Date(item.createdAt?.seconds ? item.createdAt.seconds * 1000 : item.createdAt).getTime()) < 1000
+          Math.abs(toTime(t.createdAt) - toTime(item.createdAt)) < 1000
         )
       );
 
@@ -114,6 +117,7 @@ export default function NotificationSystem({ className = '' }: NotificationSyste
       window.removeEventListener('resize', handleRecalc);
       window.removeEventListener('scroll', handleRecalc, true);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- openUpwards is computed inside effect
   }, [isOpen]);
 
   useEffect(() => {
@@ -121,18 +125,18 @@ export default function NotificationSystem({ className = '' }: NotificationSyste
   }, []);
 
   // Format timestamp like "Oct 30, 2025 – 7:12 PM"
-  const formatTimestamp = (date: any): string => {
+  const formatTimestamp = (date: unknown): string => {
     if (!date) return '';
     
     let dateObj: Date;
     if (typeof date === 'string') {
       dateObj = new Date(date);
-    } else if (date?.seconds) {
-      dateObj = new Date(date.seconds * 1000);
-    } else if (date?.toDate) {
-      dateObj = date.toDate();
+    } else if (typeof date === 'object' && date !== null && 'seconds' in date) {
+      dateObj = new Date((date as { seconds: number }).seconds * 1000);
+    } else if (typeof date === 'object' && date !== null && 'toDate' in date && typeof (date as { toDate: () => Date }).toDate === 'function') {
+      dateObj = (date as { toDate: () => Date }).toDate();
     } else {
-      dateObj = new Date(date);
+      dateObj = new Date(date as string | number);
     }
 
     const dtf = new Intl.DateTimeFormat(undefined, {
@@ -199,11 +203,11 @@ export default function NotificationSystem({ className = '' }: NotificationSyste
       // Route based on notification content
       const message = notification.message.toLowerCase();
       if (message.includes('maintenance') || message.includes('service')) {
-        if (user?.role === 'admin' || user?.role === 'propertyOwner') {
+        if (user?.role === 'admin' || user?.role === 'property_owner') {
           router.push('/dashboard/maintenance/admin');
         } else if (user?.role === 'tenant') {
           router.push('/dashboard/maintenance');
-        } else if (user?.role === 'service') {
+        } else if (user?.role === 'service_provider') {
           router.push('/dashboard');
         }
       } else if (message.includes('invoice')) {
@@ -341,7 +345,7 @@ export default function NotificationSystem({ className = '' }: NotificationSyste
                   <Bell className="h-8 w-8 text-gray-400" />
                 </div>
                 <p className="text-sm font-medium text-gray-600">No notifications</p>
-                <p className="text-xs text-gray-400 mt-1">You're all caught up!</p>
+                <p className="text-xs text-gray-400 mt-1">You&apos;re all caught up!</p>
               </div>
             ) : (
               <div className="divide-y divide-gray-100">

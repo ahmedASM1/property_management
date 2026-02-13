@@ -129,6 +129,15 @@ export default function PropertiesPage() {
     fetchData();
   }, [user]);
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'occupied': return 'Leased';
+      case 'vacant': return 'Vacant';
+      case 'maintenance': return 'Maintenance';
+      default: return status.charAt(0).toUpperCase() + status.slice(1);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -173,7 +182,7 @@ export default function PropertiesPage() {
                     property.status === 'vacant' ? 'bg-yellow-100 text-yellow-800' :
                     'bg-red-100 text-red-800'
                   }`}>
-                    {property.status.charAt(0).toUpperCase() + property.status.slice(1)}
+                    {getStatusLabel(property.status)}
                   </span>
                 </div>
               </div>
@@ -192,7 +201,7 @@ export default function PropertiesPage() {
                   property.status === 'vacant' ? 'bg-yellow-100 text-yellow-800' :
                   'bg-red-100 text-red-800'
                 }`}>
-                  {property.status.charAt(0).toUpperCase() + property.status.slice(1)}
+                  {getStatusLabel(property.status)}
                 </span>
 
                 {/* Rental Type & Price */}
@@ -245,7 +254,7 @@ export default function PropertiesPage() {
 
       {/* Property Details Modal */}
       {selectedProperty && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl shadow-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-900">Property Details</h2>

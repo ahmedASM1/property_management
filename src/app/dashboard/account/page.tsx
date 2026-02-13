@@ -11,16 +11,8 @@ import {
   FaCog, 
   FaSave, 
   FaBell, 
-  FaShieldAlt, 
-  FaDatabase, 
-  FaEnvelope, 
-  FaToggleOn, 
-  FaToggleOff,
   FaArrowLeft,
-  FaCheck,
-  FaTimes,
   FaExclamationTriangle,
-  FaInfoCircle,
   FaSun,
   FaMoon
 } from 'react-icons/fa';
@@ -48,7 +40,7 @@ interface SystemSettings {
   logLevel: string;
   apiRateLimit: number;
   webhookUrl: string;
-  updatedAt?: any;
+  updatedAt?: string;
   updatedBy?: string;
 }
 
@@ -119,6 +111,7 @@ export default function AccountPage() {
       profileImage: user?.profileImage || '',
     });
     fetchSettings();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchSettings is stable
   }, [user]);
 
   // Dark mode effect
@@ -148,7 +141,7 @@ export default function AccountPage() {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSettingsChange = (field: string, value: any) => {
+  const handleSettingsChange = (field: string, value: string | number | boolean) => {
     setSettings(prev => {
       const newSettings = { ...prev, [field]: value };
       setHasChanges(true);

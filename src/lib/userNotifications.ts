@@ -17,7 +17,7 @@ export async function sendUserApprovalEmail(notification: UserApprovalNotificati
     : `❌ Your Green Bridge account application status`;
 
   const htmlContent = status === 'approved' 
-    ? generateApprovalEmailHTML(userName, role, adminName)
+    ? generateApprovalEmailHTML(userName, role, adminName, userEmail)
     : generateRejectionEmailHTML(userName, adminName);
 
   try {
@@ -33,7 +33,7 @@ export async function sendUserApprovalEmail(notification: UserApprovalNotificati
   }
 }
 
-function generateApprovalEmailHTML(userName: string, role?: string, adminName?: string): string {
+function generateApprovalEmailHTML(userName: string, role?: string, adminName?: string, userEmail?: string): string {
   const roleDisplay = role ? getRoleDisplayName(role) : 'your assigned role';
   
   return `
@@ -96,7 +96,7 @@ function generateApprovalEmailHTML(userName: string, role?: string, adminName?: 
         </div>
         
         <div class="footer">
-          <p>This email was sent to ${userEmail}</p>
+          <p>This email was sent to ${userEmail || 'your registered email'}</p>
           <p>Green Bridge Realty Management System</p>
         </div>
       </div>

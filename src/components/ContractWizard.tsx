@@ -324,7 +324,7 @@ export default function ContractWizard({ onSubmit }: { onSubmit?: (data: Contrac
                 <h3 className="font-medium text-green-900">AI Contract Generation</h3>
               </div>
               <p className="text-sm text-green-700">
-                Fill out the form steps above, then click "Generate with AI" to create a professional contract. 
+                Fill out the form steps above, then click &quot;Generate with AI&quot; to create a professional contract. 
                 The AI will use your tenant and unit information to generate a comprehensive lease agreement.
               </p>
             </div>

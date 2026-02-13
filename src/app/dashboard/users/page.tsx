@@ -1,37 +1,40 @@
 "use client";
 import { useEffect, useState, useRef } from 'react';
-import { collection, getDocs, updateDoc, doc, deleteDoc, query, where, orderBy, writeBatch, addDoc } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, deleteDoc, writeBatch, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { User, UserStatus } from '@/types';
+import { User, Invoice, Tenant } from '@/types';
 import toast from 'react-hot-toast';
 import { sendPaymentReminderEmail } from '@/lib/email';
 import Link from 'next/link';
+import { AdminOnlyRoute } from '@/components/auth/RoleBasedRoute';
 import { 
   FaArrowLeft, 
   FaSearch, 
   FaFilter, 
-  FaCheck, 
   FaTimes, 
   FaDownload, 
-  FaUpload,
-  FaUserCheck,
-  FaUserTimes,
-  FaEdit,
-  FaTrash,
-  FaEye,
-  FaSort,
   FaSortUp,
   FaSortDown,
   FaUserPlus,
   FaSpinner,
   FaUser,
+  FaUserCog,
   FaEnvelope,
   FaPhone,
   FaBuilding,
-  FaBriefcase
+  FaBriefcase,
+  FaUserCheck
 } from 'react-icons/fa';
 
 export default function UsersPage() {
+  return (
+    <AdminOnlyRoute>
+      <UsersPageContent />
+    </AdminOnlyRoute>
+  );
+}
+
+function UsersPageContent() {
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -132,7 +135,7 @@ export default function UsersPage() {
 
     // Sort
     filtered.sort((a, b) => {
-      let aValue, bValue;
+      let aValue: string | number, bValue: string | number;
       
       switch (sortBy) {
         case 'fullName':
@@ -152,9 +155,14 @@ export default function UsersPage() {
           bValue = new Date(b.createdAt).getTime();
           break;
         default:
-          aValue = a[sortBy as keyof User];
-          bValue = b[sortBy as keyof User];
+          aValue = String(a[sortBy as keyof User] ?? '');
+          bValue = String(b[sortBy as keyof User] ?? '');
       }
+
+      // Handle undefined/null values
+      if (aValue == null && bValue == null) return 0;
+      if (aValue == null) return 1;
+      if (bValue == null) return -1;
 
       if (sortOrder === 'asc') {
         return aValue > bValue ? 1 : -1;
@@ -223,7 +231,7 @@ export default function UsersPage() {
         updateData.unitNumber = editUser.unitNumber;
         updateData.rentalType = editUser.rentalType;
         updateData.contractEnd = editUser.contractEnd || '';
-      } else if (editUser.role === 'service') {
+      } else if (editUser.role === 'service_provider') {
         updateData.serviceType = editUser.serviceType;
       }
       await updateDoc(doc(db, 'users', editUser.id), updateData);
@@ -280,10 +288,10 @@ export default function UsersPage() {
         
         switch (bulkAction) {
           case 'approve':
-            batch.update(userRef, { isApproved: true });
+            batch.update(userRef, { isApproved: true, status: 'approved' });
             break;
           case 'reject':
-            batch.update(userRef, { isApproved: false });
+            batch.update(userRef, { isApproved: false, status: 'rejected' });
             break;
           case 'delete':
             batch.delete(userRef);
@@ -299,7 +307,7 @@ export default function UsersPage() {
       } else {
         setUsers(prev => prev.map(user => 
           selectedUsers.includes(user.id) 
-            ? { ...user, isApproved: bulkAction === 'approve' }
+            ? { ...user, isApproved: bulkAction === 'approve', status: bulkAction === 'approve' ? 'approved' : 'rejected' }
             : user
         ));
       }
@@ -307,7 +315,7 @@ export default function UsersPage() {
       toast.success(`${bulkAction} action completed for ${selectedUsers.length} users`);
       setSelectedUsers([]);
       setBulkAction('');
-    } catch (error) {
+    } catch {
       toast.error(`Failed to ${bulkAction} users`);
     } finally {
       setBulkProcessing(false);
@@ -340,12 +348,22 @@ export default function UsersPage() {
     window.URL.revokeObjectURL(url);
   };
 
+  const normalizeRoleForDb = (role: string): string => {
+    const map: Record<string, string> = {
+      propertyOwner: 'property_owner',
+      service: 'service_provider',
+    };
+    return map[role] || role;
+  };
+
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     setCreatingUser(true);
     try {
       const userData = {
         ...createUserData,
+        role: normalizeRoleForDb(createUserData.role),
+        status: 'approved',
         isApproved: true,
         hasSetPassword: false,
         createdAt: new Date().toISOString(),
@@ -460,6 +478,7 @@ export default function UsersPage() {
               <option value="tenant">Tenant</option>
               <option value="service_provider">Service Provider</option>
               <option value="property_owner">Property Owner</option>
+              <option value="agent">Agent</option>
               <option value="admin">Admin</option>
             </select>
 
@@ -596,6 +615,7 @@ export default function UsersPage() {
                 <td className="px-3 py-4 whitespace-nowrap">
                   <div className="flex items-center">
                     {user.profileImage ? (
+                      // eslint-disable-next-line @next/next/no-img-element -- user-uploaded avatar URL
                       <img className="h-8 w-8 rounded-full mr-3" src={user.profileImage} alt="" />
                     ) : (
                       <div className="h-8 w-8 rounded-full bg-gray-200 mr-3 flex items-center justify-center">
@@ -612,8 +632,9 @@ export default function UsersPage() {
                 <td className="px-3 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
                     ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 
+                      user.role === 'agent' ? 'bg-teal-100 text-teal-800' :
                       user.role === 'tenant' ? 'bg-blue-100 text-blue-800' : 
-                      user.role === 'propertyOwner' ? 'bg-green-100 text-green-800' :
+                      user.role === 'property_owner' ? 'bg-green-100 text-green-800' :
                       'bg-orange-100 text-orange-800'}`}>
                     {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                   </span>
@@ -621,9 +642,9 @@ export default function UsersPage() {
                 <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">
                   {user.role === 'tenant' ? (
                     <>Unit: {user.unitNumber}<br/>Type: {user.rentalType}</>
-                  ) : user.role === 'service' ? (
+                  ) : user.role === 'service_provider' ? (
                     <>Service: {user.serviceType}</>
-                  ) : user.role === 'propertyOwner' ? (
+                  ) : user.role === 'property_owner' ? (
                     <>Property Owner</>
                   ) : (
                     '-'
@@ -708,8 +729,8 @@ export default function UsersPage() {
 
       {/* Edit User Modal */}
       {editUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-30">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
             <h3 className="text-lg font-medium mb-4">Edit User</h3>
             <form onSubmit={handleEditSave} ref={editFormRef}>
               <div className="space-y-4">
@@ -742,8 +763,9 @@ export default function UsersPage() {
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   >
                     <option value="tenant">Tenant</option>
-                    <option value="service">Service Provider</option>
-                    <option value="owner">Property Owner</option>
+                    <option value="service_provider">Service Provider</option>
+                    <option value="property_owner">Property Owner</option>
+                    <option value="agent">Agent</option>
                     <option value="admin">Admin</option>
                   </select>
                 </div>
@@ -777,7 +799,7 @@ export default function UsersPage() {
                     </div>
                   </>
                 )}
-                {editUser.role === 'service' && (
+                {editUser.role === 'service_provider' && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Service Type</label>
                     <input
@@ -812,8 +834,8 @@ export default function UsersPage() {
       )}
       {/* Delete Confirmation Modal */}
       {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-30">
-          <div className="bg-white rounded-lg p-6 w-full max-w-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl">
             <h3 className="text-lg font-medium mb-4">Confirm Delete</h3>
             <p className="text-sm text-gray-500 mb-4">Are you sure you want to delete this user? This action cannot be undone.</p>
             <div className="flex justify-end space-x-3">
@@ -836,8 +858,8 @@ export default function UsersPage() {
 
       {/* Create User Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-900 bg-opacity-30">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-gray-900">Create New User</h3>
               <button
@@ -923,7 +945,8 @@ export default function UsersPage() {
                       { value: 'tenant', label: 'Tenant', icon: FaUser, color: 'blue' },
                       { value: 'propertyOwner', label: 'Property Owner', icon: FaBuilding, color: 'green' },
                       { value: 'service', label: 'Service Provider', icon: FaBriefcase, color: 'orange' },
-                      { value: 'mixedProvider', label: 'Mixed Provider', icon: FaBriefcase, color: 'purple' }
+                      { value: 'mixedProvider', label: 'Mixed Provider', icon: FaBriefcase, color: 'purple' },
+                      { value: 'agent', label: 'Agent', icon: FaUserCog, color: 'teal' }
                     ].map(({ value, label, icon: Icon, color }) => (
                       <label key={value} className="relative">
                         <input
@@ -966,7 +989,7 @@ export default function UsersPage() {
                 </div>
               )}
 
-              {(createUserData.role === 'service' || createUserData.role === 'mixedProvider') && (
+              {(createUserData.role === 'service_provider' || createUserData.role === 'mixedProvider') && (
                 <div className="space-y-4 p-4 bg-orange-50 rounded-lg">
                   <h4 className="font-medium text-orange-900">Service Provider Information</h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

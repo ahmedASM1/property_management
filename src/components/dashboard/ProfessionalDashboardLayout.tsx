@@ -18,7 +18,7 @@ interface DashboardLayoutProps {
 interface NavigationItem {
   label: string;
   href: string;
-  icon: React.ComponentType<any>;
+  icon: React.ComponentType<{ className?: string }>;
   roles: UserRole[];
   permissions?: string[];
   badge?: number;
@@ -29,7 +29,7 @@ const navigationItems: NavigationItem[] = [
     label: 'Dashboard',
     href: '/dashboard',
     icon: FaHome,
-    roles: ['admin', 'propertyOwner', 'tenant', 'service', 'mixedProvider']
+    roles: ['admin', 'property_owner', 'tenant', 'service_provider', 'mixedProvider']
   },
   {
     label: 'Users',
@@ -42,81 +42,84 @@ const navigationItems: NavigationItem[] = [
     label: 'Properties',
     href: '/dashboard/properties',
     icon: FaBuilding,
-    roles: ['admin', 'propertyOwner'],
+    roles: ['admin', 'property_owner'],
     permissions: ['properties.read']
   },
   {
     label: 'Units',
     href: '/dashboard/units',
     icon: FaBuilding,
-    roles: ['admin', 'propertyOwner'],
+    roles: ['admin', 'property_owner'],
     permissions: ['properties.read']
   },
   {
     label: 'Contracts',
     href: '/dashboard/contracts',
     icon: FaFileContract,
-    roles: ['admin', 'propertyOwner', 'tenant'],
+    roles: ['admin', 'property_owner', 'tenant'],
     permissions: ['contracts.read']
   },
   {
     label: 'Invoices',
     href: '/dashboard/invoices',
     icon: FaReceipt,
-    roles: ['admin', 'propertyOwner', 'tenant', 'service', 'mixedProvider'],
+    roles: ['admin', 'property_owner', 'tenant', 'service_provider', 'mixedProvider'],
     permissions: ['invoices.read']
   },
   {
     label: 'Maintenance',
     href: '/dashboard/maintenance',
     icon: FaWrench,
-    roles: ['admin', 'propertyOwner', 'tenant', 'service', 'mixedProvider'],
+    roles: ['admin', 'property_owner', 'tenant', 'service_provider', 'mixedProvider'],
     permissions: ['maintenance.read']
   },
   {
     label: 'Analytics',
     href: '/dashboard/analytics',
     icon: FaChartBar,
-    roles: ['admin', 'propertyOwner'],
+    roles: ['admin', 'property_owner'],
     permissions: ['analytics.read', 'reports.read']
   },
   {
     label: 'Settings',
     href: '/dashboard/settings',
     icon: FaCog,
-    roles: ['admin', 'propertyOwner', 'tenant', 'service', 'mixedProvider']
+    roles: ['admin', 'property_owner', 'tenant', 'service_provider', 'mixedProvider']
   }
 ];
 
 const getRoleIcon = (role: UserRole) => {
-  const icons = {
+  const icons: Record<UserRole, typeof FaUser> = {
     admin: FaUserTie,
-    propertyOwner: FaUserCheck,
+    property_owner: FaUserCheck,
     tenant: FaUser,
-    service: FaUserCog,
-    mixedProvider: FaUserCog
+    service_provider: FaUserCog,
+    mixedProvider: FaUserCog,
+    agent: FaUser
   };
   return icons[role] || FaUser;
 };
 
 const getRoleColor = (role: UserRole) => {
-  const colors = {
+  const colors: Record<UserRole, string> = {
     admin: 'text-red-600 bg-red-100',
-    propertyOwner: 'text-green-600 bg-green-100',
+    property_owner: 'text-green-600 bg-green-100',
     tenant: 'text-blue-600 bg-blue-100',
-    service: 'text-orange-600 bg-orange-100',
-    mixedProvider: 'text-purple-600 bg-purple-100'
+    service_provider: 'text-orange-600 bg-orange-100',
+    mixedProvider: 'text-purple-600 bg-purple-100',
+    agent: 'text-gray-600 bg-gray-100'
   };
   return colors[role] || 'text-gray-600 bg-gray-100';
 };
 
 const getRoleDisplayName = (role: UserRole) => {
-  const names = {
+  const names: Record<UserRole, string> = {
     admin: 'Administrator',
-    propertyOwner: 'Property Owner',
+    property_owner: 'Property Owner',
     tenant: 'Tenant',
-    service: 'Service Provider',
-    mixedProvider: 'Mixed Provider'
+    service_provider: 'Service Provider',
+    mixedProvider: 'Mixed Provider',
+    agent: 'Agent'
   };
   return names[role] || role;
 };

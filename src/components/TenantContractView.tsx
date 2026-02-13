@@ -3,14 +3,15 @@ import { FileText, Download, Upload, Eye } from 'lucide-react';
 import { db, storage } from '../lib/firebase';
 import { collection, query, where, getDocs, doc, updateDoc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import jsPDF from 'jspdf';
 import { generateComprehensiveContractPDF, ContractFields } from '@/utils/contractGenerator';
+import { Tenant } from '@/types';
 
 interface Contract {
   id: string;
   tenantId: string;
   tenantName: string;
   propertyAddress: string;
+  unitNumber?: string;
   term: string;
   moveInDate: string;
   expiryDate: string;
@@ -101,13 +102,17 @@ export default function TenantContractView({ tenantId }: TenantContractViewProps
   const exportContractAsPDF = async (contract: Contract) => {
     try {
       // Create a mock tenant object from contract data
-      const tenant = {
+      const tenant: Tenant = {
         id: contract.tenantId,
         fullName: contract.tenantName,
         email: '',
         phoneNumber: '',
-        nric: '',
         role: 'tenant' as const,
+        status: 'approved' as const,
+        unitNumber: contract.unitNumber || '',
+        rentalType: 'Whole Unit' as const,
+        rentAmount: parseFloat(contract.rentalPerMonth) || 0,
+        moveInDate: new Date(contract.moveInDate),
         isApproved: true,
         createdAt: new Date(),
         updatedAt: new Date()

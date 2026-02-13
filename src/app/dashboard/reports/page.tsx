@@ -2,8 +2,17 @@
 import { useEffect, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { AdminOnlyRoute } from '@/components/auth/RoleBasedRoute';
 
 export default function ReportsPage() {
+  return (
+    <AdminOnlyRoute>
+      <ReportsPageContent />
+    </AdminOnlyRoute>
+  );
+}
+
+function ReportsPageContent() {
   const [revenue, setRevenue] = useState<number | null>(null);
   const [outstanding, setOutstanding] = useState<number | null>(null);
   const [paid, setPaid] = useState<number | null>(null);

@@ -1,6 +1,6 @@
 // Enhanced Authentication Security Utilities
 import { NextRequest } from 'next/server';
-import { headers } from 'next/headers';
+import crypto from 'crypto';
 
 // Rate limiting configuration
 const RATE_LIMIT_CONFIG = {
@@ -79,7 +79,7 @@ export function getClientIP(request: NextRequest): string {
     return realIP;
   }
   
-  return request.ip || 'unknown';
+  return forwarded?.split(',')[0].trim() || realIP || 'unknown';
 }
 
 /**
@@ -93,9 +93,11 @@ export function validatePasswordStrength(password: string): {
   const feedback: string[] = [];
   let score = 0;
   
-  // Length check
+  // Length check (8–15 chars)
   if (password.length < 8) {
     feedback.push('Password must be at least 8 characters long');
+  } else if (password.length > 15) {
+    feedback.push('Password must be at most 15 characters');
   } else {
     score += 1;
   }
@@ -150,7 +152,6 @@ export function validatePasswordStrength(password: string): {
  * Generate secure session token
  */
 export function generateSecureToken(length: number = 32): string {
-  const crypto = require('crypto');
   return crypto.randomBytes(length).toString('hex');
 }
 
@@ -177,8 +178,7 @@ export function sanitizeInput(input: string): string {
  */
 export function detectSuspiciousActivity(
   ip: string,
-  userAgent: string,
-  email: string
+  userAgent: string
 ): { suspicious: boolean; reason?: string } {
   // Check for common bot patterns
   const botPatterns = [
@@ -234,7 +234,7 @@ export function getSecurityHeaders(): Record<string, string> {
  */
 export function logSecurityEvent(
   event: string,
-  details: Record<string, any>,
+  details: Record<string, unknown>,
   severity: 'low' | 'medium' | 'high' | 'critical' = 'medium'
 ): void {
   const logEntry = {

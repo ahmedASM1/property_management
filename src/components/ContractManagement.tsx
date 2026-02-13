@@ -379,7 +379,6 @@ export default function ContractManagement() {
     <div className="max-w-3xl mx-auto">
       <ContractWizard
         key={wizardKey}
-        tenants={mockTenants.map(t => ({ id: t.id, name: t.fullName }))}
         onSubmit={handleCreateContract}
       />
     </div>

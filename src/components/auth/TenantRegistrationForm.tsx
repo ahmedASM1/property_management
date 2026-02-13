@@ -13,7 +13,8 @@ const schema = yup.object({
   email: yup.string().email('Invalid email').required('Email is required'),
   password: yup.string()
     .required('Password is required')
-    .min(6, 'Password must be at least 6 characters'),
+    .min(8, 'Password must be 8–15 characters')
+    .max(15, 'Password must be 8–15 characters'),
   confirmPassword: yup.string()
     .oneOf([yup.ref('password')], 'Passwords must match')
     .required('Please confirm your password'),

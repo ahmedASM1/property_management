@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
@@ -8,10 +8,10 @@ import { toast } from 'react-hot-toast';
 import { FaSpinner, FaEye, FaEyeSlash, FaCheck, FaExclamationTriangle } from 'react-icons/fa';
 import Image from 'next/image';
 
-export default function SetPasswordPage() {
+function SetPasswordContent() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<Record<string, unknown> | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [password, setPassword] = useState('');
@@ -76,8 +76,10 @@ export default function SetPasswordPage() {
 
     if (!password) {
       newErrors.password = 'Password is required';
-    } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+    } else if (password.length < 8) {
+      newErrors.password = 'Password must be 8–15 characters';
+    } else if (password.length > 15) {
+      newErrors.password = 'Password must be 8–15 characters';
     }
 
     if (!confirmPassword) {
@@ -105,7 +107,7 @@ export default function SetPasswordPage() {
       }
 
       // Create Firebase Auth user
-      const userCredential = await createUserWithEmailAndPassword(auth, user.email, password);
+      await createUserWithEmailAndPassword(auth, (user as { email: string }).email, password);
       
       // Update user document
       await updateDoc(doc(db, 'users', userId), {
@@ -120,13 +122,13 @@ export default function SetPasswordPage() {
       // Redirect to dashboard
       router.push('/dashboard');
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error setting password:', error);
       
-      if (error.code === 'auth/email-already-in-use') {
+      if (error && typeof error === 'object' && 'code' in error && (error as { code: string }).code === 'auth/email-already-in-use') {
         // User already exists in Firebase Auth, try to sign them in
         try {
-          await signInWithEmailAndPassword(auth, user.email, password);
+          await signInWithEmailAndPassword(auth, (user as { email: string }).email, password);
           
           // Update user document
           const userId = searchParams.get('userId');
@@ -141,7 +143,7 @@ export default function SetPasswordPage() {
           
           toast.success('Password updated successfully! You are now logged in.');
           router.push('/dashboard');
-        } catch (signInError) {
+        } catch {
           toast.error('Failed to set password. Please try again.');
         }
       } else {
@@ -206,9 +208,9 @@ export default function SetPasswordPage() {
         <div className="mb-6 p-4 bg-gray-50 rounded-lg">
           <h3 className="font-medium text-gray-900 mb-2">Account Details</h3>
           <div className="text-sm text-gray-600 space-y-1">
-            <p><strong>Name:</strong> {user.fullName}</p>
-            <p><strong>Email:</strong> {user.email}</p>
-            <p><strong>Role:</strong> {user.role}</p>
+            <p><strong>Name:</strong> {String(user?.fullName ?? '')}</p>
+            <p><strong>Email:</strong> {String(user?.email ?? '')}</p>
+            <p><strong>Role:</strong> {String(user?.role ?? '')}</p>
           </div>
         </div>
 
@@ -283,8 +285,8 @@ export default function SetPasswordPage() {
         <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <h4 className="font-medium text-blue-900 mb-2">Security Note:</h4>
           <p className="text-sm text-blue-700">
-            Your password should be at least 6 characters long. After setting your password, 
-            you'll be able to log in normally using your email and password.
+            Your password must be 8–15 characters. After setting your password, 
+            you&apos;ll be able to log in normally using your email and password.
           </p>
         </div>
       </div>
@@ -292,5 +294,28 @@ export default function SetPasswordPage() {
   );
 }
 
+function SetPasswordFallback() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
+        <div className="mb-6">
+          <Image src="/Green Bridge.png" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
+        </div>
+        <div className="flex items-center justify-center mb-4">
+          <FaSpinner className="animate-spin text-green-600 text-2xl mr-3" />
+          <h1 className="text-xl font-semibold text-gray-900">Loading...</h1>
+        </div>
+        <p className="text-gray-600">Please wait...</p>
+      </div>
+    </div>
+  );
+}
 
+export default function SetPasswordPage() {
+  return (
+    <Suspense fallback={<SetPasswordFallback />}>
+      <SetPasswordContent />
+    </Suspense>
+  );
+}
 

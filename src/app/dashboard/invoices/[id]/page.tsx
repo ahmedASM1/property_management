@@ -1,8 +1,9 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, storage } from '@/lib/firebase';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Invoice, Tenant } from '@/types';
 import { useRouter, useParams } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -10,7 +11,7 @@ import jsPDF from 'jspdf';
 import Image from 'next/image';
 import { sendInvoiceEmail } from '@/lib/email';
 import Link from 'next/link';
-import { FaArrowLeft } from 'react-icons/fa';
+import { FaArrowLeft, FaUpload, FaFileImage } from 'react-icons/fa';
 
 export default function InvoiceDetailPage() {
   const auth = useAuth();
@@ -21,6 +22,8 @@ export default function InvoiceDetailPage() {
   const [loading, setLoading] = useState(true);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [isRequesting, setIsRequesting] = useState(false);
+  const [uploadingReceipt, setUploadingReceipt] = useState(false);
+  const receiptInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!invoiceId || !user) {
@@ -48,7 +51,7 @@ export default function InvoiceDetailPage() {
             const tenantData = tenantDoc.data() as Tenant;
             invoiceData.tenantDetails = {
               fullName: tenantData.fullName,
-              phoneNumber: tenantData.phoneNumber,
+              phoneNumber: tenantData.phoneNumber || '',
               unitNumber: tenantData.unitNumber,
               rentalType: tenantData.rentalType
             };
@@ -108,12 +111,14 @@ export default function InvoiceDetailPage() {
     try {
       await updateDoc(doc(db, 'invoices', invoice.id), {
         isPaid: true,
+        receiptStatus: 'approved',
         updatedAt: new Date()
       });
 
       setInvoice(prev => prev ? {
         ...prev,
-        isPaid: true
+        isPaid: true,
+        receiptStatus: 'approved'
       } : null);
 
       // Fetch tenant email and name (if not already in invoice)
@@ -139,6 +144,64 @@ export default function InvoiceDetailPage() {
     } catch (error) {
       console.error('Error marking invoice as paid:', error);
       toast.error('Failed to update invoice status');
+    }
+  };
+
+  const handleUploadReceipt = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !invoice || user?.role !== 'tenant' || invoice.tenantId !== user?.id) return;
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+    if (!allowed.includes(file.type)) {
+      toast.error('Please upload an image (JPEG, PNG, WebP) or PDF.');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File must be under 10MB.');
+      return;
+    }
+    setUploadingReceipt(true);
+    const toastId = toast.loading('Uploading receipt...');
+    try {
+      const storageRef = ref(storage, `receipts/${invoice.id}_${Date.now()}_${file.name}`);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      const now = new Date().toISOString();
+      await updateDoc(doc(db, 'invoices', invoice.id), {
+        receiptUrl: url,
+        receiptStatus: 'pending_review',
+        receiptUploadedAt: now,
+        updatedAt: new Date()
+      });
+      setInvoice(prev => prev ? { ...prev, receiptUrl: url, receiptStatus: 'pending_review', receiptUploadedAt: now } : null);
+      await addDoc(collection(db, 'notifications'), {
+        role: 'admin',
+        message: `${invoice.tenantDetails?.fullName || 'A tenant'} uploaded payment proof for invoice #${invoice.id.substring(0, 8)}. Please verify.`,
+        link: `/dashboard/invoices/${invoice.id}`,
+        createdAt: serverTimestamp(),
+        read: false,
+      });
+      toast.success('Receipt uploaded. Admin will verify and update status.', { id: toastId });
+      if (receiptInputRef.current) receiptInputRef.current.value = '';
+    } catch (err) {
+      console.error('Upload error:', err);
+      toast.error('Failed to upload receipt.', { id: toastId });
+    } finally {
+      setUploadingReceipt(false);
+    }
+  };
+
+  const handleAdminRejectReceipt = async () => {
+    if (!invoice) return;
+    try {
+      await updateDoc(doc(db, 'invoices', invoice.id), {
+        receiptStatus: 'rejected',
+        updatedAt: new Date()
+      });
+      setInvoice(prev => prev ? { ...prev, receiptStatus: 'rejected' } : null);
+      toast.success('Receipt rejected. Tenant can upload a new one.');
+    } catch (err) {
+      console.error('Reject error:', err);
+      toast.error('Failed to update.');
     }
   };
 
@@ -410,7 +473,12 @@ export default function InvoiceDetailPage() {
         <div className="mb-4 flex flex-col gap-2">
           <div className="text-sm">
             <span className="font-semibold">Status:</span>{' '}
-            <span className={invoice.isPaid ? 'text-green-600' : 'text-red-600'}>{invoice.isPaid ? 'Paid' : 'Unpaid'}</span>
+            <span className={
+              invoice.isPaid ? 'text-green-600' :
+              invoice.receiptStatus === 'pending_review' ? 'text-amber-600' : 'text-red-600'
+            }>
+              {invoice.isPaid ? 'Paid' : invoice.receiptStatus === 'pending_review' ? 'Pending review (proof uploaded)' : 'Unpaid'}
+            </span>
           </div>
           <div className="text-sm">
             <span className="font-semibold">Due Date:</span>{' '}
@@ -422,20 +490,38 @@ export default function InvoiceDetailPage() {
           </div>
           {invoice.receiptUrl && (
             <div className="text-sm">
-              <span className="font-semibold">Receipt:</span>{' '}
-              <a href={invoice.receiptUrl} target="_blank" rel="noopener noreferrer" className="text-blue-700 underline">View Receipt</a>
+              <span className="font-semibold">Payment proof:</span>{' '}
+              <a href={invoice.receiptUrl} target="_blank" rel="noopener noreferrer" className="text-blue-700 underline">View receipt / file</a>
             </div>
           )}
         </div>
-        {/* Admin: Mark as Paid */}
+        {/* Admin: Verify receipt or Mark as Paid */}
         {user?.role === 'admin' && !invoice.isPaid && (
-          <div className="mb-4">
-            <button
-              onClick={handleMarkAsPaid}
-              className="px-4 py-2 bg-green-700 text-white rounded shadow hover:bg-green-800 font-semibold"
-            >
-              Mark as Paid
-            </button>
+          <div className="mb-4 flex flex-wrap gap-3">
+            {invoice.receiptUrl && invoice.receiptStatus === 'pending_review' && (
+              <>
+                <button
+                  onClick={handleMarkAsPaid}
+                  className="px-4 py-2 bg-green-700 text-white rounded shadow hover:bg-green-800 font-semibold"
+                >
+                  Approve & mark as paid
+                </button>
+                <button
+                  onClick={handleAdminRejectReceipt}
+                  className="px-4 py-2 bg-red-600 text-white rounded shadow hover:bg-red-700 font-semibold"
+                >
+                  Reject receipt
+                </button>
+              </>
+            )}
+            {(!invoice.receiptUrl || invoice.receiptStatus !== 'pending_review') && (
+              <button
+                onClick={handleMarkAsPaid}
+                className="px-4 py-2 bg-green-700 text-white rounded shadow hover:bg-green-800 font-semibold"
+              >
+                Mark as Paid
+              </button>
+            )}
           </div>
         )}
         {/* Export as PDF Button */}
@@ -449,29 +535,58 @@ export default function InvoiceDetailPage() {
         </div>
         {user?.role === 'tenant' && !invoice.isPaid && (
           <div className="mt-8 pt-6 border-t">
+            <h3 className="text-lg font-semibold text-gray-700 mb-2">Payment proof</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              After paying rent, upload a photo or file of your receipt so the admin can verify and update the status.
+            </p>
+            <div className="flex flex-wrap items-center gap-3 mb-4">
+              <input
+                ref={receiptInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,application/pdf"
+                onChange={handleUploadReceipt}
+                disabled={uploadingReceipt}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => receiptInputRef.current?.click()}
+                disabled={uploadingReceipt}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+              >
+                <FaUpload className="h-4 w-4" />
+                {uploadingReceipt ? 'Uploading...' : (invoice.receiptStatus === 'rejected' ? 'Upload new receipt' : 'Upload receipt / image')}
+              </button>
+              {invoice.receiptStatus === 'pending_review' && (
+                <span className="text-amber-600 text-sm flex items-center gap-1">
+                  <FaFileImage className="h-4 w-4" />
+                  Pending admin verification
+                </span>
+              )}
+              {invoice.receiptStatus === 'rejected' && (
+                <span className="text-red-600 text-sm">Receipt was rejected. You can upload a new one above.</span>
+              )}
+            </div>
             {invoice.statusChangeRequest ? (
-              <div className="text-center p-4 bg-blue-100 text-blue-800 rounded-lg">
+              <div className="text-center p-4 bg-blue-100 text-blue-800 rounded-lg mt-4">
                 <p className="font-semibold">Request Pending</p>
                 <p className="text-sm">Your request to change the status to &quot;{invoice.statusChangeRequest.requestedStatus}&quot; is awaiting admin approval.</p>
               </div>
             ) : (
-              <div>
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">Request Status Change</h3>
-                <p className="text-sm text-gray-600 mb-4">
-                  If you have made a payment or have an issue, please notify the admin.
-                </p>
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-2">Or request status change</h4>
                 <div className="flex flex-wrap gap-3">
                   <button 
                     onClick={() => handleRequestStatusChange('paid')} 
                     disabled={isRequesting}
-                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 disabled:opacity-50"
+                    className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 disabled:opacity-50 text-sm"
                   >
-                    Mark as Paid
+                    Request mark as paid
                   </button>
                   <button 
                     onClick={() => handleRequestStatusChange('queried')} 
                     disabled={isRequesting}
-                    className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 disabled:opacity-50"
+                    className="px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 disabled:opacity-50 text-sm"
                   >
                     Query Invoice
                   </button>

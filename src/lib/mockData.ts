@@ -7,20 +7,30 @@ export const mockTenants: Tenant[] = [
     email: 'john.doe@example.com',
     fullName: 'John Doe',
     role: 'tenant',
+    status: 'approved',
     isApproved: true,
     phoneNumber: '+1234567890',
-    address: '123 Main St, City, State',
-    createdAt: new Date().toISOString(),
+    unitNumber: '101',
+    rentalType: 'Whole Unit',
+    rentAmount: 1200,
+    moveInDate: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
   },
   {
     id: 'tenant2',
     email: 'jane.smith@example.com',
     fullName: 'Jane Smith',
     role: 'tenant',
+    status: 'approved',
     isApproved: true,
     phoneNumber: '+1234567891',
-    address: '456 Oak Ave, City, State',
-    createdAt: new Date().toISOString(),
+    unitNumber: '102',
+    rentalType: 'Whole Unit',
+    rentAmount: 1000,
+    moveInDate: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
   }
 ];
 
@@ -47,7 +57,7 @@ export const mockInvoices: Invoice[] = [
       internet: 0
     },
     rentAmount: 1200,
-    createdAt: new Date().toISOString(),
+    createdAt: new Date(),
     updatedAt: new Date().toISOString()
   },
   {
@@ -72,7 +82,7 @@ export const mockInvoices: Invoice[] = [
       internet: 0
     },
     rentAmount: 1000,
-    createdAt: new Date().toISOString(),
+    createdAt: new Date(),
     updatedAt: new Date().toISOString()
   }
 ];

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { createNotification, NotificationMessages } from '@/utils/notificationUtils';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
+import { collection, query, where, getDocs, updateDoc, doc, arrayUnion } from 'firebase/firestore';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
@@ -38,6 +39,7 @@ interface Request {
   serviceType?: string;
   customServiceType?: string;
   assignedTo?: string;
+  assignedProviderName?: string;
   userId?: string;
   hiddenFor?: string[];
   type?: string;

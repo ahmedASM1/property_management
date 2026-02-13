@@ -62,14 +62,15 @@ export async function POST(req: NextRequest) {
 
   } catch (error) {
     console.error('Error sending magic link:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('Error details:', {
-      message: error.message,
-      stack: error.stack,
-      name: error.name
+      message: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+      name: error instanceof Error ? error.name : undefined
     });
     return NextResponse.json({ 
       error: 'Failed to send magic link',
-      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+      details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
     }, { status: 500 });
   }
 }
@@ -100,7 +101,7 @@ async function sendWelcomeEmail(email: string, magicLink: string, userId: string
         emailSent = true;
         console.log('✅ Email sent via SendGrid');
       } catch (error) {
-        console.log('❌ SendGrid failed, trying other services:', error.message);
+        console.log('❌ SendGrid failed, trying other services:', error instanceof Error ? error.message : 'Unknown error');
       }
     }
     
@@ -111,7 +112,7 @@ async function sendWelcomeEmail(email: string, magicLink: string, userId: string
         emailSent = true;
         console.log('✅ Email sent via AWS SES');
       } catch (error) {
-        console.log('❌ AWS SES failed, trying Nodemailer:', error.message);
+        console.log('❌ AWS SES failed, trying Nodemailer:', error instanceof Error ? error.message : 'Unknown error');
       }
     }
     
@@ -122,7 +123,7 @@ async function sendWelcomeEmail(email: string, magicLink: string, userId: string
         emailSent = true;
         console.log('✅ Email sent via Nodemailer');
       } catch (error) {
-        console.log('❌ Nodemailer failed:', error.message);
+        console.log('❌ Nodemailer failed:', error instanceof Error ? error.message : 'Unknown error');
       }
     }
     
@@ -147,7 +148,8 @@ async function sendWelcomeEmail(email: string, magicLink: string, userId: string
     
   } catch (error) {
     console.error('Error sending welcome email:', error);
-    throw new Error(`Failed to send welcome email: ${error.message}`);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to send welcome email: ${errorMessage}`);
   }
 }
 

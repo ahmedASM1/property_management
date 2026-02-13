@@ -16,10 +16,8 @@ import {
   FaBell,
   FaCog,
   FaShieldAlt,
-  FaDatabase,
   FaClock,
   FaCheckCircle,
-  FaTimesCircle,
   FaExclamationCircle
 } from 'react-icons/fa';
 import { sendPaymentReminderEmail } from '@/lib/email';
@@ -47,10 +45,9 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
     storage: 'healthy',
     lastChecked: new Date()
   });
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [recentActivity, setRecentActivity] = useState<Record<string, unknown>[]>([]);
   const [pendingApprovals, setPendingApprovals] = useState(0);
   const [activeMaintenanceRequests, setActiveMaintenanceRequests] = useState(0);
-  const [systemAlerts, setSystemAlerts] = useState<any[]>([]);
 
   const recentInvoices = [...invoices]
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -742,7 +739,7 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
                 </div>
               ) : (
                 recentActivity.map((activity, index) => (
-                  <div key={activity.id || index} className="p-4 hover:bg-gray-50 transition-colors">
+                  <div key={String(activity.id ?? index)} className="p-4 hover:bg-gray-50 transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
@@ -750,10 +747,10 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-900">
-                            {activity.type === 'new_registration' ? 'New User Registration' : activity.type}
+                            {activity.type === 'new_registration' ? 'New User Registration' : String(activity.type ?? '')}
                           </p>
                           <p className="text-xs text-gray-500">
-                            {activity.userFullName} ({activity.userEmail})
+                            {String(activity.userFullName ?? '')} ({String(activity.userEmail ?? '')})
                           </p>
                         </div>
                       </div>
@@ -763,7 +760,7 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
                           activity.status === 'approved' ? 'bg-green-100 text-green-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
-                          {activity.status || 'pending'}
+                          {String(activity.status ?? 'pending')}
                         </span>
                       </div>
                     </div>

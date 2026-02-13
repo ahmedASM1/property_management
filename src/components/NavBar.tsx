@@ -127,11 +127,18 @@ export default function NavBar() {
               <Link href="/dashboard/contracts" className={navClassName('/dashboard/contracts')}><FaFileContract className="inline mr-1 mb-1" />Contracts</Link>
               <Link href="/dashboard/users" className={navClassName('/dashboard/users')}><FaUsers className="inline mr-1 mb-1" />Users</Link>
             </>
-          ) : user?.role === 'propertyOwner' ? (
+          ) : user?.role === 'agent' ? (
+            <>
+              <Link href="/dashboard" className={navClassName('/dashboard', true)}><FaHome className="inline mr-1 mb-1" />Dashboard</Link>
+              <Link href="/dashboard/tenants" className={navClassName('/dashboard/tenants')}><FaUsers className="inline mr-1 mb-1" />Tenants</Link>
+              <Link href="/dashboard/invoices" className={navClassName('/dashboard/invoices')}><FaFileInvoice className="inline mr-1 mb-1" />Invoices</Link>
+              <Link href="/dashboard/contracts" className={navClassName('/dashboard/contracts')}><FaFileContract className="inline mr-1 mb-1" />Contracts</Link>
+            </>
+          ) : user?.role === 'property_owner' ? (
             <>
               <Link href="/dashboard" className={navClassName('/dashboard', true)}><FaHome className="inline mr-1 mb-1" />Dashboard</Link>
             </>
-          ) : user?.role === 'service' ? (
+          ) : user?.role === 'service_provider' ? (
             <>
               <Link href="/dashboard" className={navClassName('/dashboard', true)}><FaHome className="inline mr-1 mb-1" />Dashboard</Link>
             </>
@@ -242,11 +249,53 @@ export default function NavBar() {
                 </>
               )}
 
+                {/* Agent Links - no Users */}
+                {user.role === 'agent' && (
+                  <>
+                    <Link
+                      onClick={closeDrawerInstant}
+                      href="/dashboard/tenants"
+                      className={`flex items-center space-x-3 p-3 rounded-lg ${
+                        pathname.startsWith('/dashboard/tenants')
+                          ? 'bg-indigo-50 text-indigo-600 font-semibold'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <FaUsers className="w-5 h-5" />
+                      <span>Tenants</span>
+                    </Link>
+                    <Link
+                      onClick={closeDrawerInstant}
+                      href="/dashboard/invoices"
+                      className={`flex items-center space-x-3 p-3 rounded-lg ${
+                        pathname.startsWith('/dashboard/invoices') && !pathname.startsWith('/dashboard/invoices/received')
+                          ? 'bg-indigo-50 text-indigo-600 font-semibold'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <FaFileInvoice className="w-5 h-5" />
+                      <span>Invoices</span>
+                    </Link>
+                    <Link
+                      onClick={closeDrawerInstant}
+                      href="/dashboard/contracts"
+                      className={`flex items-center space-x-3 p-3 rounded-lg ${
+                        pathname.startsWith('/dashboard/contracts')
+                          ? 'bg-indigo-50 text-indigo-600 font-semibold'
+                          : 'text-gray-700 hover:bg-gray-100'
+                      }`}
+                    >
+                      <FaFileContract className="w-5 h-5" />
+                      <span>Contracts</span>
+                    </Link>
+                  </>
+                )}
+
                 {/* Owner Links */}
-                {user.role === 'propertyOwner' && <></>}
+                {user.role === 'property_owner' && <></>}
 
                 {/* Service Provider Links */}
-                {user.role === 'service' && (
+                {user.role === 'service_provider' && (
                   <></>
                 )}
 

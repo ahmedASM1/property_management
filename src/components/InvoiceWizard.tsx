@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
-import { FaUser, FaHome, FaCalendarAlt, FaCheckCircle, FaMagic, FaSpinner, FaFileInvoiceDollar, FaBuilding } from 'react-icons/fa';
+import { FaUser, FaCalendarAlt, FaCheckCircle, FaMagic, FaSpinner, FaFileInvoiceDollar, FaBuilding } from 'react-icons/fa';
 import { useForm, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, query, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { User, Unit, Invoice } from '@/types';
+import { User, Unit } from '@/types';
 
 const invoiceSchema = z.object({
   tenantId: z.string().min(1, 'Tenant is required'),
@@ -17,10 +17,10 @@ const invoiceSchema = z.object({
   year: z.number().min(2020, 'Year is required'),
   rentAmount: z.number().min(0, 'Rent amount is required'),
   utilities: z.object({
-    water: z.number().min(0).default(0),
-    electricity: z.number().min(0).default(0),
-    internet: z.number().min(0).default(0),
-    other: z.number().min(0).default(0)
+    water: z.number().min(0),
+    electricity: z.number().min(0),
+    internet: z.number().min(0),
+    other: z.number().min(0)
   }),
   description: z.string().optional(),
   dueDate: z.string().min(1, 'Due date is required')
@@ -41,12 +41,11 @@ interface InvoiceWizardProps {
 }
 
 export default function InvoiceWizard({ 
-  onSubmit,
-  onCancel
+  onSubmit
 }: InvoiceWizardProps) {
   const [step, setStep] = useState(0);
   const [mode, setMode] = useState<'manual' | 'ai'>('manual');
-  const [aiPreview, setAiPreview] = useState<any>(null);
+  const [aiPreview, setAiPreview] = useState<Record<string, unknown> | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [tenants, setTenants] = useState<User[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -66,7 +65,7 @@ export default function InvoiceWizard({
         electricity: 0,
         internet: 0,
         other: 0
-      },
+      } as { water: number; electricity: number; internet: number; other: number },
       description: '',
       dueDate: ''
     },
@@ -245,7 +244,7 @@ export default function InvoiceWizard({
                   <label className="block text-sm font-medium text-gray-700 mb-2">Month</label>
                   <select {...register('month')} className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-green-500 focus:border-green-500">
                     <option value="">-- Select Month --</option>
-                    {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((month, index) => (
+                    {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((month) => (
                       <option key={month} value={month}>{month}</option>
                     ))}
                   </select>
@@ -350,7 +349,7 @@ export default function InvoiceWizard({
                 <h3 className="font-medium text-green-900">AI Invoice Generation</h3>
               </div>
               <p className="text-sm text-green-700">
-                Fill out the form steps above, then click "Generate with AI" to create a professional invoice. 
+                Fill out the form steps above, then click &quot;Generate with AI&quot; to create a professional invoice. 
                 The AI will use your tenant and unit information to generate a comprehensive invoice.
               </p>
             </div>

@@ -51,7 +51,7 @@ export default function ServiceProviderDashboard() {
       const requestsSnapshot = await getDocs(collection(db, 'maintenance_requests'));
       let requests = requestsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MaintenanceRequest));
       // Role-based filtering
-      if (user?.role === 'service') {
+      if (user?.role === 'service_provider') {
         requests = requests.filter(req => req.assignedTo === user.id);
       } else if (user?.role === 'mixedProvider') {
         requests = requests.filter(req => req.assignedTo);

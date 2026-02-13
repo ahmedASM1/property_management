@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import crypto from 'crypto';
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, userId, role, userData, emailType } = await req.json();
+    const { email, userId, role, userData } = await req.json();
 
     if (!email || !userId || !role) {
       return NextResponse.json({ error: 'Email, userId, and role are required' }, { status: 400 });
@@ -41,7 +41,19 @@ export async function POST(req: NextRequest) {
   }
 }
 
-async function sendRoleSpecificWelcomeEmail(email: string, magicLink: string, role: string, userData: any) {
+interface WelcomeUserData {
+  email?: string;
+  fullName?: string;
+  phoneNumber?: string;
+  role?: string;
+  assignedProperties?: unknown[];
+  moveInDate?: string;
+  serviceType?: string;
+  companyName?: string;
+  hourlyRate?: string | number;
+}
+
+async function sendRoleSpecificWelcomeEmail(email: string, magicLink: string, role: string, userData: WelcomeUserData) {
   console.log('Welcome email would be sent to:', email);
   console.log('Magic link:', magicLink);
   console.log('User role:', role);
@@ -76,7 +88,7 @@ async function sendRoleSpecificWelcomeEmail(email: string, magicLink: string, ro
   }
 }
 
-function generatePropertyOwnerWelcomeEmail(userData: any, magicLink: string) {
+function generatePropertyOwnerWelcomeEmail(userData: WelcomeUserData, magicLink: string) {
   return {
     to: userData.email,
     subject: 'Welcome to Green Bridge Property Management - Owner Portal Access',
@@ -99,7 +111,7 @@ function generatePropertyOwnerWelcomeEmail(userData: any, magicLink: string) {
               <li><strong>Email:</strong> ${userData.email}</li>
               <li><strong>Phone:</strong> ${userData.phoneNumber}</li>
               <li><strong>Role:</strong> Property Owner</li>
-              ${userData.assignedProperties?.length > 0 ? `<li><strong>Assigned Properties:</strong> ${userData.assignedProperties.length} properties</li>` : ''}
+              ${(userData.assignedProperties?.length ?? 0) > 0 ? `<li><strong>Assigned Properties:</strong> ${userData.assignedProperties?.length ?? 0} properties</li>` : ''}
             </ul>
           </div>
           
@@ -143,7 +155,7 @@ function generatePropertyOwnerWelcomeEmail(userData: any, magicLink: string) {
   };
 }
 
-function generateTenantWelcomeEmail(userData: any, magicLink: string) {
+function generateTenantWelcomeEmail(userData: WelcomeUserData, magicLink: string) {
   return {
     to: userData.email,
     subject: 'Welcome to Your New Home - Green Bridge Tenant Portal',
@@ -211,7 +223,7 @@ function generateTenantWelcomeEmail(userData: any, magicLink: string) {
   };
 }
 
-function generateServiceProviderWelcomeEmail(userData: any, magicLink: string) {
+function generateServiceProviderWelcomeEmail(userData: WelcomeUserData, magicLink: string) {
   return {
     to: userData.email,
     subject: 'Welcome to Green Bridge Service Network - Provider Portal Access',
@@ -281,7 +293,7 @@ function generateServiceProviderWelcomeEmail(userData: any, magicLink: string) {
   };
 }
 
-function generateGenericWelcomeEmail(userData: any, magicLink: string) {
+function generateGenericWelcomeEmail(userData: WelcomeUserData, magicLink: string) {
   return {
     to: userData.email,
     subject: 'Welcome to Green Bridge - Account Setup',

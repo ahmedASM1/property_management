@@ -1,9 +1,7 @@
 'use client';
 import {
   FaHome, FaFileContract, FaFileInvoiceDollar, FaTools, FaChartLine, FaUsers,
-  FaBuilding, FaUserCog, FaSignOutAlt, FaBars, FaTimes, FaCog, FaBell, FaSun, FaMoon,
-  FaUserPlus, FaUserCheck, FaClipboardList, FaChartBar, FaCogs, FaUser, FaCreditCard,
-  FaMoneyBillWave, FaHandHoldingUsd, FaReceipt, FaWallet, FaPiggyBank
+  FaBuilding, FaBars, FaTimes, FaClipboardList, FaChartBar, FaCreditCard
 } from 'react-icons/fa';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -33,6 +31,16 @@ const linksByRole: Record<UserRole, NavItem[]> = {
     { href: '/dashboard/maintenance/admin', label: 'Maintenance', icon: FaTools },
     { href: '/dashboard/reports', label: 'Reports', icon: FaChartBar },
     { href: '/dashboard/analytics', label: 'Analytics', icon: FaChartLine },
+  ],
+  agent: [
+    { href: '/dashboard', label: 'Dashboard', icon: FaHome },
+    { href: '/dashboard/tenants', label: 'Tenants', icon: FaUsers },
+    { href: '/dashboard/buildings', label: 'Buildings', icon: FaBuilding },
+    { href: '/dashboard/units', label: 'Units', icon: FaHome },
+    { href: '/dashboard/assignments', label: 'Assignments', icon: FaClipboardList },
+    { href: '/dashboard/contracts', label: 'Contracts', icon: FaFileContract },
+    { href: '/dashboard/invoices', label: 'Invoices', icon: FaFileInvoiceDollar },
+    { href: '/dashboard/maintenance/admin', label: 'Maintenance', icon: FaTools },
   ],
   property_owner: [
     { href: '/dashboard', label: 'Dashboard', icon: FaHome },
@@ -74,9 +82,37 @@ const Sidebar = () => {
   const pathname = usePathname();
   const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(false);
+  const [darkMode] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  // Dark mode effect (must run before any early return - rules of hooks)
+  useEffect(() => {
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [darkMode]);
+
+  // Click outside to close profile dropdown (must run before any early return - rules of hooks)
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+        setProfileOpen(false);
+      }
+    }
+    if (profileOpen) {
+      const timeoutId = setTimeout(() => {
+        document.addEventListener('mousedown', handleClickOutside);
+      }, 100);
+      return () => {
+        clearTimeout(timeoutId);
+        document.removeEventListener('mousedown', handleClickOutside);
+      };
+    }
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [profileOpen]);
 
   if (!user || !signOut) {
     return null;
@@ -89,36 +125,6 @@ const Sidebar = () => {
   const getInitials = (name: string) => {
     return name?.split(' ').map((n) => n[0]).join('').toUpperCase() || 'U';
   };
-
-  // Dark mode effect
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
-  }, [darkMode]);
-
-
-  // Click outside to close profile dropdown
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
-        setProfileOpen(false);
-      }
-    }
-    if (profileOpen) {
-      // Use a small delay to allow dropdown item clicks to register first
-      const timeoutId = setTimeout(() => {
-        document.addEventListener('mousedown', handleClickOutside);
-      }, 100);
-      return () => {
-        clearTimeout(timeoutId);
-        document.removeEventListener('mousedown', handleClickOutside);
-      };
-    }
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [profileOpen]);
 
   
 

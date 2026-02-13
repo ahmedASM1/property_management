@@ -5,10 +5,12 @@ import { db } from '@/lib/firebase';
 import { Unit, Building, User, RentalType } from '@/types';
 import { toast } from 'react-hot-toast';
 import { FaPlus, FaEdit, FaTrash, FaHome, FaUser } from 'react-icons/fa';
+import { useAuth } from '@/contexts/AuthContext';
 
 const rentalTypes: RentalType[] = ['Room1', 'Room2', 'Room3', 'Studio', 'Whole Unit'];
 
 export default function UnitsPage() {
+  const { user } = useAuth();
   const [units, setUnits] = useState<Unit[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [tenants, setTenants] = useState<User[]>([]);
@@ -30,33 +32,54 @@ export default function UnitsPage() {
     amenities: [] as string[]
   });
 
+  const isAgent = user?.role === 'agent';
+
   useEffect(() => {
+    if (!user) return;
     fetchData();
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- fetchData and user used intentionally
+  }, [user?.id, user?.role]);
 
   const fetchData = async () => {
+    if (!user) return;
     try {
-      // Fetch buildings
-      const buildingsQuery = query(collection(db, 'buildings'), orderBy('name'));
-      const buildingsSnapshot = await getDocs(buildingsQuery);
-      const buildingsData = buildingsSnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt || new Date()),
-          updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : (data.updatedAt || new Date())
-        };
-      }) as Building[];
+      setLoading(true);
+      let buildingsData: Building[];
+      if (isAgent) {
+        const buildingsQuery = query(collection(db, 'buildings'), orderBy('name'));
+        const buildingsSnapshot = await getDocs(buildingsQuery);
+        buildingsData = buildingsSnapshot.docs
+          .map(docSnap => {
+            const data = docSnap.data();
+            return {
+              id: docSnap.id,
+              ...data,
+              createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt || new Date()),
+              updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : (data.updatedAt || new Date())
+            };
+          }) as Building[];
+        buildingsData = buildingsData.filter(b => (b.assignedAgentIds || []).includes(user.id));
+      } else {
+        const buildingsQuery = query(collection(db, 'buildings'), orderBy('name'));
+        const buildingsSnapshot = await getDocs(buildingsQuery);
+        buildingsData = buildingsSnapshot.docs.map(docSnap => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            ...data,
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt || new Date()),
+            updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : (data.updatedAt || new Date())
+          };
+        }) as Building[];
+      }
       setBuildings(buildingsData);
 
-      // Fetch tenants
       const tenantsQuery = query(collection(db, 'users'), where('role', '==', 'tenant'));
       const tenantsSnapshot = await getDocs(tenantsQuery);
-      const tenantsData = tenantsSnapshot.docs.map(doc => {
-        const data = doc.data();
+      const tenantsData = tenantsSnapshot.docs.map(docSnap => {
+        const data = docSnap.data();
         return {
-          id: doc.id,
+          id: docSnap.id,
           ...data,
           createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt || new Date()),
           updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : (data.updatedAt || new Date())
@@ -64,18 +87,21 @@ export default function UnitsPage() {
       }) as User[];
       setTenants(tenantsData);
 
-      // Fetch units
+      const buildingIds = new Set(buildingsData.map(b => b.id));
       const unitsQuery = query(collection(db, 'units'), orderBy('fullUnitNumber'));
       const unitsSnapshot = await getDocs(unitsQuery);
-      const unitsData = unitsSnapshot.docs.map(doc => {
-        const data = doc.data();
+      let unitsData = unitsSnapshot.docs.map(docSnap => {
+        const data = docSnap.data();
         return {
-          id: doc.id,
+          id: docSnap.id,
           ...data,
           createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt || new Date()),
           updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : (data.updatedAt || new Date())
         };
       }) as Unit[];
+      if (isAgent) {
+        unitsData = unitsData.filter(u => buildingIds.has(u.buildingId));
+      }
       setUnits(unitsData);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -89,7 +115,7 @@ export default function UnitsPage() {
     return `${block}-${floor.toString().padStart(2, '0')}-${unitNumber.padStart(2, '0')}`;
   };
 
-  const cleanDataForFirestore = (data: any) => {
+  const cleanDataForFirestore = (data: Record<string, unknown>) => {
     const cleaned = { ...data };
     Object.keys(cleaned).forEach(key => {
       if (cleaned[key] === undefined) {
@@ -102,6 +128,24 @@ export default function UnitsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      if (isAgent && editingUnit) {
+        const currentTenantName = formData.currentTenantId
+          ? tenants.find(t => t.id === formData.currentTenantId)?.fullName || null
+          : null;
+        await updateDoc(doc(db, 'units', editingUnit.id), {
+          currentTenantId: formData.currentTenantId || null,
+          currentTenantName: currentTenantName || null,
+          status: formData.currentTenantId ? 'occupied' : 'vacant',
+          updatedAt: new Date()
+        });
+        toast.success('Tenant assignment updated');
+        setShowModal(false);
+        setEditingUnit(null);
+        resetForm();
+        fetchData();
+        return;
+      }
+
       const selectedBuilding = buildings.find(b => b.id === formData.buildingId);
       if (!selectedBuilding) {
         toast.error('Please select a building');
@@ -110,7 +154,6 @@ export default function UnitsPage() {
 
       const fullUnitNumber = generateFullUnitNumber(formData.block, formData.floor, formData.unitNumber);
       
-      // Check for duplicate unit number in the same building
       const existingUnit = units.find(u => 
         u.buildingId === formData.buildingId && 
         u.fullUnitNumber === fullUnitNumber && 
@@ -220,6 +263,15 @@ export default function UnitsPage() {
     }
   };
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'occupied': return 'Leased';
+      case 'vacant': return 'Vacant';
+      case 'maintenance': return 'Maintenance';
+      default: return status;
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -232,15 +284,21 @@ export default function UnitsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Units Management</h1>
-          <p className="text-gray-600 mt-2">Manage your property units</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {isAgent ? 'Units' : 'Units Management'}
+          </h1>
+          <p className="text-gray-600 mt-2">
+            {isAgent ? 'Units in your assigned buildings' : 'Manage your property units'}
+          </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
-        >
-          <FaPlus /> Add Unit
-        </button>
+        {!isAgent && (
+          <button
+            onClick={() => setShowModal(true)}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+          >
+            <FaPlus /> Add Unit
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -260,15 +318,18 @@ export default function UnitsPage() {
                 <button
                   onClick={() => handleEdit(unit)}
                   className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                  title={isAgent ? 'Assign tenant' : 'Edit unit'}
                 >
                   <FaEdit />
                 </button>
-                <button
-                  onClick={() => handleDelete(unit)}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                >
-                  <FaTrash />
-                </button>
+                {!isAgent && (
+                  <button
+                    onClick={() => handleDelete(unit)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                  >
+                    <FaTrash />
+                  </button>
+                )}
               </div>
             </div>
             
@@ -276,7 +337,7 @@ export default function UnitsPage() {
               <div className="flex justify-between">
                 <span className="text-gray-600">Status:</span>
                 <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(unit.status)}`}>
-                  {unit.status}
+                  {getStatusLabel(unit.status)}
                 </span>
               </div>
               <div className="flex justify-between">
@@ -302,19 +363,51 @@ export default function UnitsPage() {
         <div className="text-center py-12">
           <FaHome className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900">No units</h3>
-          <p className="mt-1 text-sm text-gray-500">Get started by adding a new unit.</p>
+          <p className="mt-1 text-sm text-gray-500">
+            {isAgent ? 'No units in your assigned buildings.' : 'Get started by adding a new unit.'}
+          </p>
         </div>
       )}
 
       {/* Add/Edit Unit Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl font-bold mb-4">
-              {editingUnit ? 'Edit Unit' : 'Add New Unit'}
+              {isAgent && editingUnit ? 'Assign Tenant to Unit' : editingUnit ? 'Edit Unit' : 'Add New Unit'}
             </h2>
             
             <form onSubmit={handleSubmit} className="space-y-4">
+              {isAgent && editingUnit ? (
+                <>
+                  <div className="p-3 bg-gray-50 rounded-lg text-sm text-gray-700">
+                    <p><strong>Unit:</strong> {editingUnit.fullUnitNumber} — {editingUnit.buildingName}</p>
+                    <p><strong>Rent:</strong> RM {editingUnit.monthlyRent?.toLocaleString()}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Assign Tenant
+                    </label>
+                    <select
+                      value={formData.currentTenantId}
+                      onChange={(e) => setFormData({ ...formData, currentTenantId: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
+                    >
+                      <option value="">No tenant assigned</option>
+                      {tenants.map((tenant) => (
+                        <option key={tenant.id} value={tenant.id}>
+                          {tenant.fullName} ({tenant.email})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex justify-end gap-3">
+                    <button type="button" onClick={handleCloseModal} className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300">Cancel</button>
+                    <button type="submit" className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Update Assignment</button>
+                  </div>
+                </>
+              ) : (
+                <>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Building
@@ -485,9 +578,11 @@ export default function UnitsPage() {
                   type="submit"
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
                 >
-                  {editingUnit ? 'Update' : 'Add'} Unit
+                  {isAgent && editingUnit ? 'Update Assignment' : editingUnit ? 'Update' : 'Add'} Unit
                 </button>
               </div>
+                </>
+              )}
             </form>
           </div>
         </div>

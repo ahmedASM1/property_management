@@ -4,8 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { collection, query, where, getDocs, orderBy, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import Link from 'next/link';
-import jsPDF from 'jspdf';
-import { Contract, Comment } from '@/types';
+import { Contract, Comment, RentalType, UserStatus } from '@/types';
 import { generateComprehensiveContractPDF, ContractFields } from '@/utils/contractGenerator';
 
 export default function TenantContractPage() {
@@ -67,15 +66,20 @@ export default function TenantContractPage() {
     
     // Create a mock tenant object from user data
     const tenant = {
-      id: user.uid,
+      id: user.uid || user.id || '',
       fullName: user.fullName || '',
       email: user.email || '',
       phoneNumber: user.phoneNumber || '',
-      nric: user.nric || '',
+      idNumber: user.idNumber || '',
       role: 'tenant' as const,
       isApproved: true,
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      unitNumber: user.unitNumber || contract.unitNumber || '',
+      rentalType: (user.rentalType || 'Room1') as RentalType,
+      rentAmount: contract.rentalPerMonth,
+      moveInDate: new Date(contract.moveInDate),
+      status: 'approved' as UserStatus
     };
 
     // Create contract fields from contract data

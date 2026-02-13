@@ -59,7 +59,7 @@ export default function RequestItemPage() {
         if (docSnap.exists()) {
           const requestData = { id: docSnap.id, ...docSnap.data() } as MaintenanceRequest;
           // Security check: ensure the user is authorized to view this
-          if (requestData.userId !== user.id && user.role !== 'admin' && user.role !== 'service') {
+          if (requestData.userId !== user.id && user.role !== 'admin' && user.role !== 'service_provider') {
             setError('You are not authorized to view this request.');
           } else {
             setRequest(requestData);
@@ -194,7 +194,7 @@ export default function RequestItemPage() {
             <span>Unit: {request.unitProperty}</span>
             <div className="flex items-center gap-1">
               <span>Status:</span>
-              {(user?.role === 'service' && user?.id === request.assignedTo) ? (
+              {(user?.role === 'service_provider' && user?.id === request.assignedTo) ? (
           <select
                   value={request.status}
                   onChange={(e) => handleStatusChange(e.target.value as 'in progress' | 'completed')}

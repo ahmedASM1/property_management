@@ -4,7 +4,7 @@ import { collection, getDocs, doc, updateDoc, query, where, orderBy } from 'fire
 import { db } from '@/lib/firebase';
 import { User, Unit } from '@/types';
 import { toast } from 'react-hot-toast';
-import { FaUser, FaHome, FaCheck, FaTimes, FaBuilding, FaSearch } from 'react-icons/fa';
+import { FaUser, FaCheck, FaTimes, FaBuilding, FaSearch } from 'react-icons/fa';
 
 export default function TenantUnitAssignmentsPage() {
   const [tenants, setTenants] = useState<User[]>([]);
@@ -15,17 +15,18 @@ export default function TenantUnitAssignmentsPage() {
   const [selectedTenantId, setSelectedTenantId] = useState('');
   const [selectedUnitId, setSelectedUnitId] = useState('');
 
-  const toDateSafe = (value: any): Date => {
+  const toDateSafe = (value: unknown): Date => {
     if (!value) return new Date();
     if (typeof value === 'string') return new Date(value);
     if (typeof value === 'number') return new Date(value);
-    if (value?.toDate) return value.toDate();
-    if (value?.seconds) return new Date(value.seconds * 1000);
-    try { return new Date(value); } catch { return new Date(); }
+    if (typeof value === 'object' && value !== null && 'toDate' in value && typeof (value as { toDate: () => Date }).toDate === 'function') return (value as { toDate: () => Date }).toDate();
+    if (typeof value === 'object' && value !== null && 'seconds' in value) return new Date((value as { seconds: number }).seconds * 1000);
+    try { return new Date(value as string | number); } catch { return new Date(); }
   };
 
   useEffect(() => {
     fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
   const fetchData = async () => {
@@ -162,6 +163,15 @@ export default function TenantUnitAssignmentsPage() {
     }
   };
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'occupied': return 'Leased';
+      case 'vacant': return 'Vacant';
+      case 'maintenance': return 'Maintenance';
+      default: return status;
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -194,7 +204,7 @@ export default function TenantUnitAssignmentsPage() {
         <div>
           <select
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value as any)}
+            onChange={(e) => setFilterStatus(e.target.value as 'all' | 'assigned' | 'unassigned')}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
           >
             <option value="all">All Tenants</option>
@@ -262,14 +272,14 @@ export default function TenantUnitAssignmentsPage() {
                     {unit.currentTenantName && (
                       <div className="mt-2">
                         <span className="badge badge-success">
-                          Occupied by {unit.currentTenantName}
+                          Leased to {unit.currentTenantName}
                         </span>
                       </div>
                     )}
                   </div>
                   <div className="ml-4 flex flex-col gap-2">
                     <span className={`badge ${getStatusColor(unit.status)}`}>
-                      {unit.status}
+                      {getStatusLabel(unit.status)}
                     </span>
                     {unit.status === 'occupied' ? (
                       <button

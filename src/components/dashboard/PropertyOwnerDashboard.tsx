@@ -13,7 +13,8 @@ import {
   FaClock,
   FaExclamationTriangle,
   FaBuilding,
-  FaMapMarkerAlt
+  FaMapMarkerAlt,
+  FaWallet
 } from 'react-icons/fa';
 
 interface PropertyWithDetails extends Property {
@@ -35,8 +36,10 @@ const PropertyOwnerDashboard = () => {
     occupiedUnits: 0,
     vacantUnits: 0,
     totalMonthlyIncome: 0,
+    totalRentalIncome: 0,
     pendingMaintenance: 0,
-    overduePayments: 0
+    overduePayments: 0,
+    totalDepositsHeld: 0
   });
 
   useEffect(() => {
@@ -94,6 +97,25 @@ const PropertyOwnerDashboard = () => {
               console.error('Error fetching invoices:', error);
             }
 
+            // Fetch contracts for this property to calculate deposits
+            let depositsForProperty = 0;
+            try {
+              const contractsQuery = query(
+                collection(db, 'contracts'),
+                where('unitNumber', '==', property.unitNumber),
+                where('archived', '==', false)
+              );
+              const contractsSnapshot = await getDocs(contractsQuery);
+              contractsSnapshot.docs.forEach(doc => {
+                const contract = doc.data();
+                depositsForProperty += (contract.securityDeposit || 0) + 
+                                      (contract.utilityDeposit || 0) + 
+                                      (contract.accessCardDeposit || 0);
+              });
+            } catch (error) {
+              console.error('Error fetching contracts:', error);
+            }
+
             // Fetch maintenance requests count
             try {
               const maintenanceQuery = query(
@@ -112,7 +134,8 @@ const PropertyOwnerDashboard = () => {
               currentTenant,
               recentInvoices,
               maintenanceCount,
-              totalIncome
+              totalIncome,
+              depositsHeld: depositsForProperty
             };
           })
         );
@@ -124,6 +147,15 @@ const PropertyOwnerDashboard = () => {
         const occupiedUnits = propertiesData.filter(p => p.status === 'occupied').length;
         const vacantUnits = propertiesData.filter(p => p.status === 'vacant').length;
         const totalMonthlyIncome = propertiesWithDetails.reduce((sum, p) => sum + (p.totalIncome || 0), 0);
+        
+        // Calculate total rental income (from monthly rent of occupied units)
+        const totalRentalIncome = propertiesWithDetails
+          .filter(p => p.status === 'occupied')
+          .reduce((sum, p) => sum + (p.monthlyRent || 0), 0);
+        
+        // Calculate total deposits held
+        const totalDepositsHeld = propertiesWithDetails.reduce((sum, p) => sum + ((p as { depositsHeld?: number }).depositsHeld || 0), 0);
+        
         const pendingMaintenance = propertiesWithDetails.reduce((sum, p) => sum + (p.pendingMaintenanceRequests || 0), 0);
         const overduePayments = propertiesWithDetails.reduce((sum, p) => {
           const overdueInvoices = p.recentInvoices?.filter(inv => inv.status === 'overdue') || [];
@@ -135,8 +167,10 @@ const PropertyOwnerDashboard = () => {
           occupiedUnits,
           vacantUnits,
           totalMonthlyIncome,
+          totalRentalIncome,
           pendingMaintenance,
-          overduePayments
+          overduePayments,
+          totalDepositsHeld
         });
 
       } catch (error) {
@@ -176,7 +210,7 @@ const PropertyOwnerDashboard = () => {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-8">
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
@@ -192,7 +226,7 @@ const PropertyOwnerDashboard = () => {
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Occupied Units</p>
+              <p className="text-sm font-medium text-gray-600">Leased Units</p>
               <p className="text-2xl font-bold text-green-600 mt-2">{stats.occupiedUnits}</p>
             </div>
             <div className="p-3 bg-green-100 rounded-full">
@@ -216,11 +250,25 @@ const PropertyOwnerDashboard = () => {
         <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-600">Monthly Income</p>
-              <p className="text-2xl font-bold text-green-600 mt-2">RM {stats.totalMonthlyIncome.toLocaleString()}</p>
+              <p className="text-sm font-medium text-gray-600">Monthly Rental Income</p>
+              <p className="text-2xl font-bold text-green-600 mt-2">RM {stats.totalRentalIncome.toLocaleString()}</p>
+              <p className="text-xs text-gray-500 mt-1">From {stats.occupiedUnits} rented unit{stats.occupiedUnits !== 1 ? 's' : ''}</p>
             </div>
             <div className="p-3 bg-green-100 rounded-full">
               <FaMoneyBillWave className="h-6 w-6 text-green-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-gray-600">Total Deposits Held</p>
+              <p className="text-2xl font-bold text-blue-600 mt-2">RM {stats.totalDepositsHeld.toLocaleString()}</p>
+              <p className="text-xs text-gray-500 mt-1">Security & utility deposits</p>
+            </div>
+            <div className="p-3 bg-blue-100 rounded-full">
+              <FaWallet className="h-6 w-6 text-blue-600" />
             </div>
           </div>
         </div>
@@ -261,7 +309,7 @@ const PropertyOwnerDashboard = () => {
                     <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
                       property.status === 'occupied' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
                     }`}>
-                      {property.status === 'occupied' ? 'Occupied' : 'Available'}
+                      {property.status === 'occupied' ? 'Leased' : 'Available'}
                 </span>
               </div>
                   <div className="mt-2">
@@ -275,9 +323,23 @@ const PropertyOwnerDashboard = () => {
                       <p className="text-sm font-medium text-gray-700">Rental Type: <span className="font-semibold">{property.rentalType || 'N/A'}</span></p>
                       <p className="text-sm font-medium text-gray-700">Rent Price: <span className="font-semibold text-green-700">RM {property.rentPrice ? property.rentPrice : (property.monthlyRent?.toLocaleString() || '0')}</span></p>
                     </div>
-                  <div className="mt-4 border-t pt-4">
-                    <p className="text-xs font-medium text-gray-500">CURRENT TENANT</p>
-                    <p className="text-sm text-gray-800 font-semibold">{property.currentTenant?.fullName || 'Vacant'}</p>
+                  <div className="mt-4 border-t pt-4 space-y-2">
+                    <div>
+                      <p className="text-xs font-medium text-gray-500">CURRENT TENANT</p>
+                      <p className="text-sm text-gray-800 font-semibold">{property.currentTenant?.fullName || 'Vacant'}</p>
+                    </div>
+                    {property.status === 'occupied' && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-500">MONTHLY RENT</p>
+                        <p className="text-sm text-green-700 font-semibold">RM {property.monthlyRent?.toLocaleString() || '0'}</p>
+                      </div>
+                    )}
+                    {((property as { depositsHeld?: number }).depositsHeld ?? 0) > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-gray-500">DEPOSITS HELD</p>
+                        <p className="text-sm text-blue-700 font-semibold">RM {((property as { depositsHeld?: number }).depositsHeld ?? 0).toLocaleString()}</p>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

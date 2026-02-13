@@ -10,7 +10,7 @@ import {
   reauthenticateWithCredential,
   EmailAuthProvider
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { User, UserRole } from '@/types';
 import { useRouter } from 'next/navigation';
@@ -49,7 +49,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'maintenance.create', 'maintenance.read', 'maintenance.update', 'maintenance.delete',
     'reports.read', 'analytics.read', 'settings.update'
   ],
-  propertyOwner: [
+  property_owner: [
     'properties.read.own', 'properties.update.own',
     'tenants.read.own', 'tenants.update.own',
     'contracts.read.own', 'contracts.update.own',
@@ -63,7 +63,7 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'invoices.read.own', 'invoices.pay.own',
     'maintenance.create.own', 'maintenance.read.own', 'maintenance.update.own'
   ],
-  service: [
+  service_provider: [
     'profile.read.own', 'profile.update.own',
     'maintenance.read.assigned', 'maintenance.update.assigned',
     'invoices.create.own', 'invoices.read.own'
@@ -73,6 +73,14 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'maintenance.read.assigned', 'maintenance.update.assigned',
     'invoices.create.own', 'invoices.read.own',
     'properties.read.assigned'
+  ],
+  agent: [
+    'users.read', 'users.create',
+    'properties.read', 'properties.create',
+    'tenants.read', 'tenants.create',
+    'contracts.read', 'contracts.create',
+    'invoices.read', 'invoices.create',
+    'maintenance.read', 'maintenance.create'
   ]
 };
 
@@ -99,7 +107,8 @@ export function EnhancedAuthProvider({ children }: { children: ReactNode }) {
         }
       } catch (error) {
         console.error('Error during auth state change:', error);
-        logSecurityEvent('auth_state_change_error', { error: error.message }, 'high');
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        logSecurityEvent('auth_state_change_error', { error: errorMsg }, 'high');
         setUser(null);
       } finally {
         setLoading(false);
@@ -109,7 +118,7 @@ export function EnhancedAuthProvider({ children }: { children: ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const handleUserAuth = async (firebaseUser: any) => {
+  const handleUserAuth = async (firebaseUser: { uid: string; email: string | null }) => {
     try {
       const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
       
@@ -238,9 +247,10 @@ export function EnhancedAuthProvider({ children }: { children: ReactNode }) {
         } as User);
       }
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
       logSecurityEvent('registration_failed', { 
         email, 
-        error: error.message 
+        error: errorMsg 
       }, 'medium');
       throw error;
     }
@@ -253,9 +263,10 @@ export function EnhancedAuthProvider({ children }: { children: ReactNode }) {
     }
 
     const sanitizedEmail = sanitizeInput(email);
+    let userCredential: { user: { uid: string; email: string | null } } | null = null;
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, sanitizedEmail, password);
+      userCredential = await signInWithEmailAndPassword(auth, sanitizedEmail, password);
       const userDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
       
       if (!userDoc.exists()) {
@@ -281,16 +292,22 @@ export function EnhancedAuthProvider({ children }: { children: ReactNode }) {
       } as User);
 
       router.push('/dashboard');
-    } catch (error: any) {
+    } catch (error: unknown) {
       // Handle failed login attempts
-      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
+      const code = error && typeof error === 'object' && 'code' in error ? (error as { code: string }).code : '';
+      if (code === 'auth/invalid-credential' || code === 'auth/wrong-password') {
         try {
-          const userDoc = await getDoc(doc(db, 'users', userCredential?.user?.uid || ''));
-          if (userDoc.exists()) {
+          // Try to find user by email to track failed attempts
+          const usersRef = collection(db, 'users');
+          const q = query(usersRef, where('email', '==', sanitizedEmail));
+          const querySnapshot = await getDocs(q);
+          
+          if (!querySnapshot.empty) {
+            const userDoc = querySnapshot.docs[0];
             const userData = userDoc.data();
             const failedAttempts = (userData.failedLoginAttempts || 0) + 1;
             
-            let updateData: any = {
+            const updateData: { failedLoginAttempts: number; updatedAt: string; lockedUntil?: string } = {
               failedLoginAttempts: failedAttempts,
               updatedAt: new Date().toISOString()
             };
@@ -300,7 +317,7 @@ export function EnhancedAuthProvider({ children }: { children: ReactNode }) {
               updateData.lockedUntil = new Date(Date.now() + 30 * 60 * 1000).toISOString(); // 30 minutes
             }
 
-            await updateDoc(doc(db, 'users', userCredential?.user?.uid || ''), updateData);
+            await updateDoc(doc(db, 'users', userDoc.id), updateData);
 
             logSecurityEvent('failed_login_attempt', { 
               email: sanitizedEmail, 
@@ -313,9 +330,9 @@ export function EnhancedAuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      logSecurityEvent('login_failed', { 
-        email: sanitizedEmail, 
-        error: error.message 
+      logSecurityEvent('login_failed', {
+        email: sanitizedEmail,
+        error: error instanceof Error ? error.message : String(error)
       }, 'medium');
       
       throw error;
@@ -357,7 +374,8 @@ export function EnhancedAuthProvider({ children }: { children: ReactNode }) {
       await sendPasswordResetEmail(auth, email);
       logSecurityEvent('password_reset_requested', { email }, 'low');
     } catch (error) {
-      logSecurityEvent('password_reset_failed', { email, error: error.message }, 'medium');
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      logSecurityEvent('password_reset_failed', { email, error: errorMsg }, 'medium');
       throw error;
     }
   };
@@ -383,9 +401,10 @@ export function EnhancedAuthProvider({ children }: { children: ReactNode }) {
       
       logSecurityEvent('password_changed', { userId: user.id }, 'low');
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
       logSecurityEvent('password_change_failed', { 
         userId: user.id, 
-        error: error.message 
+        error: errorMsg 
       }, 'medium');
       throw error;
     }

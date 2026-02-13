@@ -25,6 +25,14 @@ const PropertyOwnerDashboard = dynamic(() => import('@/components/dashboard/Prop
   ),
 });
 
+const AgentDashboard = dynamic(() => import('@/components/dashboard/AgentDashboard'), {
+  loading: () => (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-500"></div>
+    </div>
+  ),
+});
+
 export default function DashboardPage() {
   const auth = useAuth();
   const user = auth?.user;
@@ -44,8 +52,8 @@ export default function DashboardPage() {
       try {
         console.log('Fetching dashboard data for role:', user.role);
         
-        if (user.role === 'admin') {
-          // Fetch all tenants
+        if (user.role === 'admin' || user.role === 'agent') {
+          // Fetch all tenants for admin/agent
           const tenantsQuery = query(collection(db, 'users'), where('role', '==', 'tenant'));
           const tenantsSnapshot = await getDocs(tenantsQuery);
           const tenants = tenantsSnapshot.docs.map(doc => {
@@ -57,7 +65,7 @@ export default function DashboardPage() {
               updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt),
             };
           }) as Tenant[];
-          console.log('Admin dashboard - tenants loaded:', tenants.length);
+          console.log(user.role === 'admin' ? 'Admin' : 'Agent', 'dashboard - tenants loaded:', tenants.length);
 
           // Fetch all invoices
           const invoicesQuery = query(collection(db, 'invoices'));
@@ -71,7 +79,7 @@ export default function DashboardPage() {
               updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(data.updatedAt),
             };
           }) as unknown as Invoice[];
-          console.log('Admin dashboard - invoices loaded:', invoices.length);
+          console.log(user.role === 'admin' ? 'Admin' : 'Agent', 'dashboard - invoices loaded:', invoices.length);
 
           setData({ tenants, invoices });
         } else if (user.role === 'tenant') {
@@ -123,9 +131,11 @@ export default function DashboardPage() {
             <AdminDashboard data={data} />
           </div>
         );
-      case 'service':
+      case 'agent':
+        return <AgentDashboard data={data} />;
+      case 'service_provider':
         return <ServiceProviderDashboard />;
-      case 'propertyOwner':
+      case 'property_owner':
         return <PropertyOwnerDashboard />;
       case 'tenant':
       default:
@@ -144,7 +154,7 @@ export default function DashboardPage() {
           Welcome back, {user.fullName}
         </h1>
         <p className="text-gray-600">
-          Here's what's happening with your {user.role === 'admin' ? 'property management' : user.role === 'tenant' ? 'rental' : 'business'} today.
+          Here&apos;s what&apos;s happening with your {user.role === 'admin' ? 'property management' : user.role === 'agent' ? 'operations' : user.role === 'tenant' ? 'rental' : 'business'} today.
         </p>
       </div>
       {renderDashboard()}

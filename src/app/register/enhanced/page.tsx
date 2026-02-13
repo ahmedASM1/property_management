@@ -85,8 +85,12 @@ export default function EnhancedRegisterPage() {
       toast.error("Passwords do not match.");
       return false;
     }
-    if (formData.password.length < 6) {
-      toast.error("Password must be at least 6 characters long.");
+    if (formData.password.length < 8) {
+      toast.error("Password must be at least 8 characters.");
+      return false;
+    }
+    if (formData.password.length > 15) {
+      toast.error("Password must be at most 15 characters.");
       return false;
     }
     if (!formData.email || !formData.fullName || !formData.phoneNumber) {
@@ -316,7 +320,7 @@ export default function EnhancedRegisterPage() {
             </div>
           )}
 
-          {(formData.role === 'service' || formData.role === 'mixedProvider') && (
+          {(formData.role === 'service_provider' || formData.role === 'mixedProvider') && (
             <div className="space-y-4 p-4 bg-orange-50 rounded-lg">
               <h3 className="font-medium text-orange-900">Service Provider Information</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

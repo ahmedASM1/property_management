@@ -110,17 +110,20 @@ export default function AdminMaintenancePage() {
       setLoading(false);
     });
 
-    // Fetch service providers once
+    // Fetch all service providers (admin and agent can assign any of them to maintenance)
     async function fetchProviders() {
-    try {
-        const providersQuery = query(collection(db, 'users'), where('role', '==', 'service'));
+      try {
+        const providersQuery = query(
+          collection(db, 'users'),
+          where('role', 'in', ['service_provider', 'mixedProvider'])
+        );
         const providersSnap = await getDocs(providersQuery);
-        const providersData = providersSnap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
+        const providersData = providersSnap.docs.map(docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data()
         })) as ServiceProvider[];
         setServiceProviders(providersData);
-    } catch (error) {
+      } catch (error) {
         console.error('Error fetching service providers:', error);
       }
     }

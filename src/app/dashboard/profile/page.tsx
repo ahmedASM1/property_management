@@ -102,7 +102,7 @@ export default function TenantProfilePage() {
   if (!user) return null;
 
   // New Profile for Owner and Service Provider
-  if (user.role === 'propertyOwner' || user.role === 'service') {
+  if (user.role === 'property_owner' || user.role === 'service_provider') {
     return (
       <div className="min-h-[80vh] flex items-center justify-center bg-gray-50">
         <div className="w-full max-w-md mx-auto bg-white rounded-2xl shadow-lg p-8 text-center">
@@ -112,7 +112,7 @@ export default function TenantProfilePage() {
             </div>
           </div>
           <h2 className="text-2xl font-bold text-gray-800">{user.fullName}</h2>
-          {user.role === 'service' && user.companyName && (
+          {user.role === 'service_provider' && user.companyName && (
             <p className="text-md text-gray-500">{user.companyName}</p>
           )}
           <p className="text-md text-gray-500 mb-6">{user.email}</p>

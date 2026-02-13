@@ -1,5 +1,5 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { updatePassword } from 'firebase/auth';
@@ -8,10 +8,10 @@ import { toast } from 'react-hot-toast';
 import { FaSpinner, FaEye, FaEyeSlash, FaCheck, FaExclamationTriangle } from 'react-icons/fa';
 import Image from 'next/image';
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<Record<string, unknown> | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [password, setPassword] = useState('');
@@ -69,8 +69,10 @@ export default function ResetPasswordPage() {
 
     if (!password) {
       newErrors.password = 'Password is required';
-    } else if (password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+    } else if (password.length < 8) {
+      newErrors.password = 'Password must be 8–15 characters';
+    } else if (password.length > 15) {
+      newErrors.password = 'Password must be 8–15 characters';
     }
 
     if (!confirmPassword) {
@@ -118,10 +120,10 @@ export default function ResetPasswordPage() {
       // Redirect to dashboard
       router.push('/dashboard');
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating password:', error);
       
-      if (error.code === 'auth/requires-recent-login') {
+      if (error && typeof error === 'object' && 'code' in error && (error as { code: string }).code === 'auth/requires-recent-login') {
         toast.error('Please log in again before changing your password.');
         router.push('/login');
       } else {
@@ -186,7 +188,7 @@ export default function ResetPasswordPage() {
         <div className="mb-6 p-4 bg-gray-50 rounded-lg">
           <h3 className="font-medium text-gray-900 mb-2">Account</h3>
           <div className="text-sm text-gray-600">
-            <p><strong>Email:</strong> {user.email}</p>
+            <p><strong>Email:</strong> {String(user?.email ?? '')}</p>
           </div>
         </div>
 
@@ -261,7 +263,7 @@ export default function ResetPasswordPage() {
         <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <h4 className="font-medium text-blue-900 mb-2">Security Note:</h4>
           <p className="text-sm text-blue-700">
-            Your new password should be at least 6 characters long and different from your previous password.
+            Your new password must be 8–15 characters and different from your previous password.
           </p>
         </div>
       </div>
@@ -269,5 +271,28 @@ export default function ResetPasswordPage() {
   );
 }
 
+function ResetPasswordFallback() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
+        <div className="mb-6">
+          <Image src="/Green Bridge.png" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
+        </div>
+        <div className="flex items-center justify-center mb-4">
+          <FaSpinner className="animate-spin text-green-600 text-2xl mr-3" />
+          <h1 className="text-xl font-semibold text-gray-900">Loading...</h1>
+        </div>
+        <p className="text-gray-600">Please wait...</p>
+      </div>
+    </div>
+  );
+}
 
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<ResetPasswordFallback />}>
+      <ResetPasswordContent />
+    </Suspense>
+  );
+}
 

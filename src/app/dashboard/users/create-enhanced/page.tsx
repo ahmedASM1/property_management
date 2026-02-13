@@ -1,12 +1,12 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, orderBy, addDoc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { User, Unit, UserRole } from '@/types';
+import { Unit, UserRole } from '@/types';
 import { toast } from 'react-hot-toast';
 import { 
   FaUser, FaEnvelope, FaPhone, FaBuilding, FaBriefcase, 
-  FaUserPlus, FaSpinner, FaHome, FaKey, FaCheckCircle,
+  FaUserPlus, FaSpinner, FaHome, FaCheckCircle,
   FaInfoCircle, FaShieldAlt
 } from 'react-icons/fa';
 import { useForm } from 'react-hook-form';
@@ -68,7 +68,7 @@ export default function CreateUserEnhancedPage() {
     }
   });
 
-  const { register, handleSubmit, formState: { errors }, watch, setValue, reset } = methods;
+  const { register, handleSubmit, formState: { errors }, watch, reset } = methods;
   const watchedRole = watch('role');
 
   useEffect(() => {
@@ -76,7 +76,14 @@ export default function CreateUserEnhancedPage() {
   }, []);
 
   useEffect(() => {
-    setSelectedRole(watchedRole);
+    // Map form role values to UserRole type
+    const roleMap: Record<string, UserRole> = {
+      'tenant': 'tenant',
+      'propertyOwner': 'property_owner',
+      'service': 'service_provider',
+      'mixedProvider': 'mixedProvider'
+    };
+    setSelectedRole(roleMap[watchedRole] || 'tenant');
   }, [watchedRole]);
 
   const fetchData = async () => {
@@ -112,9 +119,19 @@ export default function CreateUserEnhancedPage() {
   const onSubmit = async (data: CreateUserFormValues) => {
     setSubmitting(true);
     try {
+      // Map form role to UserRole type
+      const roleMap: Record<string, UserRole> = {
+        'tenant': 'tenant',
+        'propertyOwner': 'property_owner',
+        'service': 'service_provider',
+        'mixedProvider': 'mixedProvider'
+      };
+      const mappedRole = roleMap[data.role] || 'tenant';
+
       // Create user document with enhanced data
       const userData = {
         ...data,
+        role: mappedRole, // Use mapped role
         isApproved: true,
         hasSetPassword: false,
         createdAt: new Date().toISOString(),
@@ -141,9 +158,9 @@ export default function CreateUserEnhancedPage() {
       const docRef = await addDoc(collection(db, 'users'), userData);
       
       // Send professional welcome email
-      await sendWelcomeEmail(data.email, docRef.id, data.role, data);
+      await sendWelcomeEmail(data.email, docRef.id, mappedRole, data);
       
-      toast.success(`${getRoleDisplayName(data.role)} created successfully! Welcome email sent.`);
+      toast.success(`${getRoleDisplayName(mappedRole)} created successfully! Welcome email sent.`);
       
       // Reset form
       reset();
@@ -182,44 +199,29 @@ export default function CreateUserEnhancedPage() {
   };
 
   const getRoleDisplayName = (role: UserRole) => {
-    const roleNames = {
+    const roleNames: Record<UserRole, string> = {
       tenant: 'Tenant',
-      propertyOwner: 'Property Owner',
-      service: 'Service Provider',
-      mixedProvider: 'Mixed Service Provider'
+      property_owner: 'Property Owner',
+      service_provider: 'Service Provider',
+      mixedProvider: 'Mixed Service Provider',
+      admin: 'Admin',
+      agent: 'Agent'
     };
     return roleNames[role] || role;
   };
 
-  const getRoleDescription = (role: UserRole) => {
-    const descriptions = {
+  const getRoleDescription = (role: string) => {
+    const descriptions: Record<string, string> = {
       tenant: 'Residents who rent units and need access to their personal dashboard',
       propertyOwner: 'Property owners who need to manage their properties and tenants',
+      property_owner: 'Property owners who need to manage their properties and tenants',
       service: 'Contractors and vendors who provide maintenance services',
+      service_provider: 'Contractors and vendors who provide maintenance services',
       mixedProvider: 'Service providers who offer multiple types of services'
     };
     return descriptions[role] || '';
   };
 
-  const getRoleIcon = (role: UserRole) => {
-    const icons = {
-      tenant: FaUser,
-      propertyOwner: FaBuilding,
-      service: FaBriefcase,
-      mixedProvider: FaBriefcase
-    };
-    return icons[role] || FaUser;
-  };
-
-  const getRoleColor = (role: UserRole) => {
-    const colors = {
-      tenant: 'blue',
-      propertyOwner: 'green',
-      service: 'orange',
-      mixedProvider: 'purple'
-    };
-    return colors[role] || 'gray';
-  };
 
   if (loading) {
     return (
@@ -425,7 +427,7 @@ export default function CreateUserEnhancedPage() {
               </div>
 
               {/* Property Owner Details */}
-              {selectedRole === 'propertyOwner' && (
+              {selectedRole === 'property_owner' && (
                 <div className="space-y-4 p-6 bg-green-50 rounded-lg border border-green-200">
                   <h4 className="font-semibold text-green-900 flex items-center">
                     <FaBuilding className="mr-2" />
@@ -487,7 +489,7 @@ export default function CreateUserEnhancedPage() {
               )}
 
               {/* Service Provider Details */}
-              {(selectedRole === 'service' || selectedRole === 'mixedProvider') && (
+              {(selectedRole === 'service_provider' || selectedRole === 'mixedProvider') && (
                 <div className="space-y-4 p-6 bg-orange-50 rounded-lg border border-orange-200">
                   <h4 className="font-semibold text-orange-900 flex items-center">
                     <FaBriefcase className="mr-2" />
@@ -590,8 +592,8 @@ export default function CreateUserEnhancedPage() {
                 <ul className="text-sm text-blue-700 space-y-1">
                   <li>• User account will be created and automatically approved</li>
                   <li>• Professional welcome email will be sent to their email address</li>
-                  <li>• They'll receive a secure magic link to set their password</li>
-                  <li>• After password setup, they'll have access to their role-specific dashboard</li>
+                  <li>• They&apos;ll receive a secure magic link to set their password</li>
+                  <li>• After password setup, they&apos;ll have access to their role-specific dashboard</li>
                 </ul>
               </div>
               

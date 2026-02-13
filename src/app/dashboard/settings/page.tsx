@@ -10,14 +10,9 @@ import {
   FaShieldAlt, 
   FaDatabase, 
   FaEnvelope, 
-  FaSms, 
   FaToggleOn, 
-  FaToggleOff,
   FaArrowLeft,
-  FaCheck,
-  FaTimes,
-  FaExclamationTriangle,
-  FaInfoCircle
+  FaExclamationTriangle
 } from 'react-icons/fa';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
@@ -77,7 +72,7 @@ interface SystemSettings {
   apiTimeout: number;
   webhookUrl: string;
   
-  updatedAt?: any;
+  updatedAt?: string;
   updatedBy?: string;
 }
 
@@ -131,6 +126,7 @@ export default function AdminSettingsPage() {
 
   useEffect(() => {
     fetchSettings();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, []);
 
   const fetchSettings = async () => {
@@ -162,9 +158,9 @@ export default function AdminSettingsPage() {
       };
 
       if (settings.id) {
-        await updateDoc(settingsRef as any, updateData);
+        await updateDoc(settingsRef as ReturnType<typeof doc>, updateData);
       } else {
-        await addDoc(settingsRef as any, updateData);
+        await addDoc(settingsRef as ReturnType<typeof collection>, updateData);
       }
 
       toast.success('Settings saved successfully');
@@ -177,17 +173,17 @@ export default function AdminSettingsPage() {
     }
   };
 
-  const handleChange = (path: string, value: any) => {
+  const handleChange = (path: string, value: string | number | boolean) => {
     setSettings(prev => {
       const newSettings = { ...prev };
       const keys = path.split('.');
-      let current = newSettings;
+      let current: Record<string, unknown> = newSettings as unknown as Record<string, unknown>;
       
       for (let i = 0; i < keys.length - 1; i++) {
-        current = current[keys[i] as keyof typeof current] as any;
+        current = current[keys[i]] as Record<string, unknown>;
       }
       
-      current[keys[keys.length - 1] as keyof typeof current] = value;
+      current[keys[keys.length - 1]] = value;
       setHasChanges(true);
       return newSettings;
     });

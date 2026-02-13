@@ -45,32 +45,35 @@ export async function sendEmailWithSendGrid(emailData: EmailData): Promise<boole
 
 // Email templates for different user types
 export function generateWelcomeEmailTemplate(
-  userData: any, 
+  userData: Record<string, unknown>, 
   magicLink: string, 
   role: string
 ): EmailData {
-  const roleDisplayNames = {
+  const roleDisplayNames: Record<string, string> = {
     admin: 'Administrator',
-    propertyOwner: 'Property Owner',
+    property_owner: 'Property Owner',
     tenant: 'Tenant',
-    service: 'Service Provider',
-    mixedProvider: 'Mixed Service Provider'
+    service_provider: 'Service Provider',
+    mixedProvider: 'Mixed Service Provider',
+    agent: 'Agent'
   };
 
-  const roleDescriptions = {
+  const roleDescriptions: Record<string, string> = {
     admin: 'You have full administrative access to the Green Bridge property management system.',
-    propertyOwner: 'You can manage your properties, view tenant information, and access financial reports.',
+    property_owner: 'You can manage your properties, view tenant information, and access financial reports.',
     tenant: 'You can view your rental information, pay invoices, and submit maintenance requests.',
-    service: 'You can view assigned maintenance jobs and create invoices for completed work.',
-    mixedProvider: 'You can manage assigned properties, view maintenance jobs, and create invoices.'
+    service_provider: 'You can view assigned maintenance jobs and create invoices for completed work.',
+    mixedProvider: 'You can manage assigned properties, view maintenance jobs, and create invoices.',
+    agent: 'You have agent-level access to the Green Bridge property management system.'
   };
 
-  const roleColors = {
+  const roleColors: Record<string, string> = {
     admin: '#dc2626', // red
-    propertyOwner: '#059669', // green
+    property_owner: '#059669', // green
     tenant: '#2563eb', // blue
-    service: '#ea580c', // orange
-    mixedProvider: '#7c3aed' // purple
+    service_provider: '#ea580c', // orange
+    mixedProvider: '#7c3aed', // purple
+    agent: '#6b7280' // gray
   };
 
   const html = `
@@ -108,7 +111,7 @@ export function generateWelcomeEmailTemplate(
               <li><strong>Email:</strong> ${userData.email}</li>
               <li><strong>Phone:</strong> ${userData.phoneNumber || 'Not provided'}</li>
               <li><strong>Role:</strong> ${roleDisplayNames[role] || role}</li>
-              ${userData.assignedProperties?.length > 0 ? `<li><strong>Assigned Properties:</strong> ${userData.assignedProperties.length} properties</li>` : ''}
+              ${Array.isArray(userData.assignedProperties) && userData.assignedProperties.length > 0 ? `<li><strong>Assigned Properties:</strong> ${userData.assignedProperties.length} properties</li>` : ''}
               ${userData.unitId ? `<li><strong>Unit:</strong> ${userData.unitId}</li>` : ''}
               ${userData.serviceType ? `<li><strong>Service Type:</strong> ${userData.serviceType}</li>` : ''}
             </ul>
@@ -165,7 +168,7 @@ export function generateWelcomeEmailTemplate(
   `;
 
   return {
-    to: userData.email,
+    to: String(userData.email ?? ''),
     subject: `Welcome to Green Bridge - ${roleDisplayNames[role] || role} Portal Access`,
     html: html
   };

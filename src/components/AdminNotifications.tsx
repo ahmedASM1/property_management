@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, where, getDocs, updateDoc, doc, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
-import { Bell, Check, X, Eye, EyeOff, CheckCircle } from 'lucide-react';
+import { Bell, Check, X, Eye, CheckCircle } from 'lucide-react';
 
 interface AdminNotification {
   id: string;
@@ -14,7 +14,7 @@ interface AdminNotification {
   userFullName: string;
   userRole: string;
   status: string;
-  createdAt: any;
+  createdAt: unknown;
   read: boolean;
 }
 
@@ -26,7 +26,7 @@ interface PendingUser {
   phoneNumber?: string;
   unitNumber?: string;
   buildingName?: string;
-  createdAt: any;
+  createdAt: unknown;
 }
 
 export default function AdminNotifications() {
@@ -126,17 +126,19 @@ export default function AdminNotifications() {
       // Reset form
       setSelectedUser(null);
       setAdminNotes('');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error processing user action:', error);
-      toast.error(error.message || 'Failed to process user action');
+      toast.error(error instanceof Error ? error.message : 'Failed to process user action');
     } finally {
       setProcessing(false);
     }
   };
 
-  const formatDate = (timestamp: any) => {
+  const formatDate = (timestamp: unknown) => {
     if (!timestamp) return 'N/A';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const date = typeof timestamp === 'object' && timestamp !== null && 'toDate' in timestamp && typeof (timestamp as { toDate: () => Date }).toDate === 'function'
+      ? (timestamp as { toDate: () => Date }).toDate()
+      : new Date(timestamp as string | number);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
 
@@ -249,7 +251,7 @@ export default function AdminNotifications() {
 
       {/* User Review Modal */}
       {selectedUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold mb-4">Review User Registration</h3>
             
@@ -355,7 +357,7 @@ export default function AdminNotifications() {
                 <Bell className="h-8 w-8 text-gray-400" />
               </div>
               <p className="text-gray-600 font-medium">No new notifications</p>
-              <p className="text-sm text-gray-500 mt-1">You're all caught up!</p>
+              <p className="text-sm text-gray-500 mt-1">You&apos;re all caught up!</p>
             </div>
           ) : (
             notifications.map((notification) => (

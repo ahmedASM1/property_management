@@ -23,262 +23,344 @@ export interface ContractFields {
 
 export const generateComprehensiveContractPDF = (tenant: Tenant, contractFields: ContractFields): jsPDF => {
   const doc = new jsPDF();
-  let yPosition = 24;
+  let yPosition = 20;
   const pageWidth = doc.internal.pageSize.getWidth();
-  const margin = 22;
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 20;
   const contentWidth = pageWidth - (margin * 2);
+  const maxY = pageHeight - 25; // Safe bottom margin
   
-  // Helper function to add text with word wrapping
-  const addText = (text: string, x: number, y: number, maxWidth?: number, fontSize?: number) => {
-    if (fontSize) doc.setFontSize(fontSize);
-    const lines = doc.splitTextToSize(text, maxWidth || contentWidth);
-    doc.text(lines, x, y);
-    return y + (lines.length * (fontSize || 12) * 0.4);
-  };
-
-  // Helper function to add section header
-  const addSectionHeader = (text: string, y: number) => {
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(13);
-    doc.setFont('helvetica', 'bold');
-    y = addText(text, margin, y, contentWidth, 13);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10.5);
-    // underline separator
-    doc.setDrawColor(230, 230, 230);
-    doc.line(margin, y + 2, margin + contentWidth, y + 2);
-    return y + 8;
-  };
-
-  // Helper function to add subsection
-  const addSubsection = (text: string, y: number) => {
-    doc.setFontSize(11);
-    doc.setFont('helvetica', 'bold');
-    y = addText(text, margin, y, contentWidth, 11);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    return y + 3;
-  };
-
-  // Helper function to add numbered item
-  const addNumberedItem = (num: string, text: string, y: number) => {
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    const itemText = `${num}. ${text}`;
-    y = addText(itemText, margin + 10, y, contentWidth - 10, 10);
-    return y + 2;
-  };
-
-  // Helper function to add bullet point
-  const addBulletPoint = (text: string, y: number) => {
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    const bulletText = `• ${text}`;
-    y = addText(bulletText, margin + 15, y, contentWidth - 15, 10);
-    return y + 2;
-  };
-
-  // Helper function to check if we need a new page
-  const checkNewPage = (requiredSpace: number) => {
-    if (yPosition + requiredSpace > doc.internal.pageSize.getHeight() - 20) {
+  // Helper function to check if we need a new page and add it if necessary
+  const checkPageBreak = (spaceNeeded: number = 15): void => {
+    if (yPosition + spaceNeeded > maxY) {
       doc.addPage();
       yPosition = 20;
-      return true;
     }
-    return false;
   };
 
-  // Company Header (centered)
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(17);
+  // Helper function to add text with word wrapping and proper spacing
+  const addText = (text: string, x: number, fontSize: number = 10, maxWidth?: number, style: 'normal' | 'bold' = 'normal'): void => {
+    doc.setFont('helvetica', style);
+    doc.setFontSize(fontSize);
+    const lines = doc.splitTextToSize(text, maxWidth || contentWidth);
+    const lineHeight = fontSize * 0.35;
+    
+    // Check if all lines fit, if not add new page
+    if (yPosition + (lines.length * lineHeight) > maxY) {
+      doc.addPage();
+      yPosition = 20;
+    }
+    
+    doc.text(lines, x, yPosition);
+    yPosition += lines.length * lineHeight;
+  };
+
+  // Helper function for section headers
+  const addSectionHeader = (text: string): void => {
+    checkPageBreak(20);
+    yPosition += 8;
+    doc.setFillColor(245, 245, 245);
+    doc.rect(margin - 2, yPosition - 6, contentWidth + 4, 10, 'F');
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text(text, margin + 2, yPosition);
+    yPosition += 10;
+    doc.setFont('helvetica', 'normal');
+  };
+
+  // Helper function for subsection headers
+  const addSubsectionHeader = (text: string): void => {
+    checkPageBreak(15);
+    yPosition += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10.5);
+    doc.setTextColor(0, 0, 0);
+    doc.text(text, margin, yPosition);
+    yPosition += 6;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+  };
+
+  // Helper function for bullet points
+  const addBulletPoint = (text: string, indent: number = 15): void => {
+    checkPageBreak(12);
+    const bulletX = margin + indent;
+    doc.setFontSize(9.5);
+    doc.setFont('helvetica', 'normal');
+    
+    const lines = doc.splitTextToSize(`• ${text}`, contentWidth - indent - 5);
+    const lineHeight = 9.5 * 0.35;
+    
+    if (yPosition + (lines.length * lineHeight) > maxY) {
+      doc.addPage();
+      yPosition = 20;
+    }
+    
+    doc.text(lines, bulletX, yPosition);
+    yPosition += lines.length * lineHeight + 2;
+  };
+
+  // Helper function for numbered items
+  const addNumberedItem = (number: number, text: string, indent: number = 10): void => {
+    checkPageBreak(12);
+    doc.setFontSize(9.5);
+    doc.setFont('helvetica', 'normal');
+    
+    const itemX = margin + indent;
+    const lines = doc.splitTextToSize(`${number}. ${text}`, contentWidth - indent - 5);
+    const lineHeight = 9.5 * 0.35;
+    
+    if (yPosition + (lines.length * lineHeight) > maxY) {
+      doc.addPage();
+      yPosition = 20;
+    }
+    
+    doc.text(lines, itemX, yPosition);
+    yPosition += lines.length * lineHeight + 2;
+  };
+
+  // Helper function to add a detail row (label: value)
+  const addDetailRow = (label: string, value: string, isHeader: boolean = false): void => {
+    checkPageBreak(10);
+    
+    const labelX = margin + 5;
+    const valueX = margin + 90;
+    
+    if (isHeader) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text(label, labelX, yPosition);
+      yPosition += 7;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+    } else {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9.5);
+      doc.text(label, labelX, yPosition);
+      
+      doc.setFont('helvetica', 'normal');
+      const valueLines = doc.splitTextToSize(value, contentWidth - 95);
+      doc.text(valueLines, valueX, yPosition);
+      
+      // Light separator line
+      doc.setDrawColor(240, 240, 240);
+      const lineY = yPosition + 2;
+      doc.line(margin, lineY, margin + contentWidth, lineY);
+      
+      yPosition += Math.max(6, valueLines.length * 3.5);
+    }
+  };
+
+  // ========== DOCUMENT START ==========
+
+  // Company Header
   doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
+  doc.setTextColor(0, 0, 0);
   doc.text('GREEN BRIDGE REALTY SDN. BHD.', pageWidth / 2, yPosition, { align: 'center' });
   yPosition += 6;
+
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(10);
+  doc.setFontSize(9);
   doc.text('Company No: 202301042822 (1536738-K)', pageWidth / 2, yPosition, { align: 'center' });
-  yPosition += 5;
+  yPosition += 4;
   doc.text(`Address: ${contractFields.companyAddress || 'Kuala Lumpur, Malaysia'}`, pageWidth / 2, yPosition, { align: 'center' });
-  yPosition += 5;
+  yPosition += 4;
   doc.text(`Phone: ${contractFields.companyPhone || '+60 3-1234 5678'}  |  Email: ${contractFields.companyEmail || 'info@greenbridgerealty.com'}`, pageWidth / 2, yPosition, { align: 'center' });
   yPosition += 12;
 
-  // Main Title (centered)
-  doc.setFontSize(18);
+  // Main Title
   doc.setFont('helvetica', 'bold');
+  doc.setFontSize(16);
   doc.text('TENANCY AGREEMENT', pageWidth / 2, yPosition, { align: 'center' });
   yPosition += 12;
 
   // Agreement Introduction
-  doc.setFontSize(11);
   doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
   const agreementDate = new Date(contractFields.dateOfAgreement).toLocaleDateString('en-GB');
-  yPosition = addText(`This Tenancy Agreement is made on this ${agreementDate} between:`, margin, yPosition, contentWidth, 11);
-  yPosition += 4;
-  yPosition = addText('GREEN BRIDGE REALTY SDN. BHD. (hereinafter referred to as the "The Company")', margin + 6, yPosition, contentWidth - 6, 11);
+  addText(`This Tenancy Agreement is made on this ${agreementDate} between:`, margin, 10);
+  yPosition += 2;
+  addText('GREEN BRIDGE REALTY SDN. BHD. (hereinafter referred to as the "The Company")', margin + 5, 10);
+  yPosition += 2;
+  addText(`AND ${tenant.fullName} (hereinafter referred to as the "Tenant").`, margin + 5, 10);
   yPosition += 3;
-  yPosition = addText(`AND ${tenant.fullName} (hereinafter referred to as the "Tenant").`, margin + 6, yPosition, contentWidth - 6, 11);
-  yPosition += 10;
 
-  // Property & Tenant Details Section
-  yPosition = addSectionHeader('PROPERTY & TENANT DETAILS', yPosition);
+  // PROPERTY & TENANT DETAILS Section
+  addSectionHeader('PROPERTY & TENANT DETAILS');
+
+  // Property Details
+  addDetailRow('Property Details', '', true);
+  addDetailRow('Unit No.', contractFields.unitNumber || '[Unit Number]');
+  addDetailRow('Address', contractFields.propertyAddress);
+  addDetailRow('Commencement Date', new Date(contractFields.moveInDate).toLocaleDateString('en-GB'));
+  addDetailRow('Expiry Date', new Date(contractFields.expiryDate).toLocaleDateString('en-GB'));
+  yPosition += 3;
+
+  // Tenant Details
+  addDetailRow('Tenant Details', '', true);
+  addDetailRow('Name', tenant.fullName);
+  addDetailRow('NRIC/Passport', tenant.idNumber || '[NRIC/Passport]');
+  addDetailRow('Phone No.', tenant.phoneNumber || '[Phone Number]');
+  addDetailRow('Email', tenant.email || '[Email]');
+  yPosition += 3;
+
+  // Payment Details
+  addDetailRow('Payment Details', '', true);
+  addDetailRow('Monthly Rent (RM)', `RM ${contractFields.rentalPerMonth.toLocaleString()}`);
+  addDetailRow('Security Deposit (RM)', `RM ${contractFields.securityDeposit.toLocaleString()}`);
+  addDetailRow('Utility Deposit (RM)', `RM ${contractFields.utilityDeposit.toLocaleString()}`);
+  addDetailRow('Card & Key Deposit (RM)', `RM ${contractFields.accessCardDeposit.toLocaleString()}`);
+  addDetailRow('Agreement & Admin Fees (RM)', `RM ${contractFields.agreementFee.toLocaleString()}`);
   
-  // Create a table-like structure for details
-  const details = [
-    ['Property Details', ''],
-    ['Unit No.', contractFields.unitNumber || '[Unit Number]'],
-    ['Address', contractFields.propertyAddress],
-    ['Commencement Date', new Date(contractFields.moveInDate).toLocaleDateString('en-GB')],
-    ['Expiry Date', new Date(contractFields.expiryDate).toLocaleDateString('en-GB')],
-    ['', ''],
-    ['Tenant Details', ''],
-    ['Name', tenant.fullName],
-    ['NRIC/Passport', tenant.idNumber || '[NRIC/Passport]'],
-    ['Phone No.', tenant.phoneNumber || '[Phone Number]'],
-    ['Email', tenant.email || '[Email]'],
-    ['', ''],
-    ['Payment Details', ''],
-    ['Monthly Rent (RM)', `RM ${contractFields.rentalPerMonth.toLocaleString()}`],
-    ['Security Deposit (RM)', `RM ${contractFields.securityDeposit.toLocaleString()}`],
-    ['Utility Deposit (RM)', `RM ${contractFields.utilityDeposit.toLocaleString()}`],
-    ['Card & Key Deposit (RM)', `RM ${contractFields.accessCardDeposit.toLocaleString()}`],
-    ['Agreement & Admin Fees (RM)', `RM ${contractFields.agreementFee.toLocaleString()}`],
-    ['Total Payable (RM)', `RM ${(contractFields.rentalPerMonth + contractFields.securityDeposit + contractFields.utilityDeposit + contractFields.accessCardDeposit + contractFields.agreementFee).toLocaleString()}`]
-  ];
-
-  // Two-column key/value rendering
-  const labelX = margin;
-  const valueX = margin + 80;
-  details.forEach(([label, value]) => {
-    if (label === '') { yPosition += 6; return; }
-    if (value === '') {
-      // subsection header inside table
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11.5);
-      doc.text(label, labelX, yPosition);
-      yPosition += 7;
-      return;
-    }
-    doc.setFontSize(10.5);
-    doc.setFont('helvetica', 'bold');
-    doc.text(label, labelX, yPosition);
-    doc.setFont('helvetica', 'normal');
-    const wrapped = doc.splitTextToSize(String(value), contentWidth - (valueX - margin));
-    doc.text(wrapped, valueX, yPosition);
-    // separator line
-    doc.setDrawColor(245, 245, 245);
-    doc.line(margin, yPosition + 2.5, margin + contentWidth, yPosition + 2.5);
-    yPosition += Math.max(7, (wrapped.length * 4.2));
-  });
-
-  yPosition += 10;
-
-  // Rental Terms & Conditions
-  yPosition = addSectionHeader('RENTAL TERMS & CONDITIONS', yPosition);
-
-  // 1. Tenant's Obligations
-  yPosition = addSubsection('1. Tenant\'s Obligations', yPosition);
-  yPosition = addNumberedItem('1', 'Rent must be paid in full and in advance on or before the due date.', yPosition);
-  yPosition = addNumberedItem('2', 'Tenant must promptly pay all utility bills (electricity, water, and any other services).', yPosition);
-  yPosition = addNumberedItem('3', 'Subletting, assigning, or sharing the property with others is strictly prohibited without The Company\'s written approval.', yPosition);
-  yPosition = addNumberedItem('4', 'The property must not be used for any illegal, immoral, or nuisance-causing activities. Tenant is fully liable for any damages, complaints, or claims arising from misuse.', yPosition);
-
-  // 2. Termination of Tenancy
-  yPosition = addSubsection('2. Termination of Tenancy', yPosition);
-  yPosition = addText('The Company has the right to immediately terminate the tenancy and forfeit the deposit if the tenant:', margin, yPosition, contentWidth, 10);
-  yPosition += 5;
-  yPosition = addBulletPoint('Fails to pay rent on time.', yPosition);
-  yPosition = addBulletPoint('Vacates the property before the end of the agreed term without written consent from The Company.', yPosition);
-  yPosition = addBulletPoint('Breaches any term of this agreement and fails to remedy it after written notice.', yPosition);
-  yPosition += 5;
-  yPosition = addText('Upon termination:', margin, yPosition, contentWidth, 10);
-  yPosition += 5;
-  yPosition = addBulletPoint('The deposit is forfeited absolutely.', yPosition);
-  yPosition = addBulletPoint('Tenant is liable for all losses, damages, penalties, costs, and legal fees incurred by The Company.', yPosition);
-  yPosition = addBulletPoint('The Company may re-enter and take possession of the property without further notice.', yPosition);
-
-  // 3. Early Termination by Tenant
-  yPosition = addSubsection('3. Early Termination by Tenant', yPosition);
-  yPosition = addText('If the tenant ends the tenancy before the agreed expiry date:', margin, yPosition, contentWidth, 10);
-  yPosition += 5;
-  yPosition = addBulletPoint('The deposit is forfeited.', yPosition);
-  yPosition = addBulletPoint('Tenant must pay The Company the full remaining rent for the unexpired term as liquidated damages.', yPosition);
-  yPosition = addBulletPoint('The Company reserves the right to claim additional damages if applicable.', yPosition);
-
-  // 4. Cleaning Charges
-  yPosition = addSubsection('4. Cleaning Charges', yPosition);
-  yPosition = addText('Upon check-out, cleaning fees will be charged as follows:', margin, yPosition, contentWidth, 10);
-  yPosition += 5;
-  yPosition = addBulletPoint('RM 50 for a room and RM 150 for a unit/apartment if the condition is normal.', yPosition);
-  yPosition = addBulletPoint('RM 100 for a room and RM 370 for a unit/apartment if deep cleaning is required due to excessive dirt or poor condition.', yPosition);
-
-  // 5. Female Tenants' Units
-  yPosition = addSubsection('5. Female Tenants\' Units', yPosition);
-  yPosition = addText('Male visitors are strictly prohibited from entering female-only units, even for short visits.', margin, yPosition, contentWidth, 10);
-  yPosition += 5;
-  yPosition = addText('If a violation is reported, a penalty of RM 500 shall be imposed on the Tenant immediately.', margin, yPosition, contentWidth, 10);
-
-  yPosition += 15;
-
-  // Check if we need a new page for signatures
-  checkNewPage(50);
-
-  // Signature Section
-  yPosition = addSectionHeader('SIGNATURES', yPosition);
-  yPosition += 10;
-  
-  // Signatures (two columns)
-  const sigTop = yPosition + 4;
-  const rightX = margin + contentWidth - 70;
-  doc.setFontSize(10.5);
+  const totalPayable = contractFields.rentalPerMonth + contractFields.securityDeposit + 
+                       contractFields.utilityDeposit + contractFields.accessCardDeposit + 
+                       contractFields.agreementFee;
   doc.setFont('helvetica', 'bold');
-  doc.text('Tenant', margin, sigTop);
-  doc.text('The Company', rightX, sigTop, { align: 'left' });
+  addDetailRow('Total Payable (RM)', `RM ${totalPayable.toLocaleString()}`);
+  yPosition += 2;
+
+  // RENTAL TERMS & CONDITIONS Section
+  addSectionHeader('RENTAL TERMS & CONDITIONS');
+
+  // 1. Rental Payment
+  addSubsectionHeader('1. Rental Payment');
+  addBulletPoint('Rent must be paid in full and in advance on or before the due date.');
+  addBulletPoint('Tenant must promptly pay all utility bills (electricity, water, and any other services).');
+  addBulletPoint('Late payment may result in penalties and potential termination of tenancy.');
+
+  // 2. Use of Property
+  addSubsectionHeader('2. Use of Property');
+  addBulletPoint('Subletting, assigning, or sharing the property with others is strictly prohibited without The Company\'s written approval.');
+  addBulletPoint('The property must not be used for any illegal, immoral, or nuisance-causing activities. Tenant is fully liable for any damages, complaints, or claims arising from misuse.');
+  addBulletPoint('The property is for residential use only and must not be used for business purposes without prior written consent.');
+
+  // 3. Termination of Tenancy
+  addSubsectionHeader('3. Termination of Tenancy');
+  addText('The Company has the right to immediately terminate the tenancy and forfeit the deposit if the tenant:', margin, 9.5);
+  yPosition += 2;
+  addBulletPoint('Fails to pay rent on time.');
+  addBulletPoint('Vacates the property before the end of the agreed term without written consent from The Company.');
+  addBulletPoint('Breaches any term of this agreement and fails to remedy it after written notice.');
+  yPosition += 2;
+  addText('Upon termination:', margin, 9.5);
+  yPosition += 2;
+  addBulletPoint('The deposit is forfeited absolutely.');
+  addBulletPoint('Tenant is liable for all losses, damages, penalties, costs, and legal fees incurred by The Company.');
+  addBulletPoint('The Company may re-enter and take possession of the property without further notice.');
+
+  // 4. Early Termination by Tenant
+  addSubsectionHeader('4. Early Termination by Tenant');
+  addText('If the tenant ends the tenancy before the agreed expiry date:', margin, 9.5);
+  yPosition += 2;
+  addBulletPoint('The deposit is forfeited.');
+  addBulletPoint('Tenant must pay The Company the full remaining rent for the unexpired term as liquidated damages.');
+  addBulletPoint('The Company reserves the right to claim additional damages if applicable.');
+
+  // 5. Maintenance and Repairs
+  addSubsectionHeader('5. Maintenance and Repairs');
+  addBulletPoint('Tenant must keep the property in good condition and report any damages or defects immediately.');
+  addBulletPoint('Any damage caused by the Tenant or their guests must be repaired at Tenant\'s expense.');
+  addBulletPoint('The Company is responsible for structural repairs and maintenance of common areas.');
+
+  // 6. Cleaning Charges
+  addSubsectionHeader('6. Cleaning Charges');
+  addText('Upon check-out, cleaning fees will be charged as follows:', margin, 9.5);
+  yPosition += 2;
+  addBulletPoint('RM 50 for a room and RM 150 for a unit/apartment if the condition is normal.');
+  addBulletPoint('RM 100 for a room and RM 370 for a unit/apartment if deep cleaning is required due to excessive dirt or poor condition.');
+
+  // 7. Female Tenants' Units
+  addSubsectionHeader('7. Female Tenants\' Units');
+  addBulletPoint('Male visitors are strictly prohibited from entering female-only units, even for short visits.');
+  addBulletPoint('If a violation is reported, a penalty of RM 500 shall be imposed on the Tenant immediately.');
+
+  // Page break before signatures if needed
+  checkPageBreak(60);
+
+  // SIGNATURES Section
+  addSectionHeader('SIGNATURES');
+  yPosition += 5;
+
+  const sigStartY = yPosition;
+  const leftColX = margin + 10;
+  const rightColX = pageWidth / 2 + 10;
+
+  // Left Column - Tenant
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('Tenant', leftColX, sigStartY);
   doc.setFont('helvetica', 'normal');
-  doc.text(`(NRIC/Passport No: ${tenant.idNumber || '[NRIC/Passport]'})`, margin, sigTop + 10);
-  doc.text('(Company Stamp / Authorized Signatory)', rightX, sigTop + 10, { align: 'left' });
-  // signature lines
-  doc.line(margin, sigTop + 28, margin + 70, sigTop + 28);
-  doc.line(rightX, sigTop + 28, rightX + 70, sigTop + 28);
-  doc.text('Signature', margin, sigTop + 35);
-  doc.text('Signature', rightX, sigTop + 35, { align: 'left' });
-  yPosition = sigTop + 48;
+  doc.setFontSize(9);
+  doc.text(`(NRIC/Passport No: ${tenant.idNumber || '[NRIC/Passport]'})`, leftColX, sigStartY + 5);
+  
+  // Signature line
+  doc.setDrawColor(0, 0, 0);
+  doc.line(leftColX, sigStartY + 22, leftColX + 60, sigStartY + 22);
+  doc.setFontSize(8.5);
+  doc.text('Signature', leftColX, sigStartY + 28);
 
-  // Check if we need a new page for house rules
-  checkNewPage(100);
+  // Right Column - Company
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('The Company', rightColX, sigStartY);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  doc.text('(Company Stamp / Authorized Signatory)', rightColX, sigStartY + 5);
+  
+  // Signature line
+  doc.line(rightColX, sigStartY + 22, rightColX + 60, sigStartY + 22);
+  doc.setFontSize(8.5);
+  doc.text('Signature', rightColX, sigStartY + 28);
 
-  // General House Rules
-  yPosition = addSectionHeader('GENERAL HOUSE RULES', yPosition);
+  yPosition = sigStartY + 38;
+
+  // Page break before house rules
+  checkPageBreak(80);
+
+  // GENERAL HOUSE RULES Section
+  addSectionHeader('GENERAL HOUSE RULES');
 
   const houseRules = [
     'Smoking Policy – Smoking is strictly prohibited inside the Property and the Premises. Penalty: RM300 for the first offence + written warning. Repeated offence may lead to immediate termination and forfeiture of all deposits.',
     'Cleanliness and Safety – Tenant must keep the common areas and rooms clean. No fire hazards, health hazards, or unpleasant odors allowed.',
-    'Alterations – No drilling, nailing, or structural alterations are permitted.',
-    'Personal Belongings – Tenant is responsible for own belongings. Room and main door must be locked when leaving.',
-    'Furniture & Equipment – Do not move, damage, or misuse any furniture or equipment. Damages will be borne by Tenant.',
-    'Access Cards / Keys – Loss or damage is Tenant\'s responsibility. Replacement cost: RM200 per card.',
-    'Quiet Hours – 11:00 p.m.–8:00 a.m. (weekdays), 11:00 p.m.–11:00 a.m. (weekends). No loud noise or disturbance.',
-    'Guests – Tenant is responsible for guests\' conduct. Guests must leave by 12:00 a.m. Overnight stays only with prior approval.',
-    'Pets – Pets are strictly prohibited.',
+    'Alterations – No drilling, nailing, or structural alterations are permitted without prior written approval from The Company.',
+    'Personal Belongings – Tenant is responsible for own belongings. Room and main door must be locked when leaving. The Company is not liable for any loss or theft.',
+    'Furniture & Equipment – Do not move, damage, or misuse any furniture or equipment. Damages will be borne by Tenant. Any missing items will be charged at replacement cost.',
+    'Access Cards / Keys – Loss or damage is Tenant\'s responsibility. Replacement cost: RM200 per card/key. Report lost cards immediately.',
+    'Quiet Hours – 11:00 p.m.–8:00 a.m. (weekdays), 11:00 p.m.–11:00 a.m. (weekends). No loud noise or disturbance during quiet hours.',
+    'Guests – Tenant is responsible for guests\' conduct. Guests must leave by 12:00 a.m. Overnight stays only with prior approval from The Company.',
+    'Pets – Pets are strictly prohibited in all units and common areas.',
     'Violations – Any breach may result in warning. Repeated/severe violations may lead to termination and forfeiture of deposits.'
   ];
 
   houseRules.forEach((rule, index) => {
-    yPosition = addNumberedItem((index + 1).toString(), rule, yPosition);
+    addNumberedItem(index + 1, rule, 10);
   });
 
-  yPosition += 15;
+  yPosition += 8;
+  checkPageBreak(25);
 
-  // Agreement acknowledgment
-  yPosition = addText('I have read, understood, and agreed to comply with the above General House Rules.', margin, yPosition, contentWidth, 10.5);
-  yPosition += 14;
-  // inline lines for name/date/signature
-  doc.text('Name:', margin, yPosition);
-  doc.line(margin + 18, yPosition - 2, margin + 80, yPosition - 2);
-  doc.text('Date:', margin + 90, yPosition);
-  doc.line(margin + 108, yPosition - 2, margin + 160, yPosition - 2);
-  doc.text('Signature:', margin + 170, yPosition);
-  doc.line(margin + 200, yPosition - 2, margin + contentWidth, yPosition - 2);
+  // Acknowledgment Section
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  addText('I have read, understood, and agreed to comply with the above General House Rules.', margin, 10, contentWidth, 'bold');
+  yPosition += 8;
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(9);
+  
+  // Name, Date, Signature fields in a row
+  const fieldY = yPosition;
+  doc.text('Name:', margin, fieldY);
+  doc.line(margin + 15, fieldY, margin + 70, fieldY);
+  
+  doc.text('Date:', margin + 80, fieldY);
+  doc.line(margin + 95, fieldY, margin + 130, fieldY);
+  
+  doc.text('Signature:', margin + 140, fieldY);
+  doc.line(margin + 160, fieldY, margin + contentWidth, fieldY);
 
   return doc;
 };

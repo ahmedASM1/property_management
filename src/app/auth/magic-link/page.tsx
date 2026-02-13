@@ -1,15 +1,15 @@
 'use client';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { FaSpinner, FaCheck, FaExclamationTriangle } from 'react-icons/fa';
 import Image from 'next/image';
 
-export default function MagicLinkPage() {
+function MagicLinkContent() {
   const [status, setStatus] = useState<'loading' | 'valid' | 'invalid' | 'expired'>('loading');
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<Record<string, unknown> | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -23,7 +23,7 @@ export default function MagicLinkPage() {
     }
 
     validateMagicLink(token, userId);
-  }, [searchParams]);
+  }, [searchParams.get('token'), searchParams.get('userId')]);
 
   const validateMagicLink = async (token: string, userId: string) => {
     try {
@@ -141,15 +141,15 @@ export default function MagicLinkPage() {
           </div>
           <div className="flex items-center justify-center mb-4">
             <FaCheck className="text-green-500 text-2xl mr-3" />
-            <h1 className="text-xl font-semibold text-gray-900">Welcome, {user.fullName}!</h1>
+            <h1 className="text-xl font-semibold text-gray-900">Welcome, {String(user?.fullName ?? '')}!</h1>
           </div>
           <p className="text-gray-600 mb-6">
             Your account has been created successfully. Click the button below to set your password and complete your account setup.
           </p>
           <div className="space-y-3">
             <div className="text-sm text-gray-500">
-              <p><strong>Email:</strong> {user.email}</p>
-              <p><strong>Role:</strong> {user.role}</p>
+              <p><strong>Email:</strong> {String(user?.email ?? '')}</p>
+              <p><strong>Role:</strong> {String(user?.role ?? '')}</p>
             </div>
             <button
               onClick={handleContinue}
@@ -166,5 +166,29 @@ export default function MagicLinkPage() {
   return null;
 }
 
+function MagicLinkFallback() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
+        <div className="mb-6">
+          <Image src="/Green Bridge.png" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
+        </div>
+        <div className="flex items-center justify-center mb-4">
+          <FaSpinner className="animate-spin text-green-600 text-2xl mr-3" />
+          <h1 className="text-xl font-semibold text-gray-900">Loading...</h1>
+        </div>
+        <p className="text-gray-600">Please wait...</p>
+      </div>
+    </div>
+  );
+}
+
+export default function MagicLinkPage() {
+  return (
+    <Suspense fallback={<MagicLinkFallback />}>
+      <MagicLinkContent />
+    </Suspense>
+  );
+}
 
 

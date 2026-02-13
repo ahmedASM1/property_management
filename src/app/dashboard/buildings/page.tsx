@@ -1,10 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, getDocs, doc, updateDoc, deleteDoc, query, orderBy, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Building } from '@/types';
+import { Building, User } from '@/types';
 import { toast } from 'react-hot-toast';
 import { FaPlus, FaEdit, FaTrash, FaBuilding } from 'react-icons/fa';
+import { useAuth } from '@/contexts/AuthContext';
 
 const predefinedBuildings = [
   "Sky Suite KLCC",
@@ -20,7 +21,9 @@ const predefinedBuildings = [
 ];
 
 export default function BuildingsPage() {
+  const { user } = useAuth();
   const [buildings, setBuildings] = useState<Building[]>([]);
+  const [agents, setAgents] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingBuilding, setEditingBuilding] = useState<Building | null>(null);
@@ -30,27 +33,80 @@ export default function BuildingsPage() {
     totalFloors: 0,
     totalUnits: 0,
     description: '',
-    amenities: [] as string[]
+    amenities: [] as string[],
+    assignedAgentIds: [] as string[]
   });
 
+  const isAgent = user?.role === 'agent';
+
   useEffect(() => {
+    if (!user) return;
     fetchBuildings();
-  }, []);
+    if (user.role === 'admin') fetchAgents();
+  }, [user?.id, user?.role]);
+
+  const fetchAgents = async () => {
+    try {
+      const q = query(collection(db, 'users'), where('role', '==', 'agent'));
+      const snapshot = await getDocs(q);
+      const list = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as User));
+      setAgents(list);
+    } catch (e) {
+      console.error('Error fetching agents:', e);
+    }
+  };
 
   const fetchBuildings = async () => {
+    if (!user) return;
     try {
-      const q = query(collection(db, 'buildings'), orderBy('name'));
-      const snapshot = await getDocs(q);
-      const buildingsData = snapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt || new Date()),
-          updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : (data.updatedAt || new Date())
-        };
-      }) as Building[];
-      setBuildings(buildingsData);
+      setLoading(true);
+      if (isAgent) {
+        try {
+          const q = query(
+            collection(db, 'buildings'),
+            where('assignedAgentIds', 'array-contains', user.id),
+            orderBy('name')
+          );
+          const snapshot = await getDocs(q);
+          const buildingsData = snapshot.docs.map(docSnap => {
+            const data = docSnap.data();
+            return {
+              id: docSnap.id,
+              ...data,
+              createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt || new Date()),
+              updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : (data.updatedAt || new Date())
+            };
+          }) as Building[];
+          setBuildings(buildingsData);
+        } catch {
+          // Fallback if composite index not yet created: fetch all and filter client-side
+          const allQuery = query(collection(db, 'buildings'), orderBy('name'));
+          const snapshot = await getDocs(allQuery);
+          const allData = snapshot.docs.map(docSnap => {
+            const data = docSnap.data();
+            return {
+              id: docSnap.id,
+              ...data,
+              createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt || new Date()),
+              updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : (data.updatedAt || new Date())
+            };
+          }) as Building[];
+          setBuildings(allData.filter(b => (b.assignedAgentIds || []).includes(user.id)));
+        }
+      } else {
+        const q = query(collection(db, 'buildings'), orderBy('name'));
+        const snapshot = await getDocs(q);
+        const buildingsData = snapshot.docs.map(docSnap => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            ...data,
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt || new Date()),
+            updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : (data.updatedAt || new Date())
+          };
+        }) as Building[];
+        setBuildings(buildingsData);
+      }
     } catch (error) {
       console.error('Error fetching buildings:', error);
       toast.error('Failed to fetch buildings');
@@ -63,19 +119,24 @@ export default function BuildingsPage() {
     e.preventDefault();
     try {
       const buildingData = {
-        ...formData,
-        createdAt: new Date(),
+        name: formData.name,
+        address: formData.address,
+        totalFloors: formData.totalFloors,
+        totalUnits: formData.totalUnits,
+        description: formData.description || '',
+        amenities: formData.amenities || [],
+        assignedAgentIds: formData.assignedAgentIds || [],
         updatedAt: new Date()
       };
 
       if (editingBuilding) {
-        await updateDoc(doc(db, 'buildings', editingBuilding.id), {
-          ...buildingData,
-          updatedAt: new Date()
-        });
+        await updateDoc(doc(db, 'buildings', editingBuilding.id), buildingData);
         toast.success('Building updated successfully');
       } else {
-        await addDoc(collection(db, 'buildings'), buildingData);
+        await addDoc(collection(db, 'buildings'), {
+          ...buildingData,
+          createdAt: new Date()
+        });
         toast.success('Building added successfully');
       }
 
@@ -97,7 +158,8 @@ export default function BuildingsPage() {
       totalFloors: building.totalFloors,
       totalUnits: building.totalUnits,
       description: building.description || '',
-      amenities: building.amenities || []
+      amenities: building.amenities || [],
+      assignedAgentIds: building.assignedAgentIds || []
     });
     setShowModal(true);
   };
@@ -122,7 +184,8 @@ export default function BuildingsPage() {
       totalFloors: 0,
       totalUnits: 0,
       description: '',
-      amenities: []
+      amenities: [],
+      assignedAgentIds: []
     });
   };
 
@@ -144,15 +207,21 @@ export default function BuildingsPage() {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Buildings Management</h1>
-          <p className="text-gray-600 mt-2">Manage your building portfolio</p>
+          <h1 className="text-3xl font-bold text-gray-900">
+            {isAgent ? 'Buildings' : 'Buildings Management'}
+          </h1>
+          <p className="text-gray-600 mt-2">
+            {isAgent ? 'Buildings assigned to you' : 'Manage your building portfolio'}
+          </p>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
-        >
-          <FaPlus /> Add Building
-        </button>
+        {!isAgent && (
+          <button
+            onClick={() => setShowModal(true)}
+            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+          >
+            <FaPlus /> Add Building
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -168,20 +237,22 @@ export default function BuildingsPage() {
                   <p className="text-sm text-gray-600">{building.address}</p>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleEdit(building)}
-                  className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                >
-                  <FaEdit />
-                </button>
-                <button
-                  onClick={() => handleDelete(building)}
-                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
-                >
-                  <FaTrash />
-                </button>
-              </div>
+              {!isAgent && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleEdit(building)}
+                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                  >
+                    <FaEdit />
+                  </button>
+                  <button
+                    onClick={() => handleDelete(building)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                  >
+                    <FaTrash />
+                  </button>
+                </div>
+              )}
             </div>
             
             <div className="space-y-2 text-sm">
@@ -217,13 +288,15 @@ export default function BuildingsPage() {
         <div className="text-center py-12">
           <FaBuilding className="mx-auto h-12 w-12 text-gray-400" />
           <h3 className="mt-2 text-sm font-medium text-gray-900">No buildings</h3>
-          <p className="mt-1 text-sm text-gray-500">Get started by adding a new building.</p>
+          <p className="mt-1 text-sm text-gray-500">
+            {isAgent ? 'No buildings have been assigned to you yet.' : 'Get started by adding a new building.'}
+          </p>
         </div>
       )}
 
-      {/* Add/Edit Building Modal */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      {/* Add/Edit Building Modal - admin only */}
+      {showModal && !isAgent && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
             <h2 className="text-xl font-bold mb-4">
               {editingBuilding ? 'Edit Building' : 'Add New Building'}
@@ -301,6 +374,29 @@ export default function BuildingsPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
                   rows={3}
                 />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Assign agents (optional)
+                </label>
+                <p className="text-xs text-gray-500 mb-2">Agents assigned to this building can view it and manage its units and tenants.</p>
+                <select
+                  multiple
+                  value={formData.assignedAgentIds}
+                  onChange={(e) => {
+                    const selected = Array.from(e.target.selectedOptions, o => o.value);
+                    setFormData({ ...formData, assignedAgentIds: selected });
+                  }}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 min-h-[80px]"
+                >
+                  {agents.map((agent) => (
+                    <option key={agent.id} value={agent.id}>
+                      {agent.fullName} ({agent.email})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple agents.</p>
               </div>
 
               <div className="flex justify-end gap-3">

@@ -1,6 +1,6 @@
 import { Timestamp, FieldValue } from 'firebase/firestore';
 
-export type UserRole = 'admin' | 'tenant' | 'service_provider' | 'property_owner' | 'mixedProvider';
+export type UserRole = 'admin' | 'agent' | 'tenant' | 'service_provider' | 'property_owner' | 'mixedProvider';
 export type UserStatus = 'pending' | 'approved' | 'rejected';
 
 export type RentalType = 'Room1' | 'Room2' | 'Room3' | 'Studio' | 'Whole Unit';
@@ -70,6 +70,9 @@ export interface Invoice {
   };
   rentAmount?: number;
   receiptUrl?: string;
+  /** When tenant uploads proof: 'pending_review'. Admin sets 'approved' or 'rejected'. */
+  receiptStatus?: 'pending_review' | 'approved' | 'rejected';
+  receiptUploadedAt?: string;
   // Service Provider Invoice Fields
   from?: string;
   fromId?: string;
@@ -143,6 +146,8 @@ export interface Building {
   totalUnits: number;
   description?: string;
   amenities?: string[];
+  /** Agent user IDs who can see and manage this building and its units. Set by admin. */
+  assignedAgentIds?: string[];
   createdAt: Date;
   updatedAt: Date;
 }

@@ -8,7 +8,7 @@ import { validatePasswordStrength, validateEmail, sanitizeInput } from '@/lib/au
 import { toast } from 'react-hot-toast';
 import { 
   FaUser, FaEnvelope, FaPhone, FaLock, FaShieldAlt, 
-  FaCheck, FaExclamationTriangle, FaSpinner, FaEye, FaEyeSlash
+  FaExclamationTriangle, FaSpinner, FaEye, FaEyeSlash
 } from 'react-icons/fa';
 import Image from 'next/image';
 
@@ -26,7 +26,7 @@ export default function SetupAdminPage() {
     confirmPassword: ''
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [passwordValidation, setPasswordValidation] = useState({ isValid: false, feedback: [] });
+  const [passwordValidation, setPasswordValidation] = useState<{ isValid: boolean; score: number; feedback: string[] }>({ isValid: false, score: 0, feedback: [] });
   
   const router = useRouter();
 
@@ -148,15 +148,15 @@ export default function SetupAdminPage() {
       // Redirect to login page
       router.push('/login?message=admin-created');
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error creating admin user:', error);
       
       let errorMessage = 'Failed to create admin user';
-      if (error.code === 'auth/email-already-in-use') {
+      if (error && typeof error === 'object' && 'code' in error && (error as { code: string }).code === 'auth/email-already-in-use') {
         errorMessage = 'An account with this email already exists';
-      } else if (error.code === 'auth/weak-password') {
+      } else if (error && typeof error === 'object' && 'code' in error && (error as { code: string }).code === 'auth/weak-password') {
         errorMessage = 'Password is too weak';
-      } else if (error.code === 'auth/invalid-email') {
+      } else if (error && typeof error === 'object' && 'code' in error && (error as { code: string }).code === 'auth/invalid-email') {
         errorMessage = 'Invalid email address';
       }
       
@@ -371,9 +371,9 @@ export default function SetupAdminPage() {
         <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
           <h4 className="font-medium text-blue-900 mb-2">After Setup:</h4>
           <ul className="text-sm text-blue-700 space-y-1">
-            <li>• You'll be redirected to the login page</li>
+            <li>• You&apos;ll be redirected to the login page</li>
             <li>• Use your email and password to log in</li>
-            <li>• You'll have full admin access to the system</li>
+            <li>• You&apos;ll have full admin access to the system</li>
             <li>• You can create other users through the admin panel</li>
           </ul>
         </div>

@@ -1,8 +1,8 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { collection, getDocs, query, where, orderBy, addDoc } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { User, Unit, UserRole } from '@/types';
+import { Unit } from '@/types';
 import { toast } from 'react-hot-toast';
 import { FaUser, FaEnvelope, FaPhone, FaBuilding, FaBriefcase, FaUserPlus, FaSpinner } from 'react-icons/fa';
 import { useForm } from 'react-hook-form';
@@ -41,7 +41,7 @@ export default function CreateUserPage() {
     }
   });
 
-  const { register, handleSubmit, formState: { errors }, watch, setValue } = methods;
+  const { register, handleSubmit, formState: { errors }, watch } = methods;
   const selectedRole = watch('role');
 
   useEffect(() => {
@@ -98,11 +98,12 @@ export default function CreateUserPage() {
       
       // Provide more specific error messages
       let errorMessage = 'Failed to create user';
-      if (error.message.includes('magic link')) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      if (errorMsg.includes('magic link')) {
         errorMessage = 'User created but failed to send magic link. Please try again.';
-      } else if (error.message.includes('permission')) {
+      } else if (errorMsg.includes('permission')) {
         errorMessage = 'Permission denied. Please check your admin access.';
-      } else if (error.message.includes('network')) {
+      } else if (errorMsg.includes('network')) {
         errorMessage = 'Network error. Please check your connection and try again.';
       }
       

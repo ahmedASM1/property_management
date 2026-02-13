@@ -4,7 +4,7 @@ import nodemailer from 'nodemailer';
 // Create transporter based on environment variables
 const createTransporter = () => {
   if (process.env.SMTP_SERVICE === 'gmail') {
-    return nodemailer.createTransporter({
+    return nodemailer.createTransport({
       service: 'gmail',
       auth: {
         user: process.env.SMTP_USER,
@@ -12,7 +12,7 @@ const createTransporter = () => {
       }
     });
   } else {
-    return nodemailer.createTransporter({
+    return nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: parseInt(process.env.SMTP_PORT || '587'),
       secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
@@ -65,32 +65,35 @@ export async function sendEmailWithNodemailer(emailData: EmailData): Promise<boo
 
 // Email template function (same as others)
 export function generateWelcomeEmailTemplate(
-  userData: any, 
+  userData: Record<string, unknown>, 
   magicLink: string, 
   role: string
 ): EmailData {
-  const roleDisplayNames = {
+  const roleDisplayNames: Record<string, string> = {
     admin: 'Administrator',
-    propertyOwner: 'Property Owner',
+    property_owner: 'Property Owner',
     tenant: 'Tenant',
-    service: 'Service Provider',
-    mixedProvider: 'Mixed Service Provider'
+    service_provider: 'Service Provider',
+    mixedProvider: 'Mixed Service Provider',
+    agent: 'Agent'
   };
 
-  const roleDescriptions = {
+  const roleDescriptions: Record<string, string> = {
     admin: 'You have full administrative access to the Green Bridge property management system.',
-    propertyOwner: 'You can manage your properties, view tenant information, and access financial reports.',
+    property_owner: 'You can manage your properties, view tenant information, and access financial reports.',
     tenant: 'You can view your rental information, pay invoices, and submit maintenance requests.',
-    service: 'You can view assigned maintenance jobs and create invoices for completed work.',
-    mixedProvider: 'You can manage assigned properties, view maintenance jobs, and create invoices.'
+    service_provider: 'You can view assigned maintenance jobs and create invoices for completed work.',
+    mixedProvider: 'You can manage assigned properties, view maintenance jobs, and create invoices.',
+    agent: 'You have agent-level access to the Green Bridge property management system.'
   };
 
-  const roleColors = {
+  const roleColors: Record<string, string> = {
     admin: '#dc2626',
-    propertyOwner: '#059669',
+    property_owner: '#059669',
     tenant: '#2563eb',
-    service: '#ea580c',
-    mixedProvider: '#7c3aed'
+    service_provider: '#ea580c',
+    mixedProvider: '#7c3aed',
+    agent: '#6b7280'
   };
 
   const html = `
@@ -128,7 +131,7 @@ export function generateWelcomeEmailTemplate(
               <li><strong>Email:</strong> ${userData.email}</li>
               <li><strong>Phone:</strong> ${userData.phoneNumber || 'Not provided'}</li>
               <li><strong>Role:</strong> ${roleDisplayNames[role] || role}</li>
-              ${userData.assignedProperties?.length > 0 ? `<li><strong>Assigned Properties:</strong> ${userData.assignedProperties.length} properties</li>` : ''}
+              ${Array.isArray(userData.assignedProperties) && userData.assignedProperties.length > 0 ? `<li><strong>Assigned Properties:</strong> ${userData.assignedProperties.length} properties</li>` : ''}
               ${userData.unitId ? `<li><strong>Unit:</strong> ${userData.unitId}</li>` : ''}
               ${userData.serviceType ? `<li><strong>Service Type:</strong> ${userData.serviceType}</li>` : ''}
             </ul>
@@ -185,7 +188,7 @@ export function generateWelcomeEmailTemplate(
   `;
 
   return {
-    to: userData.email,
+    to: String(userData.email ?? ''),
     subject: `Welcome to Green Bridge - ${roleDisplayNames[role] || role} Portal Access`,
     html: html
   };

@@ -20,6 +20,7 @@ interface ContractDoc {
 }
 
 const allStatusOptions: Invoice['status'][] = ['unpaid', 'paid', 'overdue', 'queried', 'pending_payment', 'pending_approval', 'rejected'];
+const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
 function safeDate(date: unknown): string {
   if (!date) return 'N/A';
@@ -113,7 +114,7 @@ export default function InvoicesPage() {
             console.log('Tenants loaded:', tenantsData.length);
             setTenants(tenantsData);
 
-            const invoicesQuery = user.role === 'admin'
+            const invoicesQuery = (user.role === 'admin' || user.role === 'agent')
               ? query(collection(db, 'invoices'))
               : query(collection(db, 'invoices'), where('tenantId', '==', user.id));
             const invoicesSnap = await getDocs(invoicesQuery);
@@ -176,6 +177,21 @@ export default function InvoicesPage() {
 
   const subtotal = lineItems.reduce((acc, item) => acc + Number(item.amount), 0);
   const totalAmount = subtotal + (subtotal * (tax / 100));
+
+  // Default due date to 15th of the selected month (payment in the middle of the month)
+  useEffect(() => {
+    if (month && year) {
+      const monthNum = MONTH_NAMES.indexOf(month) + 1;
+      if (monthNum >= 1 && monthNum <= 12) {
+        const padded = String(monthNum).padStart(2, '0');
+        setDueDate(prev => {
+          const proposed = `${year}-${padded}-15`;
+          if (!prev || prev.slice(0, 7) !== `${year}-${padded}`) return proposed;
+          return prev;
+        });
+      }
+    }
+  }, [month, year]);
 
   const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;

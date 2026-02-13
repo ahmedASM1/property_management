@@ -4,7 +4,6 @@ import { collection, getDocs, addDoc, query, orderBy, serverTimestamp, doc, upda
 import { db } from '@/lib/firebase';
 import { Tenant, Contract } from '@/types';
 import toast from 'react-hot-toast';
-import jsPDF from 'jspdf';
 import emailjs from '@emailjs/browser';
 import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
 import { useAuth } from '@/contexts/AuthContext';

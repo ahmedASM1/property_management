@@ -166,13 +166,15 @@ export default function InvoiceDetailPage() {
       await uploadBytes(storageRef, file);
       const url = await getDownloadURL(storageRef);
       const now = new Date().toISOString();
+      const originalFileName = file.name;
       await updateDoc(doc(db, 'invoices', invoice.id), {
         receiptUrl: url,
         receiptStatus: 'pending_review',
         receiptUploadedAt: now,
+        receiptFileName: originalFileName,
         updatedAt: new Date()
       });
-      setInvoice(prev => prev ? { ...prev, receiptUrl: url, receiptStatus: 'pending_review', receiptUploadedAt: now } : null);
+      setInvoice(prev => prev ? { ...prev, receiptUrl: url, receiptStatus: 'pending_review', receiptUploadedAt: now, receiptFileName: originalFileName } : null);
       await addDoc(collection(db, 'notifications'), {
         role: 'admin',
         message: `${invoice.tenantDetails?.fullName || 'A tenant'} uploaded payment proof for invoice #${invoice.id.substring(0, 8)}. Please verify.`,
@@ -225,7 +227,7 @@ export default function InvoiceDetailPage() {
       docToPdf.setFontSize(10);
       docToPdf.setFont('helvetica', 'normal');
       docToPdf.text('3-38, Kompleks Kantonmen Prima, 698, Jalan Sultan Azlan Shah, Batu 4½, Jalan Ipoh, 51200 Kuala Lumpur, W.P. Kuala Lumpur, Malaysia', leftMargin + 60, y + 30);
-      docToPdf.text('Tel: 011-23583397 | Email: myroom8685@gmail.com', leftMargin + 60, y + 45);
+      docToPdf.text('Tel: 011-23583397 | Email: info@greenbridge-my.com', leftMargin + 60, y + 45);
       y += 80;
       
       // Invoice Title
@@ -489,9 +491,30 @@ export default function InvoiceDetailPage() {
             {safeDate(invoice.createdAt)}
           </div>
           {invoice.receiptUrl && (
-            <div className="text-sm">
-              <span className="font-semibold">Payment proof:</span>{' '}
-              <a href={invoice.receiptUrl} target="_blank" rel="noopener noreferrer" className="text-blue-700 underline">View receipt / file</a>
+            <div className="text-sm flex flex-wrap items-center gap-2">
+              <span className="font-semibold">Payment proof:</span>
+              <a href={invoice.receiptUrl} target="_blank" rel="noopener noreferrer" className="text-blue-700 underline">View</a>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    const res = await fetch(invoice.receiptUrl!);
+                    const blob = await res.blob();
+                    const name = invoice.receiptFileName?.replace(/^.*[/\\]/, '') || `receipt-${invoice.id}`;
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = name;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  } catch (e) {
+                    window.open(invoice.receiptUrl!, '_blank');
+                  }
+                }}
+                className="text-blue-700 underline bg-transparent border-none cursor-pointer p-0"
+              >
+                Download{invoice.receiptFileName ? ` (${invoice.receiptFileName})` : ''}
+              </button>
             </div>
           )}
         </div>

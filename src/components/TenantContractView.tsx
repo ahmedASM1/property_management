@@ -136,7 +136,7 @@ export default function TenantContractView({ tenantId }: TenantContractViewProps
         companySignDesignation: contract.companySignDesignation,
         companyAddress: 'Kuala Lumpur, Malaysia',
         companyPhone: '+60 3-1234 5678',
-        companyEmail: 'info@greenbridgerealty.com'
+        companyEmail: 'info@greenbridge-my.com'
       };
 
       const doc = generateComprehensiveContractPDF(tenant, contractFields);

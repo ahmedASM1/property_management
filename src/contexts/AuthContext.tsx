@@ -5,10 +5,9 @@ import {
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
   onAuthStateChanged,
-  sendPasswordResetEmail,
   sendEmailVerification
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, getDocs, query, collection, where } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, getDocs, query, collection, where } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { User } from '@/types';
 import { useRouter } from 'next/navigation';
@@ -84,31 +83,65 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const registerUser = async (userData: { email: string; password: string; fullName: string; phoneNumber?: string }) => {
     const { email, password, fullName, phoneNumber } = userData;
+    
+    // Do not query Firestore here: unauthenticated users cannot read /users (permission-denied).
+    // Rely on Firebase Auth: createUserWithEmailAndPassword throws auth/email-already-in-use if email exists.
+    
+    // Set flag to prevent auth state handler from interfering during registration
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('gb_pending_registration', '1');
+    }
+    
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Send Firebase email verification link
-      await sendEmailVerification(user);
-
-      // Create user document with pending status; admin will assign role on approval
+      // Create user document first (needed before we can send verification from our domain)
       await setDoc(doc(db, 'users', user.uid), {
         email,
         fullName,
         phoneNumber: phoneNumber || '',
         role: 'tenant', // Placeholder until admin assigns role on approval
         status: 'pending',
+        emailVerified: false,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         isApproved: false,
         authProvider: 'email',
       });
 
+      // Try to send verification email from our domain first (Green Bridge branding)
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const idToken = await user.getIdToken();
+      const res = await fetch(`${baseUrl}/api/auth/send-verification-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken, fullName: fullName.trim() }),
+      });
+      if (res.ok) {
+        // Our domain email sent successfully
+      } else {
+        // Fallback: send Firebase's built-in verification email so registration still succeeds
+        await sendEmailVerification(user);
+      }
+
       // Sign out so they must verify email and wait for admin approval before logging in
       await firebaseSignOut(auth);
     } catch (error) {
+      // Clear flag on error
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('gb_pending_registration');
+      }
       console.error("Registration failed:", error);
       throw error;
+    } finally {
+      // Clear flag after registration completes (success or failure)
+      // Small delay to ensure auth state handler has processed
+      setTimeout(() => {
+        if (typeof window !== 'undefined') {
+          localStorage.removeItem('gb_pending_registration');
+        }
+      }, 100);
     }
   };
 
@@ -151,7 +184,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
 
-      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+      let userDoc;
+      try {
+        userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+      } catch (docError: unknown) {
+        const msg = (docError as { message?: string })?.message ?? '';
+        if (msg.toLowerCase().includes('permission') || msg.toLowerCase().includes('insufficient')) {
+          await firebaseSignOut(auth);
+          throw new Error('Your account is being reviewed. Please wait for admin approval before you can sign in.');
+        }
+        throw docError;
+      }
 
       if (!userDoc.exists()) {
         await firebaseSignOut(auth);
@@ -160,6 +203,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const userData = userDoc.data();
       const isApproved = userData.status === 'approved' || userData.isApproved === true;
+
+      // Check if email is verified
+      if (!firebaseUser.emailVerified) {
+        await firebaseSignOut(auth);
+        throw new Error('Please verify your email address before signing in. Check your inbox for the verification link.');
+      }
+
+      // Update emailVerified in Firestore if it's not already set
+      if (!userData.emailVerified) {
+        await updateDoc(doc(db, 'users', firebaseUser.uid), {
+          emailVerified: true,
+          updatedAt: new Date().toISOString(),
+        });
+      }
 
       if (!isApproved) {
         await firebaseSignOut(auth);
@@ -190,6 +247,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (err.code === 'auth/too-many-requests') {
         throw new Error('Too many failed attempts. Please try again later or reset your password.');
       }
+      if (err.message && (String(err.message).toLowerCase().includes('permission') || String(err.message).toLowerCase().includes('insufficient'))) {
+        throw new Error('Your account is being reviewed. Please wait for admin approval before you can sign in.');
+      }
       console.error('Login error:', error);
       throw error;
     }
@@ -202,7 +262,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const resetPassword = async (email: string) => {
-    await sendPasswordResetEmail(auth, email);
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const res = await fetch(`${baseUrl}/api/auth/reset-password`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email.trim() }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      if (res.status === 404) throw new Error('No account found with this email.');
+      throw new Error(data.error || 'Failed to send password reset link.');
+    }
   };
 
   return (

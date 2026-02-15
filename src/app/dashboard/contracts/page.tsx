@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { collection, getDocs, addDoc, query, orderBy, serverTimestamp, doc, updateDoc, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Tenant, Contract } from '@/types';
@@ -32,7 +33,7 @@ const initialContractFields = {
   companySignDesignation: 'Managing Director',
   companyAddress: 'Kuala Lumpur, Malaysia',
   companyPhone: '+60 3-1234 5678',
-  companyEmail: 'info@greenbridgerealty.com',
+  companyEmail: 'info@greenbridge-my.com',
 };
 
 const storage = getStorage();
@@ -325,7 +326,8 @@ export default function ContractsPage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <a href={contract.contractUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-900 mr-4">View</a>
+                      <Link href={`/dashboard/contracts/${contract.id}`} className="text-indigo-600 hover:text-indigo-900 mr-4">View</Link>
+                      <a href={contract.contractUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-900 mr-4">PDF</a>
                       <button onClick={() => handleEditContract(contract)} className="text-indigo-600 hover:text-indigo-900 mr-4">Edit</button>
                       {!contract.archived && (
                         <button onClick={() => handleArchiveContract(contract)} className="text-red-600 hover:text-red-900">Archive</button>

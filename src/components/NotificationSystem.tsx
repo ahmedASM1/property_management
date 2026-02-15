@@ -18,6 +18,7 @@ interface Notification {
   userId?: string;
   role?: string;
   priority?: 'low' | 'medium' | 'high';
+  link?: string;
 }
 
 interface NotificationSystemProps {
@@ -200,22 +201,26 @@ export default function NotificationSystem({ className = '' }: NotificationSyste
         prev.map(n => n.id === notification.id ? { ...n, read: true } : n)
       );
 
-      // Route based on notification content
-      const message = notification.message.toLowerCase();
-      if (message.includes('maintenance') || message.includes('service')) {
-        if (user?.role === 'admin' || user?.role === 'property_owner') {
-          router.push('/dashboard/maintenance/admin');
-        } else if (user?.role === 'tenant') {
-          router.push('/dashboard/maintenance');
-        } else if (user?.role === 'service_provider') {
-          router.push('/dashboard');
+      // Route: use notification link if present, else infer from message
+      if (notification.link) {
+        router.push(notification.link);
+      } else {
+        const message = notification.message.toLowerCase();
+        if (message.includes('maintenance') || message.includes('service')) {
+          if (user?.role === 'admin' || user?.role === 'property_owner') {
+            router.push('/dashboard/maintenance/admin');
+          } else if (user?.role === 'tenant') {
+            router.push('/dashboard/maintenance');
+          } else if (user?.role === 'service_provider') {
+            router.push('/dashboard');
+          }
+        } else if (message.includes('invoice')) {
+          router.push('/dashboard/invoices');
+        } else if (message.includes('contract')) {
+          router.push('/dashboard/contracts');
+        } else if (message.includes('user') || message.includes('registration')) {
+          router.push('/dashboard/users/approvals');
         }
-      } else if (message.includes('invoice')) {
-        router.push('/dashboard/invoices');
-      } else if (message.includes('contract')) {
-        router.push('/dashboard/contracts');
-      } else if (message.includes('user') || message.includes('registration')) {
-        router.push('/dashboard/users/approvals');
       }
 
       setIsOpen(false);

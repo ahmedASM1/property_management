@@ -53,7 +53,7 @@ service cloud.firestore {
         isAdmin() || 
         resource.data.userId == request.auth.uid
       );
-      allow create: if isAdmin();
+      allow create: if isAuthenticated() && (isAdmin() || request.resource.data.role == 'admin');
       allow update: if isAdmin() || resource.data.userId == request.auth.uid;
       allow delete: if isAdmin();
     }
@@ -110,6 +110,11 @@ service cloud.firestore {
     match /units/{unitId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
+    }
+
+    // Email verification tokens - server-only (Admin SDK); no client access
+    match /emailVerificationTokens/{tokenId} {
+      allow read, write: if false;
     }
 
     // Fallback rule for any other collections - allow authenticated users basic access

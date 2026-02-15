@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { useTenantContractUnits } from '@/hooks/useTenantContractUnits';
 import MaintenanceRequestList from '../../../components/MaintenanceRequestList';
 import Link from 'next/link';
 import { FaArrowLeft } from 'react-icons/fa';
@@ -25,6 +26,7 @@ const SERVICE_TYPES = [
 export default function MaintenancePage() {
   const auth = useAuth();
   const user = auth?.user;
+  const { units: contractUnits, loading: contractUnitsLoading } = useTenantContractUnits(user?.id);
   const [requestType, setRequestType] = useState<'maintenance' | 'service'>('maintenance');
   const [description, setDescription] = useState('');
   const [unit, setUnit] = useState(user?.unitNumber || '');
@@ -35,9 +37,14 @@ export default function MaintenancePage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
+  // Pre-fill unit from contract when available; fallback to user.unitNumber
   useEffect(() => {
-    if (user?.unitNumber) setUnit(user.unitNumber);
-  }, [user]);
+    if (contractUnits.length > 0) {
+      setUnit(contractUnits[0].value);
+    } else if (user?.unitNumber) {
+      setUnit(user.unitNumber);
+    }
+  }, [contractUnits, user?.unitNumber]);
 
   if (!user) return null;
   if (user.role !== 'tenant') {
@@ -109,7 +116,7 @@ export default function MaintenancePage() {
       createdAt: serverTimestamp(),
     });
       setDescription('');
-      setUnit(user?.unitNumber || '');
+      setUnit(contractUnits.length > 0 ? contractUnits[0].value : (user?.unitNumber || ''));
       setPriority('');
       setServiceType('');
       setCustomService('');
@@ -157,13 +164,31 @@ export default function MaintenancePage() {
           </div>
           <div>
             <label className="block font-semibold mb-1">Unit / Property</label>
-        <input
-              className="w-full border rounded px-3 py-2"
-          value={unit}
-          onChange={e => setUnit(e.target.value)}
-              placeholder="Unit / Property"
-          required
-        />
+            {contractUnitsLoading ? (
+              <div className="w-full border rounded px-3 py-2 bg-gray-100 text-gray-500 text-sm">Loading unit from contract...</div>
+            ) : contractUnits.length > 0 ? (
+              <select
+                className="w-full border rounded px-3 py-2"
+                value={unit}
+                onChange={e => setUnit(e.target.value)}
+                required
+              >
+                {contractUnits.map((opt) => (
+                  <option key={opt.contractId} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                className="w-full border rounded px-3 py-2"
+                value={unit}
+                onChange={e => setUnit(e.target.value)}
+                placeholder="Unit / Property (from your contract when available)"
+                required
+              />
+            )}
+            {contractUnits.length > 0 && (
+              <p className="mt-1 text-xs text-gray-500">Unit is taken from your active contract.</p>
+            )}
           </div>
           {requestType === 'maintenance' && (
             <div>

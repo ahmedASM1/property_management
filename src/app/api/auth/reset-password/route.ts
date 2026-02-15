@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { doc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import crypto from 'crypto';
+import { sendEmailWithSendGrid } from '@/lib/email-sendgrid';
+import { sendEmailWithAWSSES } from '@/lib/email-aws-ses';
+import { sendEmailWithNodemailer } from '@/lib/email-nodemailer';
+import { getPasswordResetEmailHtml } from '@/lib/email-templates';
 
 export async function POST(req: NextRequest) {
   try {
@@ -54,53 +58,46 @@ export async function POST(req: NextRequest) {
 }
 
 async function sendPasswordResetEmail(email: string, resetLink: string, fullName: string) {
-  // This is a placeholder for email sending
-  // You can integrate with services like SendGrid, AWS SES, etc.
-  
-  console.log('Password reset email would be sent to:', email);
-  console.log('Reset link:', resetLink);
-  
-  try {
-    // Example email template
-    const emailContent = {
-      to: email,
-      subject: 'Reset Your Green Bridge Password',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background-color: #059669; color: white; padding: 20px; text-align: center;">
-            <h1>Password Reset Request</h1>
-          </div>
-          <div style="padding: 20px; background-color: #f9f9f9;">
-            <h2>Hello ${fullName},</h2>
-            <p>You requested to reset your password for your Green Bridge account. Click the button below to set a new password:</p>
-            <div style="text-align: center; margin: 30px 0;">
-              <a href="${resetLink}" style="background-color: #059669; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">
-                Reset Password
-              </a>
-            </div>
-            <p style="color: #666; font-size: 14px;">
-              This link will expire in 24 hours. If you didn't request this password reset, please ignore this email.
-            </p>
-            <p style="color: #666; font-size: 14px;">
-              If the button doesn't work, copy and paste this link into your browser:<br>
-              <a href="${resetLink}">${resetLink}</a>
-            </p>
-          </div>
-          <div style="background-color: #333; color: white; padding: 15px; text-align: center; font-size: 12px;">
-            © 2024 Green Bridge Property Management
-          </div>
-        </div>
-      `
-    };
+  const html = getPasswordResetEmailHtml(fullName || '', resetLink, 24);
+  const emailData = {
+    to: email,
+    subject: 'Reset your password – Green Bridge',
+    html,
+  };
 
-    // In production, replace this with actual email sending
-    // await emailService.send(emailContent);
-    
-    console.log('Password reset email content prepared:', emailContent);
-    
-  } catch (error) {
-    console.error('Error preparing password reset email:', error);
-    throw error;
+  let sent = false;
+
+  if (process.env.SENDGRID_API_KEY) {
+    try {
+      await sendEmailWithSendGrid(emailData);
+      sent = true;
+    } catch (err) {
+      console.error('SendGrid password reset email failed:', err);
+    }
+  }
+
+  if (!sent && process.env.AWS_ACCESS_KEY_ID) {
+    try {
+      await sendEmailWithAWSSES(emailData);
+      sent = true;
+    } catch (err) {
+      console.error('AWS SES password reset email failed:', err);
+    }
+  }
+
+  if (!sent && process.env.SMTP_USER && process.env.SMTP_PASS) {
+    try {
+      await sendEmailWithNodemailer(emailData);
+      sent = true;
+    } catch (err) {
+      console.error('Nodemailer password reset email failed:', err);
+    }
+  }
+
+  if (!sent) {
+    throw new Error(
+      'No email service configured. Set SENDGRID_API_KEY, or AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY, or SMTP_USER + SMTP_PASS in your environment (e.g. Vercel).'
+    );
   }
 }
 

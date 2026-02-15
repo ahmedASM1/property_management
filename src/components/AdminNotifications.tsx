@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, updateDoc, doc, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, orderBy, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
-import { Bell, Check, X, Eye, CheckCircle } from 'lucide-react';
+import { Bell, Check, X, Eye, CheckCircle, Trash2 } from 'lucide-react';
 
 interface AdminNotification {
   id: string;
@@ -37,6 +37,7 @@ export default function AdminNotifications() {
   const [selectedUser, setSelectedUser] = useState<PendingUser | null>(null);
   const [adminNotes, setAdminNotes] = useState('');
   const [processing, setProcessing] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   useEffect(() => {
     fetchNotifications();
@@ -88,6 +89,33 @@ export default function AdminNotifications() {
       setPendingUsers([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const clearAllNotifications = async () => {
+    if (notifications.length === 0) return;
+    if (!confirm('Clear all notifications? This cannot be undone and will remove test/old data so you only see new production notifications.')) return;
+    setClearing(true);
+    try {
+      const notificationsQuery = query(
+        collection(db, 'notifications'),
+        where('role', '==', 'admin')
+      );
+      const snapshot = await getDocs(notificationsQuery);
+      const BATCH_SIZE = 500;
+      const docs = snapshot.docs;
+      for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        docs.slice(i, i + BATCH_SIZE).forEach((d) => batch.delete(d.ref));
+        await batch.commit();
+      }
+      setNotifications([]);
+      toast.success('All notifications cleared. You will only see new notifications from now on.');
+    } catch (error) {
+      console.error('Error clearing notifications:', error);
+      toast.error('Failed to clear notifications');
+    } finally {
+      setClearing(false);
     }
   };
 
@@ -177,12 +205,25 @@ export default function AdminNotifications() {
             </span>
           )}
         </div>
-        <button
-          onClick={() => setShowPendingUsers(!showPendingUsers)}
-          className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-        >
-          {showPendingUsers ? 'Hide' : 'Show'} Pending Users ({pendingUsers.length})
-        </button>
+        <div className="flex items-center gap-2">
+          {notifications.length > 0 && (
+            <button
+              onClick={clearAllNotifications}
+              disabled={clearing}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all duration-200 font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 disabled:opacity-50 flex items-center gap-2"
+              title="Remove all current notifications (test/old data) so only new production notifications appear"
+            >
+              <Trash2 className="h-4 w-4" />
+              {clearing ? 'Clearing...' : 'Clear all notifications'}
+            </button>
+          )}
+          <button
+            onClick={() => setShowPendingUsers(!showPendingUsers)}
+            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+          >
+            {showPendingUsers ? 'Hide' : 'Show'} Pending Users ({pendingUsers.length})
+          </button>
+        </div>
       </div>
 
       {/* Pending Users Section */}

@@ -1,5 +1,6 @@
-import { getApps, initializeApp, cert, type App } from 'firebase-admin/app';
+import { getApps, getApp, initializeApp, cert, type App } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { getAuth } from 'firebase-admin/auth';
 
 let adminApp: App | null = null;
 
@@ -7,9 +8,9 @@ function formatPrivateKey(key: string): string {
   return key.replace(/\\n/g, '\n');
 }
 
-export function getAdminFirestore() {
+function ensureAdminApp(): App {
   if (getApps().length > 0) {
-    return getFirestore();
+    return getApp() as App;
   }
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
@@ -28,5 +29,15 @@ export function getAdminFirestore() {
     }),
     projectId,
   });
-  return getFirestore(adminApp);
+  return adminApp;
+}
+
+export function getAdminFirestore() {
+  ensureAdminApp();
+  return getFirestore();
+}
+
+export function getAdminAuth() {
+  ensureAdminApp();
+  return getAuth();
 }

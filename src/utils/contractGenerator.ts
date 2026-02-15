@@ -167,7 +167,7 @@ export const generateComprehensiveContractPDF = (tenant: Tenant, contractFields:
   yPosition += 4;
   doc.text(`Address: ${contractFields.companyAddress || 'Kuala Lumpur, Malaysia'}`, pageWidth / 2, yPosition, { align: 'center' });
   yPosition += 4;
-  doc.text(`Phone: ${contractFields.companyPhone || '+60 3-1234 5678'}  |  Email: ${contractFields.companyEmail || 'info@greenbridgerealty.com'}`, pageWidth / 2, yPosition, { align: 'center' });
+  doc.text(`Phone: ${contractFields.companyPhone || '+60 3-1234 5678'}  |  Email: ${contractFields.companyEmail || 'info@greenbridge-my.com'}`, pageWidth / 2, yPosition, { align: 'center' });
   yPosition += 12;
 
   // Main Title

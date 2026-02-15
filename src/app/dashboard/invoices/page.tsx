@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { Invoice, Tenant } from '@/types';
 import { mockTenants, mockInvoices, isFirebaseConfigured } from '@/lib/mockData';
@@ -150,27 +150,55 @@ export default function InvoicesPage() {
     fetchData();
   }, [user]);
 
+  // When tenant is selected, pre-fill Rent from their contract (monthly fixed rent); field stays editable
   useEffect(() => {
-    async function fetchContract() {
-      if (!tenantId) return;
-      const tenant = tenants.find(t => t.id === tenantId);
-      if (!tenant) return;
-      
-      try {
-        const contractSnap = await getDoc(doc(db, 'contracts', tenant.id));
-        if (contractSnap.exists()) {
-          const contractData = contractSnap.data() as ContractDoc;
-          const rent = Number(contractData.rentalPerMonth) || 0;
-          updateLineItem(0, 'amount', rent);
-        } else {
-          updateLineItem(0, 'amount', 0);
-        }
-      } catch {
-        updateLineItem(0, 'amount', 0);
-      }
+    if (!tenantId) return;
+    const tenant = tenants.find(t => t.id === tenantId);
+    if (!tenant) return;
+
+    const setRentFromValue = (rent: number) => {
+      setLineItems(prev =>
+        prev.map(item => (item.description === 'Rent' ? { ...item, amount: rent } : item))
+      );
+    };
+
+    // Mock / no Firebase: use tenant's rentAmount from loaded tenants
+    if (!isFirebaseConfigured()) {
+      const rent = Number((tenant as Tenant).rentAmount) || 0;
+      setRentFromValue(rent);
+      return;
     }
-    fetchContract();
-  }, [tenantId, tenants, updateLineItem]);
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const q = query(
+          collection(db, 'contracts'),
+          where('tenantId', '==', tenantId)
+        );
+        const snap = await getDocs(q);
+        if (cancelled) return;
+        const contracts = snap.docs.map(d => ({ id: d.id, ...d.data() } as ContractDoc & { status?: string; createdAt?: unknown; rentalPerMonth?: number | string }));
+        // Use any contract for this tenant (prefer active); sort by createdAt desc, take most recent
+        const sorted = [...contracts].sort((a, b) => {
+          const aT = a.createdAt != null ? (typeof a.createdAt === 'object' && a.createdAt !== null && 'toDate' in a.createdAt ? (a.createdAt as { toDate(): Date }).toDate().getTime() : new Date(a.createdAt as string).getTime()) : 0;
+          const bT = b.createdAt != null ? (typeof b.createdAt === 'object' && b.createdAt !== null && 'toDate' in b.createdAt ? (b.createdAt as { toDate(): Date }).toDate().getTime() : new Date(b.createdAt as string).getTime()) : 0;
+          return bT - aT;
+        });
+        const preferred = sorted.find(c => ['pending', 'signed', 'active'].includes(c.status ?? '')) ?? sorted[0];
+        const contractRent = preferred ? Number(preferred.rentalPerMonth) || 0 : 0;
+        const rent = contractRent || Number((tenant as Tenant).rentAmount) || 0;
+        if (!cancelled) setRentFromValue(rent);
+      } catch (err) {
+        console.warn('Invoice rent pre-fill: contract fetch failed', err);
+        if (!cancelled) {
+          const fallbackRent = Number((tenant as Tenant).rentAmount) || 0;
+          setRentFromValue(fallbackRent);
+        }
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [tenantId, tenants]);
 
   const addLineItem = () => setLineItems([...lineItems, { description: '', amount: 0 }]);
   const removeLineItem = (idx: number) => setLineItems(lineItems.length > 1 ? lineItems.filter((_, i) => i !== idx) : lineItems);
@@ -373,6 +401,19 @@ export default function InvoicesPage() {
     setTax(inv.tax);
     setDueDate(inv.dueDate as string);
     setShowForm(true);
+  };
+
+  const handleDelete = async (inv: Invoice) => {
+    if (!user || user.role !== 'admin') return;
+    if (!confirm(`Delete invoice #${String(inv.id).slice(-6).toUpperCase()}? This cannot be undone.`)) return;
+    try {
+      await deleteDoc(doc(db, 'invoices', String(inv.id)));
+      setInvoices(prev => prev.filter(i => i.id !== inv.id));
+      toast.success('Invoice deleted');
+    } catch (err) {
+      console.error('Error deleting invoice:', err);
+      toast.error('Failed to delete invoice');
+    }
   };
 
   const handleExportSingleInvoicePDF = (invoice: Invoice) => {
@@ -632,6 +673,11 @@ export default function InvoicesPage() {
                                 <button onClick={() => handleExportSingleInvoicePDF(inv)} className="text-green-600 hover:text-green-800 ml-4">
                                   Export
                                 </button>
+                                {user?.role === 'admin' && (
+                                  <button onClick={() => handleDelete(inv)} className="text-red-600 hover:text-red-800 ml-4">
+                                    Delete
+                                  </button>
+                                )}
                             </>
                         )}
                       </td>

@@ -26,6 +26,9 @@ export async function sendEmail(params: EmailParams) {
 }
 
 export function sendInvoiceEmail(toEmail: string, toName: string, invoiceNumber: string) {
+  if (!SERVICE_ID || !TEMPLATE_ID || !PUBLIC_KEY) {
+    return Promise.resolve({ status: 200, text: 'skipped' });
+  }
   return emailjs.send(
     SERVICE_ID,
     TEMPLATE_ID,
@@ -39,6 +42,9 @@ export function sendInvoiceEmail(toEmail: string, toName: string, invoiceNumber:
 }
 
 export function sendPaymentReminderEmail(toEmail: string, toName: string, outstandingAmount: number) {
+  if (!SERVICE_ID || !TEMPLATE_ID || !PUBLIC_KEY) {
+    return Promise.resolve({ status: 200, text: 'skipped' });
+  }
   return emailjs.send(
     SERVICE_ID,
     TEMPLATE_ID,

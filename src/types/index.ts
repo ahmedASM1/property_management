@@ -73,6 +73,8 @@ export interface Invoice {
   /** When tenant uploads proof: 'pending_review'. Admin sets 'approved' or 'rejected'. */
   receiptStatus?: 'pending_review' | 'approved' | 'rejected';
   receiptUploadedAt?: string;
+  /** Original filename when user uploaded receipt (kept for download) */
+  receiptFileName?: string;
   // Service Provider Invoice Fields
   from?: string;
   fromId?: string;

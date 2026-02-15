@@ -140,7 +140,7 @@ function generateRejectionEmailHTML(userName: string, adminName?: string): strin
             <h3>Need More Information?</h3>
             <p>If you believe this decision was made in error or if you have additional information that might be relevant to your application, please contact our support team:</p>
             <ul>
-              <li>Email: support@greenbridge.com</li>
+              <li>Email: info@greenbridge-my.com</li>
               <li>Phone: +60 3-1234 5678</li>
               <li>Office Hours: Monday - Friday, 9:00 AM - 6:00 PM</li>
             </ul>

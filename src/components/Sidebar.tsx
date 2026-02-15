@@ -175,8 +175,12 @@ const Sidebar = () => {
               className="flex items-center gap-3 flex-1 text-left focus:outline-none focus:ring-2 focus:ring-green-500"
               aria-label="Open profile menu"
             >
-              <div className="flex items-center justify-center h-10 w-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full text-white font-semibold text-sm shadow-sm">
-                {getInitials(user.fullName || '')}
+              <div className="flex items-center justify-center h-10 w-10 rounded-full overflow-hidden bg-gradient-to-br from-green-500 to-green-600 text-white font-semibold text-sm shadow-sm flex-shrink-0">
+                {user.profileImage ? (
+                  <Image src={user.profileImage} alt={user.fullName || 'Profile'} width={40} height={40} className="object-cover w-full h-full" />
+                ) : (
+                  getInitials(user.fullName || '')
+                )}
               </div>
               <div className="flex-1 min-w-0 text-left">
                 <p className="text-sm font-semibold text-gray-900 truncate">{user.fullName}</p>
@@ -208,8 +212,12 @@ const Sidebar = () => {
                   }}
                   className="profile-dropdown-item flex items-center gap-3 px-4 py-3 hover:bg-green-50 active:bg-green-100 transition-all duration-300 ease-in-out cursor-pointer w-full text-left focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
-                  <div className="flex items-center justify-center h-8 w-8 bg-gradient-to-br from-green-500 to-green-600 rounded-full text-white font-semibold text-xs shadow-sm">
-                    AC
+                  <div className="flex items-center justify-center h-8 w-8 rounded-full overflow-hidden bg-gradient-to-br from-green-500 to-green-600 text-white font-semibold text-xs shadow-sm flex-shrink-0">
+                    {user.profileImage ? (
+                      <Image src={user.profileImage} alt="" width={32} height={32} className="object-cover w-full h-full" />
+                    ) : (
+                      'AC'
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold text-gray-900 truncate">Account</p>

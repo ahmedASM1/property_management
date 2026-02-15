@@ -41,8 +41,8 @@ export async function sendEmailWithAWSSES(emailData: EmailData): Promise<boolean
           Charset: 'UTF-8'
         }
       },
-      Source: process.env.AWS_SES_FROM_EMAIL || 'noreply@greenbridge.com',
-      ReplyToAddresses: [process.env.AWS_SES_REPLY_TO || 'support@greenbridge.com']
+      Source: process.env.MAIL_FROM_EMAIL || process.env.AWS_SES_FROM_EMAIL || 'info@greenbridge-my.com',
+      ReplyToAddresses: [process.env.MAIL_SUPPORT_EMAIL || process.env.AWS_SES_REPLY_TO || 'info@greenbridge-my.com']
     };
 
     console.log('📧 Sending email via AWS SES to:', emailData.to);
@@ -173,7 +173,7 @@ export function generateWelcomeEmailTemplate(
           <p style="margin: 0;">© 2024 Green Bridge Property Management</p>
           <p style="margin: 5px 0 0 0; opacity: 0.8;">Professional Property Management Services</p>
           <p style="margin: 5px 0 0 0; opacity: 0.8;">
-            <a href="mailto:support@greenbridge.com" style="color: white;">support@greenbridge.com</a> | 
+            <a href="mailto:info@greenbridge-my.com" style="color: white;">info@greenbridge-my.com</a> | 
             <a href="tel:+60123456789" style="color: white;">+60 12-345 6789</a>
           </p>
         </div>

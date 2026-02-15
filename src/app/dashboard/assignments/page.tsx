@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
-import { collection, getDocs, doc, updateDoc, query, where, orderBy } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, updateDoc, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { User, Unit } from '@/types';
 import { toast } from 'react-hot-toast';
@@ -118,13 +118,17 @@ export default function TenantUnitAssignmentsPage() {
         updatedAt: new Date().toISOString()
       });
 
-      // Update tenant to remove unit assignment
+      // Update tenant to remove unit assignment only if the user document still exists
       if (unit.currentTenantId) {
-        await updateDoc(doc(db, 'users', unit.currentTenantId), {
-          unitNumber: null,
-          buildingName: null,
-          updatedAt: new Date().toISOString()
-        });
+        const userRef = doc(db, 'users', unit.currentTenantId);
+        const userSnap = await getDoc(userRef);
+        if (userSnap.exists()) {
+          await updateDoc(userRef, {
+            unitNumber: null,
+            buildingName: null,
+            updatedAt: new Date().toISOString()
+          });
+        }
       }
 
       toast.success(`Tenant unassigned from ${unit.fullUnitNumber}`);

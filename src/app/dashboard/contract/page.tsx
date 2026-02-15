@@ -22,7 +22,7 @@ export default function TenantContractPage() {
     async function fetchContract() {
       if (!user) return;
       setLoading(true);
-      const q = query(collection(db, 'contracts'), where('tenantId', '==', user.id), where('status', '==', 'active'));
+      const q = query(collection(db, 'contracts'), where('tenantId', '==', user.id), where('status', 'in', ['pending', 'signed', 'active']));
       const snapshot = await getDocs(q);
       if (!snapshot.empty) {
         const doc = snapshot.docs[0];
@@ -100,7 +100,7 @@ export default function TenantContractPage() {
       companySignDesignation: contract.companySignDesignation,
       companyAddress: '3-38, Kompleks Kantonmen Prima, 698, Jalan Sultan Azlan Shah, Batu 4½, Jalan Ipoh, 51200 Kuala Lumpur, W.P. Kuala Lumpur, Malaysia',
       companyPhone: '011-23583397',
-      companyEmail: 'myroom8685@gmail.com'
+      companyEmail: 'info@greenbridge-my.com'
     };
 
     const docPDF = generateComprehensiveContractPDF(tenant, contractFields);

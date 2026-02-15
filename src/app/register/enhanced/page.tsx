@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Eye, EyeOff, Mail, User, Phone, Building, Briefcase } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-hot-toast';
+import { getAuthErrorMessage } from '@/lib/auth-errors';
 import { useRouter } from 'next/navigation';
 import { UserRole } from '@/types';
 
@@ -128,10 +129,7 @@ export default function EnhancedRegisterPage() {
       setShowSuccessModal(true);
       resetForm();
     } catch (error: unknown) {
-      const errorMessage = (error as { code?: string; message?: string }).code === 'auth/email-already-in-use'
-        ? 'An account with this email already exists.'
-        : ((error as { message?: string }).message || "Something went wrong. Please try again later.");
-      toast.error(errorMessage);
+      toast.error(getAuthErrorMessage(error));
     } finally {
       if (typeof window !== 'undefined') localStorage.removeItem('gb_pending_registration');
       setLoading(false);
@@ -147,11 +145,21 @@ export default function EnhancedRegisterPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold mb-4 text-green-700">Registration Successful!</h2>
-          <p className="text-gray-600 mb-6">
-            Your account has been created successfully. An administrator will review and approve your access. 
-            You will receive an email notification once your account is approved and you can log in.
+          <h2 className="text-2xl font-bold mb-4 text-green-700">Thank you for registering!</h2>
+          <p className="text-gray-600 mb-4">
+            We&apos;ve sent a verification link to <strong>{formData.email}</strong>. Please check your email and click the verification link to verify your email address.
           </p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-left">
+            <p className="text-sm text-blue-800 font-medium mb-2">What happens next?</p>
+            <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
+              <li>Verify your email address by clicking the link we sent you</li>
+              <li>Wait for admin approval of your registration</li>
+              <li>Once approved, you&apos;ll be able to log in and access your account</li>
+            </ol>
+            <p className="text-sm text-blue-700 mt-3 font-medium">
+              You will be able to log in once your registration has been approved by an administrator.
+            </p>
+          </div>
           <button
             onClick={() => {
               setShowSuccessModal(false);

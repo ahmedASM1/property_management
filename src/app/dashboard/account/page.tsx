@@ -80,7 +80,7 @@ export default function AccountPage() {
     registrationEnabled: true,
     emailNotifications: true,
     emailFromName: 'Green Bridge Admin',
-    emailFromAddress: 'admin@greenbridge.com',
+    emailFromAddress: 'info@greenbridge-my.com',
     adminNotifications: true,
     userNotifications: true,
     passwordMinLength: 8,

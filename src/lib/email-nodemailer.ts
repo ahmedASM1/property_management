@@ -41,8 +41,8 @@ export async function sendEmailWithNodemailer(emailData: EmailData): Promise<boo
 
     const mailOptions = {
       from: {
-        name: process.env.SMTP_FROM_NAME || 'Green Bridge',
-        address: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER
+        name: process.env.MAIL_FROM_NAME || process.env.SMTP_FROM_NAME || 'Green Bridge',
+        address: process.env.MAIL_FROM_EMAIL || process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER
       },
       to: emailData.to,
       subject: emailData.subject,
@@ -178,7 +178,7 @@ export function generateWelcomeEmailTemplate(
           <p style="margin: 0;">© 2024 Green Bridge Property Management</p>
           <p style="margin: 5px 0 0 0; opacity: 0.8;">Professional Property Management Services</p>
           <p style="margin: 5px 0 0 0; opacity: 0.8;">
-            <a href="mailto:support@greenbridge.com" style="color: white;">support@greenbridge.com</a> | 
+            <a href="mailto:info@greenbridge-my.com" style="color: white;">info@greenbridge-my.com</a> | 
             <a href="tel:+60123456789" style="color: white;">+60 12-345 6789</a>
           </p>
         </div>

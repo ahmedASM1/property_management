@@ -249,7 +249,13 @@ export default function MaintenanceRequestList() {
               {req.status === 'completed' && (
                 <button
                   onClick={async () => {
-                    await updateDoc(doc(db, 'maintenance_requests', req.id), { hiddenFor: arrayUnion(user.id) });
+                    if (!user?.id) return;
+                    try {
+                      await updateDoc(doc(db, 'maintenance_requests', req.id), { hiddenFor: arrayUnion(user.id) });
+                      setRequests(prev => prev.map(r => r.id === req.id ? { ...r, hiddenFor: [...(r.hiddenFor || []), user.id] } : r));
+                    } catch (err) {
+                      console.error('Failed to hide request:', err);
+                    }
                   }}
                   className="ml-2 px-4 py-2 bg-gray-400 text-white rounded-md hover:bg-gray-500 transition"
                 >

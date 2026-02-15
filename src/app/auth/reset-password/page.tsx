@@ -1,16 +1,17 @@
 'use client';
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
-import { updatePassword } from 'firebase/auth';
-import { db, auth } from '@/lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { FaSpinner, FaEye, FaEyeSlash, FaCheck, FaExclamationTriangle } from 'react-icons/fa';
 import Image from 'next/image';
+import Link from 'next/link';
 
 function ResetPasswordContent() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [success, setSuccess] = useState(false);
   const [user, setUser] = useState<Record<string, unknown> | null>(null);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -92,43 +93,33 @@ function ResetPasswordContent() {
       return;
     }
 
+    const token = searchParams.get('token');
+    const userId = searchParams.get('userId');
+    if (!token || !userId) {
+      toast.error('Invalid reset link.');
+      return;
+    }
+
     setSubmitting(true);
     try {
-      const userId = searchParams.get('userId');
-      if (!userId) {
-        throw new Error('User ID not found');
-      }
-
-      // Get the current user from Firebase Auth
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        throw new Error('No authenticated user found');
-      }
-
-      // Update password in Firebase Auth
-      await updatePassword(currentUser, password);
-      
-      // Update user document to clear reset token
-      await updateDoc(doc(db, 'users', userId), {
-        passwordResetToken: null,
-        passwordResetExpires: null,
-        updatedAt: new Date().toISOString()
+      const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+      const res = await fetch(`${baseUrl}/api/auth/confirm-reset-password`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, userId, newPassword: password }),
       });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        toast.error(data.error || 'Failed to update password. Please try again.');
+        return;
+      }
 
       toast.success('Password updated successfully!');
-      
-      // Redirect to dashboard
-      router.push('/dashboard');
-      
+      setSuccess(true);
     } catch (error: unknown) {
       console.error('Error updating password:', error);
-      
-      if (error && typeof error === 'object' && 'code' in error && (error as { code: string }).code === 'auth/requires-recent-login') {
-        toast.error('Please log in again before changing your password.');
-        router.push('/login');
-      } else {
-        toast.error('Failed to update password. Please try again.');
-      }
+      toast.error('Failed to update password. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -165,12 +156,35 @@ function ResetPasswordContent() {
           <p className="text-gray-600 mb-6">
             This password reset link is invalid or has expired. Please request a new one.
           </p>
-          <button
-            onClick={() => router.push('/login')}
-            className="w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
+          <Link
+            href="/login"
+            className="inline-block w-full bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition-colors"
           >
-            Go to Login
-          </button>
+            Go to sign in
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (success) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
+          <div className="mb-6">
+            <Image src="/Green Bridge.png" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
+          </div>
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <FaCheck className="text-green-600 text-2xl" />
+          </div>
+          <h1 className="text-xl font-semibold text-gray-900">Password changed</h1>
+          <p className="text-gray-600 mt-2">You can now sign in with your new password.</p>
+          <Link
+            href="/login"
+            className="mt-6 inline-block w-full bg-green-600 text-white py-3 px-4 rounded-lg hover:bg-green-700 transition-colors font-medium"
+          >
+            Go to sign in
+          </Link>
         </div>
       </div>
     );

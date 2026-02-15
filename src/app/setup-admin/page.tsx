@@ -253,7 +253,7 @@ export default function SetupAdminPage() {
               value={formData.email}
               onChange={handleInputChange}
               className={`form-input ${errors.email ? 'border-red-300' : ''}`}
-              placeholder="admin@greenbridge.com"
+              placeholder="info@greenbridge-my.com"
             />
             {errors.email && (
               <p className="text-red-500 text-xs mt-1">{errors.email}</p>

@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Eye, EyeOff, Mail, Lock, User, Phone } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'react-hot-toast';
+import { getAuthErrorMessage } from '@/lib/auth-errors';
 
 export default function RegisterPage() {
   const { registerUser } = useAuth();
@@ -51,8 +52,7 @@ export default function RegisterPage() {
       });
       setShowSuccess(true);
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Registration failed. Please try again.';
-      toast.error(message);
+      toast.error(getAuthErrorMessage(error));
     } finally {
       setLoading(false);
     }
@@ -67,14 +67,19 @@ export default function RegisterPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-3">Thank you for registering</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-3">Thank you for registering!</h2>
           <p className="text-gray-700 mb-4">
-            We&apos;ve sent a verification link to <strong>{formData.email}</strong>. Please verify your email using that link.
+            We&apos;ve sent a verification link to <strong>{formData.email}</strong>. Please check your email and click the verification link to verify your email address.
           </p>
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6 text-left">
-            <p className="text-sm text-blue-800 font-medium mb-1">What happens next?</p>
-            <p className="text-sm text-blue-700">
-              You will be able to log in once your registration has been approved. Your role (e.g. tenant, service provider, property owner) will be assigned at that time.
+            <p className="text-sm text-blue-800 font-medium mb-2">What happens next?</p>
+            <ol className="text-sm text-blue-700 space-y-1 list-decimal list-inside">
+              <li>Verify your email address by clicking the link we sent you</li>
+              <li>Wait for admin approval of your registration</li>
+              <li>Once approved, you&apos;ll be able to log in and access your account</li>
+            </ol>
+            <p className="text-sm text-blue-700 mt-3 font-medium">
+              You will be able to log in once your registration has been approved by an administrator.
             </p>
           </div>
           <Link

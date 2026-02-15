@@ -84,7 +84,7 @@ export default function AdminSettingsPage() {
     registrationEnabled: true,
     emailNotifications: true,
     emailFromName: 'Green Bridge Admin',
-    emailFromAddress: 'admin@greenbridge.com',
+    emailFromAddress: 'info@greenbridge-my.com',
     emailTemplates: {
       welcome: 'Welcome to Green Bridge! Your account has been created.',
       approval: 'Your account has been approved. You can now access the platform.',

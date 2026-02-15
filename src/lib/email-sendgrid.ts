@@ -22,8 +22,8 @@ export async function sendEmailWithSendGrid(emailData: EmailData): Promise<boole
     const msg = {
       to: emailData.to,
       from: {
-        email: process.env.SENDGRID_FROM_EMAIL || 'noreply@greenbridge.com',
-        name: process.env.SENDGRID_FROM_NAME || 'Green Bridge'
+        email: process.env.MAIL_FROM_EMAIL || process.env.SENDGRID_FROM_EMAIL || 'info@greenbridge-my.com',
+        name: process.env.MAIL_FROM_NAME || process.env.SENDGRID_FROM_NAME || 'Green Bridge'
       },
       subject: emailData.subject,
       html: emailData.html,
@@ -158,7 +158,7 @@ export function generateWelcomeEmailTemplate(
           <p style="margin: 0;">© 2024 Green Bridge Property Management</p>
           <p style="margin: 5px 0 0 0; opacity: 0.8;">Professional Property Management Services</p>
           <p style="margin: 5px 0 0 0; opacity: 0.8;">
-            <a href="mailto:support@greenbridge.com" style="color: white;">support@greenbridge.com</a> | 
+            <a href="mailto:info@greenbridge-my.com" style="color: white;">info@greenbridge-my.com</a> | 
             <a href="tel:+60123456789" style="color: white;">+60 12-345 6789</a>
           </p>
         </div>

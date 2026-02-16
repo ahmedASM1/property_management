@@ -55,6 +55,7 @@ const linksByRole: Record<UserRole, NavItem[]> = {
   ],
   tenant: [
     { href: '/dashboard', label: 'Dashboard', icon: FaHome },
+    { href: '/dashboard/tenant/residency', label: 'My residency', icon: FaBuilding },
     { href: '/dashboard/tenant/contracts', label: 'My Contract', icon: FaFileContract },
     { href: '/dashboard/invoices', label: 'My Invoices', icon: FaFileInvoiceDollar },
     { href: '/dashboard/maintenance', label: 'Maintenance', icon: FaTools },
@@ -130,7 +131,7 @@ const Sidebar = () => {
 
   // Smooth unified styling for all sidebar items
   const getNavItemClasses = (isActive: boolean) => {
-    return `group flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all duration-300 ease-in-out ${
+    return `group flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg text-xs sm:text-sm font-medium transition-all duration-300 ease-in-out ${
       isActive 
         ? 'bg-green-100 text-green-600 font-semibold border-l-4 border-green-500' 
         : 'text-gray-700 hover:bg-green-50 hover:text-green-600'
@@ -138,7 +139,7 @@ const Sidebar = () => {
   };
 
   const getIconClasses = (isActive: boolean) => {
-    return `w-5 h-5 flex-shrink-0 transition-all duration-300 ease-in-out ${
+    return `w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0 transition-all duration-300 ease-in-out ${
       isActive 
         ? 'text-green-600' 
         : 'text-gray-500 group-hover:text-green-600'
@@ -261,18 +262,18 @@ const Sidebar = () => {
 
   return (
     <>
-      {/* Mobile Header */}
-      <header className="lg:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 bg-gradient-to-r from-green-50 to-white">
-        <div className="flex items-center gap-3">
-          <Image src="/Green Bridge.svg" alt="Green Bridge" width={32} height={32} className="h-8 w-8 rounded-lg shadow-sm" />
-          <Link href="/dashboard" className="text-lg font-bold text-gray-900">Green Bridge</Link>
+      {/* Mobile Header - compact */}
+      <header className="lg:hidden sticky top-0 z-40 flex items-center justify-between px-3 py-2 sm:px-4 sm:py-3 bg-gradient-to-r from-green-50 to-white border-b border-gray-100">
+        <div className="flex items-center gap-2 min-w-0">
+          <Image src="/Green Bridge.svg" alt="Green Bridge" width={28} height={28} className="h-7 w-7 sm:h-8 sm:w-8 rounded-lg shadow-sm flex-shrink-0" />
+          <Link href="/dashboard" className="text-base sm:text-lg font-bold text-gray-900 truncate">Green Bridge</Link>
         </div>
         <button
           onClick={() => setDrawerOpen(true)}
-          className="p-2 rounded-lg hover:bg-green-50 transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500"
+          className="p-2 rounded-lg hover:bg-green-50 transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 flex-shrink-0"
           aria-label="Open menu"
         >
-          <FaBars className="h-5 w-5 text-gray-700" />
+          <FaBars className="h-5 w-5 sm:h-6 sm:w-6 text-gray-700" />
         </button>
       </header>
 
@@ -296,27 +297,27 @@ const Sidebar = () => {
         />
       )}
       <div
-        className={`fixed top-0 left-0 z-50 h-full w-64 bg-white shadow-2xl transform transition-transform ease-in-out duration-300 lg:hidden ${
+        className={`fixed top-0 left-0 z-50 h-full w-[min(280px,85vw)] max-w-[280px] bg-white shadow-2xl transform transition-transform ease-in-out duration-300 lg:hidden ${
           drawerOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <nav className="flex flex-col h-full bg-gradient-to-b from-green-50 to-white">
-          <div className="flex items-center justify-between p-4">
-            <div className="flex items-center gap-3">
-              <Image src="/Green Bridge.svg" alt="Green Bridge" width={32} height={32} className="h-8 w-8 rounded-lg shadow-sm" />
-              <Link href="/dashboard" className="text-lg font-bold text-gray-900">Green Bridge</Link>
+        <nav className="flex flex-col h-full bg-gradient-to-b from-green-50 to-white overflow-hidden">
+          <div className="flex items-center justify-between p-3 sm:p-4 flex-shrink-0">
+            <div className="flex items-center gap-2 min-w-0">
+              <Image src="/Green Bridge.svg" alt="Green Bridge" width={28} height={28} className="h-7 w-7 rounded-lg shadow-sm flex-shrink-0" />
+              <Link href="/dashboard" className="text-base font-bold text-gray-900 truncate">Green Bridge</Link>
             </div>
             <button
-              className="p-2 rounded-lg hover:bg-green-50 transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500"
+              className="p-2 rounded-lg hover:bg-green-50 transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-500 flex-shrink-0"
               onClick={() => setDrawerOpen(false)}
               aria-label="Close menu"
             >
               <FaTimes className="h-5 w-5 text-gray-700" />
             </button>
           </div>
-          {sidebarContent}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">{sidebarContent}</div>
         </nav>
-        </div>
+      </div>
     </>
   );
 } 

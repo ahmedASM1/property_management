@@ -81,15 +81,19 @@ export default function TenantProfilePage() {
     }
     try {
       if (!user) return;
-      await updateDoc(doc(db, 'users', user.id), {
+      const updateData: Record<string, string | Date | undefined> = {
         fullName: form.fullName,
         phoneNumber: form.phoneNumber,
-        unitNumber: form.unitNumber,
-        buildingName: form.buildingName,
         rentalType: form.rentalType,
         profileImage: profileImageUrl,
         updatedAt: new Date(),
-      });
+      };
+      // Tenants: building/unit are set from contract only; do not overwrite
+      if (user.role !== 'tenant') {
+        updateData.unitNumber = form.unitNumber;
+        updateData.buildingName = form.buildingName;
+      }
+      await updateDoc(doc(db, 'users', user.id), updateData);
       setEditing(false);
       window.location.reload(); // To refresh context/user info
     } catch {
@@ -232,12 +236,14 @@ export default function TenantProfilePage() {
                 <input name="phoneNumber" value={form.phoneNumber} onChange={handleChange} className="w-full border rounded px-3 py-2" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Unit Number</label>
-                <input name="unitNumber" value={form.unitNumber} onChange={handleChange} className="w-full border rounded px-3 py-2" />
+                <label className="block text-xs font-medium text-gray-500 mb-1">Unit number</label>
+                <input name="unitNumber" value={form.unitNumber} readOnly className="w-full border rounded px-3 py-2 bg-gray-50 text-gray-600" title="Assigned from your contract" />
+                <p className="text-xs text-gray-400 mt-0.5">Assigned from your contract (not editable)</p>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">Building Name</label>
-                <input name="buildingName" value={form.buildingName} onChange={handleChange} className="w-full border rounded px-3 py-2" />
+                <label className="block text-xs font-medium text-gray-500 mb-1">Building</label>
+                <input name="buildingName" value={form.buildingName} readOnly className="w-full border rounded px-3 py-2 bg-gray-50 text-gray-600" title="Assigned from your contract" />
+                <p className="text-xs text-gray-400 mt-0.5">Assigned from your contract (not editable)</p>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">Rental Type</label>

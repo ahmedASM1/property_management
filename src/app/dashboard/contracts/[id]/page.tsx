@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, getDoc as getDocFirestore } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getContractExpiryStatus, getExpiryBadgeClass } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 import Image from 'next/image';
+import toast from 'react-hot-toast';
+import emailjs from '@emailjs/browser';
 
 interface ContractDoc {
   id: string;
@@ -29,11 +32,18 @@ interface ContractDoc {
   tenantUploadedContractFileName?: string;
 }
 
+const EMAILJS_SERVICE_ID = process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID || 'YOUR_SERVICE_ID';
+const EMAILJS_TEMPLATE_ID = process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID || 'YOUR_TEMPLATE_ID';
+const EMAILJS_PUBLIC_KEY = process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY || 'YOUR_PUBLIC_KEY';
+
 export default function ContractDetailPage() {
   const params = useParams();
+  const router = useRouter();
+  const { user } = useAuth();
   const id = params?.id as string;
   const [contract, setContract] = useState<ContractDoc | null>(null);
   const [loading, setLoading] = useState(true);
+  const [resending, setResending] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -131,6 +141,71 @@ export default function ContractDetailPage() {
     }
   }, [contract?.id, contract?.tenantUploadedContractUrl, contract?.tenantUploadedContractFileName]);
 
+  const handleEditContract = () => {
+    router.push(`/dashboard/contracts?edit=${contract?.id}`);
+  };
+
+  const handleResendContract = async () => {
+    if (!contract) return;
+    setResending(true);
+    try {
+      // Get tenant email
+      const tenantDoc = await getDocFirestore(doc(db, 'users', contract.tenantId));
+      const tenantData = tenantDoc.data();
+      
+      if (!tenantData?.email) {
+        toast.error('Tenant email not found');
+        setResending(false);
+        return;
+      }
+
+      // Check if EmailJS is configured
+      if (!EMAILJS_SERVICE_ID || EMAILJS_SERVICE_ID === 'YOUR_SERVICE_ID' || 
+          !EMAILJS_TEMPLATE_ID || EMAILJS_TEMPLATE_ID === 'YOUR_TEMPLATE_ID' ||
+          !EMAILJS_PUBLIC_KEY || EMAILJS_PUBLIC_KEY === 'YOUR_PUBLIC_KEY') {
+        // Fallback: Open email client or show contract URL
+        const contractUrl = `${window.location.origin}/dashboard/contracts/${contract.id}`;
+        const emailSubject = encodeURIComponent('Contract - Green Bridge Realty');
+        const emailBody = encodeURIComponent(`Dear ${contract.tenantName},\n\nPlease review and sign your contract:\n${contractUrl}\n\nBest regards,\nGreen Bridge Realty Team`);
+        window.open(`mailto:${tenantData.email}?subject=${emailSubject}&body=${emailBody}`, '_blank');
+        toast.success('Opened email client. Please send the contract link manually.');
+        setResending(false);
+        return;
+      }
+
+      // Send email with contract link via EmailJS
+      const templateParams = {
+        to_name: contract.tenantName,
+        to_email: tenantData.email,
+        contract_link: contract.contractUrl || `${window.location.origin}/dashboard/contracts/${contract.id}`,
+        from_name: 'GREEN BRIDGE REALTY SDN. BHD',
+      };
+
+      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, templateParams, EMAILJS_PUBLIC_KEY);
+      toast.success('Contract resent successfully to tenant');
+    } catch (error) {
+      console.error('Failed to resend contract:', error);
+      // Fallback: Open email client
+      try {
+        const tenantDoc = await getDocFirestore(doc(db, 'users', contract.tenantId));
+        const tenantData = tenantDoc.data();
+        if (tenantData?.email) {
+          const contractUrl = `${window.location.origin}/dashboard/contracts/${contract.id}`;
+          const emailSubject = encodeURIComponent('Contract - Green Bridge Realty');
+          const emailBody = encodeURIComponent(`Dear ${contract.tenantName},\n\nPlease review and sign your contract:\n${contractUrl}\n\nBest regards,\nGreen Bridge Realty Team`);
+          window.open(`mailto:${tenantData.email}?subject=${emailSubject}&body=${emailBody}`, '_blank');
+          toast.success('Email service unavailable. Opened email client instead.');
+        } else {
+          toast.error('Failed to resend contract. Tenant email not found.');
+        }
+      } catch (fallbackError) {
+        toast.error('Failed to resend contract. Please try again.');
+      }
+    } finally {
+      setResending(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
@@ -175,7 +250,7 @@ export default function ContractDetailPage() {
               {contract.tenantName} · {contract.propertyAddress || '—'}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getExpiryBadgeClass(expiryStatus.status)}`}>
               {expiryStatus.label}
             </span>
@@ -183,6 +258,23 @@ export default function ContractDetailPage() {
               <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">
                 Signed by tenant
               </span>
+            )}
+            {user?.role === 'admin' && (
+              <>
+                <button
+                  onClick={handleEditContract}
+                  className="px-3 py-1.5 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors"
+                >
+                  Edit Contract
+                </button>
+                <button
+                  onClick={handleResendContract}
+                  disabled={resending}
+                  className="px-3 py-1.5 text-sm font-medium text-green-700 bg-green-50 border border-green-200 rounded-lg hover:bg-green-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {resending ? 'Sending...' : 'Resend to Tenant'}
+                </button>
+              </>
             )}
           </div>
         </div>

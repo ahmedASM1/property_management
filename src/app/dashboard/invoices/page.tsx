@@ -477,16 +477,16 @@ export default function InvoicesPage() {
   // Admin UI
   if (user?.role === 'admin') {
     return (
-      <div className="container mx-auto px-4 w-full max-w-7xl py-6">
-        <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-          <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="text-gray-500 hover:text-gray-700">
+      <div className="w-full min-w-0 max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-6">
+        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 sm:mb-6">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+            <Link href="/dashboard" className="text-gray-500 hover:text-gray-700 flex-shrink-0 p-1">
               <FaArrowLeft className="h-5 w-5" />
             </Link>
-            <h1 className="text-3xl font-bold">Invoices</h1>
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-bold truncate">Invoices</h1>
           </div>
           <div className="flex flex-wrap gap-2">
-            <button onClick={() => setShowForm(!showForm)} className="bg-indigo-600 text-white px-6 py-2 rounded-lg shadow hover:bg-indigo-700 transition">
+            <button onClick={() => setShowForm(!showForm)} className="bg-indigo-600 text-white px-4 py-2 sm:px-6 rounded-lg shadow hover:bg-indigo-700 transition text-sm sm:text-base w-full sm:w-auto">
               {showForm ? 'Close Form' : 'Create New Invoice'}
             </button>
           </div>
@@ -507,8 +507,8 @@ export default function InvoicesPage() {
           />
         </div>
         {showForm && (
-          <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-8 mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <h2 className="text-2xl font-bold col-span-full">{isEditing ? 'Edit Invoice' : 'New Invoice'}</h2>
+          <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-sm p-4 sm:p-6 md:p-8 mb-6 sm:mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            <h2 className="text-xl sm:text-2xl font-bold col-span-full">{isEditing ? 'Edit Invoice' : 'New Invoice'}</h2>
             
             <div className="col-span-1">
               <label htmlFor="tenantId" className="block text-sm font-medium text-gray-700 mb-1">Tenant</label>
@@ -581,29 +581,29 @@ export default function InvoicesPage() {
               <input type="date" id="dueDate" name="dueDate" value={dueDate} onChange={handleFormChange} className="w-full border-gray-300 rounded-lg shadow-sm" />
             </div>
             
-            <div className="col-span-full flex justify-between items-center mt-4">
-              <div className="font-bold text-xl">Total: RM {isNaN(Number(totalAmount)) ? '0.00' : Number(totalAmount).toFixed(2)}</div>
-              <button type="submit" className="bg-indigo-600 text-white px-8 py-3 rounded-lg shadow-lg hover:bg-indigo-700 transition">
+            <div className="col-span-full flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-3 mt-4">
+              <div className="font-bold text-lg sm:text-xl">Total: RM {isNaN(Number(totalAmount)) ? '0.00' : Number(totalAmount).toFixed(2)}</div>
+              <button type="submit" className="bg-indigo-600 text-white px-6 py-2 sm:px-8 sm:py-3 rounded-lg shadow-lg hover:bg-indigo-700 transition text-sm sm:text-base">
                 {isEditing ? 'Update Invoice' : 'Create Invoice'}
               </button>
         </div>
           </form>
         )}
         
-        <div className="bg-white rounded-xl shadow-sm">
-          <h2 className="text-xl font-bold mb-4 p-6">Invoices</h2>
-          <div className="hidden md:block overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200 text-sm">
+        <div className="bg-white rounded-xl shadow-sm min-w-0">
+          <h2 className="text-lg sm:text-xl font-bold mb-3 sm:mb-4 p-4 sm:p-6">Invoices</h2>
+          <div className="overflow-x-auto">
+            <table className="min-w-[640px] sm:min-w-full divide-y divide-gray-200 text-xs sm:text-sm">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">From</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">To</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Description</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Amount</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
-                  <th className="px-6 py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                  <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
+                  <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">From</th>
+                  <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">To</th>
+                  <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Description</th>
+                  <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Amount</th>
+                  <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
+                  <th className="px-3 sm:px-6 py-2 sm:py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
+                  <th className="px-3 sm:px-6 py-2 sm:py-4 text-right text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -616,15 +616,15 @@ export default function InvoicesPage() {
                   const request = inv.statusChangeRequest;
                   return (
                     <tr key={inv.id} className={`hover:bg-gray-50 transition ${request ? 'bg-blue-50' : ''}`}>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                         {inv.tenantId && <span className="px-2 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-800">Tenant</span>}
                         {inv.fromId && <span className="px-2 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800">Service Provider</span>}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">{fromName}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">{toName}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{description}</td>
-                      <td className="px-6 py-4 whitespace-nowrap font-medium">RM {isNaN(Number(inv.totalAmount)) ? '0.00' : Number(inv.totalAmount).toFixed(2)}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap max-w-[80px] sm:max-w-none truncate" title={fromName}>{fromName}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap max-w-[80px] sm:max-w-none truncate" title={toName}>{toName}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-600 max-w-[100px] sm:max-w-none truncate" title={description}>{description}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap font-medium text-xs sm:text-sm">RM {isNaN(Number(inv.totalAmount)) ? '0.00' : Number(inv.totalAmount).toFixed(2)}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                         <div className="relative">
                           <select
                             value={inv.status}
@@ -652,8 +652,8 @@ export default function InvoicesPage() {
                             </div>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{date}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-500">{date}</td>
+                      <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-right">
                         {request ? (
                             <div className="flex items-center justify-end gap-2">
                                 <button onClick={() => handleStatusRequest(inv, true)} className="px-3 py-1 bg-green-600 text-white text-xs rounded-md hover:bg-green-700">Approve</button>
@@ -699,12 +699,12 @@ export default function InvoicesPage() {
 
   // Tenant UI: Card view on mobile, table on desktop
   return (
-    <div className="container mx-auto px-4 w-full max-w-3xl py-6">
-      <div className="flex items-center gap-4 mb-6">
-        <Link href="/dashboard" className="text-gray-500 hover:text-gray-700">
+    <div className="w-full min-w-0 max-w-3xl mx-auto px-2 sm:px-4 py-4 sm:py-6">
+      <div className="flex items-center gap-2 sm:gap-4 mb-4 sm:mb-6">
+        <Link href="/dashboard" className="text-gray-500 hover:text-gray-700 flex-shrink-0 p-1">
           <FaArrowLeft className="h-5 w-5" />
         </Link>
-        <h2 className="text-2xl font-bold">My Invoices</h2>
+        <h2 className="text-xl sm:text-2xl font-bold truncate">My Invoices</h2>
       </div>
       {loading ? (
         <div>Loading...</div>
@@ -723,8 +723,8 @@ export default function InvoicesPage() {
               </div>
             ))}
           </div>
-          <div className="hidden md:block overflow-x-auto">
-            <table className="min-w-[600px] bg-white rounded shadow text-sm md:text-base">
+          <div className="overflow-x-auto -mx-2 sm:mx-0">
+            <table className="min-w-[480px] sm:min-w-full w-full bg-white rounded shadow text-xs sm:text-sm md:text-base">
               <thead>
                 <tr>
                   <th className="py-2 px-4 border-b">Invoice #</th>

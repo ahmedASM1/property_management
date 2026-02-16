@@ -243,33 +243,33 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
+    <div className="min-h-screen bg-gray-50 min-w-0">
+      {/* Header - compact on mobile */}
       <div className="bg-white shadow-sm border-b border-gray-200">
-        <div className="px-4 sm:px-6 py-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
-              <p className="text-gray-600 text-center">
+        <div className="px-3 sm:px-6 py-4 sm:py-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
+            <div className="min-w-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+              <p className="text-sm sm:text-base text-gray-600 mt-0.5">
                 Welcome to your admin dashboard. Here&apos;s what&apos;s happening today.
               </p>
             </div>
-            <div className="text-left sm:text-right">
+            <div className="text-left sm:text-right flex-shrink-0">
               <div className="text-xs text-gray-500">Last updated</div>
-              <div className="text-base font-semibold text-gray-900">{new Date().toLocaleDateString()}</div>
+              <div className="text-sm sm:text-base font-semibold text-gray-900">{new Date().toLocaleDateString()}</div>
             </div>
           </div>
         </div>
       </div>
 
-      <div className="px-2 sm:px-4 py-6 space-y-6">
+      <div className="px-3 sm:px-4 py-4 sm:py-6 space-y-4 sm:space-y-6">
         {/* System Health & Admin Status */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
           {/* System Health */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">System Health</h3>
-              <FaShieldAlt className="h-5 w-5 text-green-600" />
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">System Health</h3>
+              <FaShieldAlt className="h-4 w-4 sm:h-5 sm:w-5 text-green-600 flex-shrink-0" />
             </div>
             <div className="space-y-3">
               <div className="flex items-center justify-between">
@@ -299,85 +299,85 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
             </div>
           </div>
 
-          {/* Admin Notifications */}
-          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
-                  <FaBell className="h-5 w-5 text-white" />
+          {/* Admin Alerts */}
+          <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
+            <div className="flex flex-wrap items-start gap-2 sm:gap-3 mb-4 sm:mb-6">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                  <FaBell className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-900">Admin Alerts</h3>
-                  <p className="text-sm text-gray-600">System notifications and pending tasks</p>
+                <div className="min-w-0">
+                  <h3 className="text-base sm:text-lg font-semibold text-gray-900">Admin Alerts</h3>
+                  <p className="text-xs sm:text-sm text-gray-600">System notifications and pending tasks</p>
                 </div>
               </div>
               {(pendingApprovals + activeMaintenanceRequests + overdueInvoices.length + expiringContracts.length) > 0 && (
-                <span className="bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-semibold shadow-sm border-2 border-white">
+                <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center font-semibold shadow-sm border-2 border-white flex-shrink-0">
                   {pendingApprovals + activeMaintenanceRequests + overdueInvoices.length + expiringContracts.length}
                 </span>
               )}
             </div>
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {pendingApprovals > 0 && (
-                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-lg border border-yellow-200 hover:shadow-sm transition-all duration-200">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-yellow-100 rounded-lg flex items-center justify-center">
-                      <FaExclamationCircle className="h-4 w-4 text-yellow-600" />
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 sm:p-4 bg-gradient-to-r from-yellow-50 to-yellow-100 rounded-lg border border-yellow-200 hover:shadow-sm transition-all duration-200">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 bg-yellow-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <FaExclamationCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-yellow-600" />
                     </div>
-                    <div>
-                      <span className="text-sm font-semibold text-yellow-800">Pending Approvals</span>
+                    <div className="min-w-0">
+                      <span className="text-xs sm:text-sm font-semibold text-yellow-800">Pending Approvals</span>
                       <p className="text-xs text-yellow-700">Users waiting for approval</p>
                     </div>
                   </div>
-                  <span className="bg-yellow-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
+                  <span className="bg-yellow-500 text-white text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm self-start sm:self-center">
                     {pendingApprovals}
                   </span>
                 </div>
               )}
               {activeMaintenanceRequests > 0 && (
-                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200 hover:shadow-sm transition-all duration-200">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                      <FaTools className="h-4 w-4 text-blue-600" />
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 sm:p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border border-blue-200 hover:shadow-sm transition-all duration-200">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <FaTools className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600" />
                     </div>
-                    <div>
-                      <span className="text-sm font-semibold text-blue-800">Active Maintenance</span>
+                    <div className="min-w-0">
+                      <span className="text-xs sm:text-sm font-semibold text-blue-800">Active Maintenance</span>
                       <p className="text-xs text-blue-700">Ongoing maintenance requests</p>
                     </div>
                   </div>
-                  <span className="bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
+                  <span className="bg-blue-500 text-white text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm self-start sm:self-center">
                     {activeMaintenanceRequests}
                   </span>
                 </div>
               )}
               {overdueInvoices.length > 0 && (
-                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-red-50 to-red-100 rounded-lg border border-red-200 hover:shadow-sm transition-all duration-200">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-red-100 rounded-lg flex items-center justify-center">
-                      <FaExclamationTriangle className="h-4 w-4 text-red-600" />
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 sm:p-4 bg-gradient-to-r from-red-50 to-red-100 rounded-lg border border-red-200 hover:shadow-sm transition-all duration-200">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 bg-red-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <FaExclamationTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-red-600" />
                     </div>
-                    <div>
-                      <span className="text-sm font-semibold text-red-800">Overdue Invoices</span>
+                    <div className="min-w-0">
+                      <span className="text-xs sm:text-sm font-semibold text-red-800">Overdue Invoices</span>
                       <p className="text-xs text-red-700">Invoices past due date</p>
                     </div>
                   </div>
-                  <span className="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
+                  <span className="bg-red-500 text-white text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm self-start sm:self-center">
                     {overdueInvoices.length}
                   </span>
                 </div>
               )}
               {expiringContracts.length > 0 && (
-                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg border border-orange-200 hover:shadow-sm transition-all duration-200">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-                      <FaClock className="h-4 w-4 text-orange-600" />
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 sm:p-4 bg-gradient-to-r from-orange-50 to-orange-100 rounded-lg border border-orange-200 hover:shadow-sm transition-all duration-200">
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                    <div className="w-7 h-7 sm:w-8 sm:h-8 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <FaClock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-orange-600" />
                     </div>
-                    <div>
-                      <span className="text-sm font-semibold text-orange-800">Expiring Contracts</span>
+                    <div className="min-w-0">
+                      <span className="text-xs sm:text-sm font-semibold text-orange-800">Expiring Contracts</span>
                       <p className="text-xs text-orange-700">Contracts expiring within 30 days</p>
                     </div>
                   </div>
-                  <span className="bg-orange-500 text-white text-xs font-bold px-3 py-1 rounded-full shadow-sm">
+                  <span className="bg-orange-500 text-white text-xs font-bold px-2.5 py-0.5 rounded-full shadow-sm self-start sm:self-center">
                     {expiringContracts.length}
                   </span>
                 </div>
@@ -395,10 +395,10 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
           </div>
 
           {/* Quick Admin Actions */}
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Quick Actions</h3>
-              <FaCog className="h-5 w-5 text-gray-600" />
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-3 sm:mb-4">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900">Quick Actions</h3>
+              <FaCog className="h-4 w-4 sm:h-5 sm:w-5 text-gray-600 flex-shrink-0" />
             </div>
             <div className="space-y-2">
               <Link href="/dashboard/users/approvals" className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-all duration-200 hover:shadow-sm">
@@ -488,68 +488,68 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
         )}
 
         {/* Quick Actions */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Link href="/dashboard/expenses" className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-4">
-              <div className="bg-green-100 p-3 rounded-full">
-                <FaMoneyBillWave className="h-6 w-6 text-green-600" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+          <Link href="/dashboard/expenses" className="bg-white rounded-xl shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow min-w-0">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="bg-green-100 p-2 sm:p-3 rounded-full flex-shrink-0">
+                <FaMoneyBillWave className="h-5 w-5 sm:h-6 sm:w-6 text-green-600" />
               </div>
-              <div>
-                <h3 className="font-semibold text-lg">Expenses & Bills</h3>
-                <p className="text-gray-500 text-sm">View and manage expenses and bills</p>
-              </div>
-            </div>
-          </Link>
-
-          <Link href="/dashboard/invoices" className="bg-white rounded-2xl shadow-sm p-6 hover:shadow-md transition-shadow flex flex-col">
-            <div className="flex items-center gap-4 mb-2">
-              <div className="p-3 bg-indigo-100 rounded-full">
-                <FaFileInvoice className="h-6 w-6 text-indigo-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg">Invoices</h3>
-                <p className="text-gray-500 text-sm">View and manage all invoices</p>
+              <div className="min-w-0">
+                <h3 className="font-semibold text-base sm:text-lg truncate">Expenses & Bills</h3>
+                <p className="text-gray-500 text-xs sm:text-sm truncate">View and manage expenses and bills</p>
               </div>
             </div>
           </Link>
 
-          <Link href="/dashboard/units" className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-4">
-              <div className="bg-purple-100 p-3 rounded-full">
-                <FaBuilding className="h-6 w-6 text-purple-600" />
+          <Link href="/dashboard/invoices" className="bg-white rounded-xl shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow flex flex-col min-w-0">
+            <div className="flex items-center gap-3 sm:gap-4 mb-2">
+              <div className="p-2 sm:p-3 bg-indigo-100 rounded-full flex-shrink-0">
+                <FaFileInvoice className="h-5 w-5 sm:h-6 sm:w-6 text-indigo-600" />
               </div>
-              <div>
-                <h3 className="font-semibold text-lg">Manage Units</h3>
-                <p className="text-gray-500 text-sm">View all properties</p>
-              </div>
-            </div>
-          </Link>
-
-          <Link href="/dashboard/reports" className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-4">
-              <div className="bg-orange-100 p-3 rounded-full">
-                <FaChartLine className="h-6 w-6 text-orange-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-lg">Reports</h3>
-                <p className="text-gray-500 text-sm">Financial insights</p>
+              <div className="min-w-0">
+                <h3 className="font-semibold text-base sm:text-lg truncate">Invoices</h3>
+                <p className="text-gray-500 text-xs sm:text-sm truncate">View and manage all invoices</p>
               </div>
             </div>
           </Link>
 
-          <Link href="/dashboard/maintenance/admin" className="bg-white rounded-xl shadow-sm p-6 hover:shadow-md transition-shadow">
+          <Link href="/dashboard/units" className="bg-white rounded-xl shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow min-w-0">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="bg-purple-100 p-2 sm:p-3 rounded-full flex-shrink-0">
+                <FaBuilding className="h-5 w-5 sm:h-6 sm:w-6 text-purple-600" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-semibold text-base sm:text-lg truncate">Manage Units</h3>
+                <p className="text-gray-500 text-xs sm:text-sm truncate">View all properties</p>
+              </div>
+            </div>
+          </Link>
+
+          <Link href="/dashboard/reports" className="bg-white rounded-xl shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow min-w-0">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="bg-orange-100 p-2 sm:p-3 rounded-full flex-shrink-0">
+                <FaChartLine className="h-5 w-5 sm:h-6 sm:w-6 text-orange-600" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="font-semibold text-base sm:text-lg truncate">Reports</h3>
+                <p className="text-gray-500 text-xs sm:text-sm truncate">Financial insights</p>
+              </div>
+            </div>
+          </Link>
+
+          <Link href="/dashboard/maintenance/admin" className="bg-white rounded-xl shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow min-w-0">
             <div className="flex flex-col h-full">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-base font-semibold text-gray-800">Maintenance Requests</h4>
-                <div className="p-2 bg-green-100 rounded-full">
-                  <FaTools className="h-5 w-5 text-green-600" />
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <h4 className="text-sm sm:text-base font-semibold text-gray-800 truncate">Maintenance Requests</h4>
+                <div className="p-1.5 sm:p-2 bg-green-100 rounded-full flex-shrink-0">
+                  <FaTools className="h-4 w-4 sm:h-5 sm:w-5 text-green-600" />
                 </div>
               </div>
-              <p className="text-sm text-gray-500 mb-4">View and manage maintenance</p>
+              <p className="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">View and manage maintenance</p>
               <div className="mt-auto">
-                <div className="flex items-center text-sm text-gray-700">
+                <div className="flex items-center text-xs sm:text-sm text-gray-700">
                   {maintenanceCount !== null ? (
-                    <span className="text-2xl font-bold text-gray-900">{maintenanceCount}</span>
+                    <span className="text-xl sm:text-2xl font-bold text-gray-900">{maintenanceCount}</span>
                   ) : (
                     <span className="text-gray-400">Loading...</span>
                   )}
@@ -561,26 +561,26 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
         </div>
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
-            <div className="text-3xl font-bold text-indigo-600 mb-2">{data.tenants?.length ?? 0}</div>
-            <div className="text-gray-700 font-semibold">Total Tenants</div>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
+          <div className="bg-white rounded-xl shadow p-4 sm:p-6 flex flex-col items-center min-w-0">
+            <div className="text-xl sm:text-3xl font-bold text-indigo-600 mb-1 sm:mb-2">{data.tenants?.length ?? 0}</div>
+            <div className="text-gray-700 font-semibold text-xs sm:text-base text-center">Total Tenants</div>
           </div>
-          <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
-            <div className="text-3xl font-bold text-green-600 mb-2">{totalUnits}</div>
-            <div className="text-gray-700 font-semibold">Total Units</div>
+          <div className="bg-white rounded-xl shadow p-4 sm:p-6 flex flex-col items-center min-w-0">
+            <div className="text-xl sm:text-3xl font-bold text-green-600 mb-1 sm:mb-2">{totalUnits}</div>
+            <div className="text-gray-700 font-semibold text-xs sm:text-base text-center">Total Units</div>
           </div>
-          <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
-            <div className="text-3xl font-bold text-blue-600 mb-2">
+          <div className="bg-white rounded-xl shadow p-4 sm:p-6 flex flex-col items-center min-w-0">
+            <div className="text-xl sm:text-3xl font-bold text-blue-600 mb-1 sm:mb-2">
               {totalUnits ? `${Math.round((occupiedUnits / totalUnits) * 100)}%` : '0%'}
             </div>
-            <div className="text-gray-700 font-semibold">Occupancy Rate</div>
+            <div className="text-gray-700 font-semibold text-xs sm:text-base text-center">Occupancy Rate</div>
           </div>
-          <div className="bg-white rounded-xl shadow p-6 flex flex-col items-center">
-            <div className="text-3xl font-bold text-red-600 mb-2">
+          <div className="bg-white rounded-xl shadow p-4 sm:p-6 flex flex-col items-center min-w-0">
+            <div className="text-lg sm:text-3xl font-bold text-red-600 mb-1 sm:mb-2 truncate w-full text-center">
               RM{data.invoices ? data.invoices.filter(i => !i.isPaid && Number(i.totalAmount) <= 100000).reduce((sum, i) => sum + (i.totalAmount || 0), 0).toFixed(2) : '0.00'}
             </div>
-            <div className="text-gray-700 font-semibold">Outstanding Payments</div>
+            <div className="text-gray-700 font-semibold text-xs sm:text-base text-center">Outstanding</div>
           </div>
         </div>
 
@@ -871,20 +871,20 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
           </div>
         </div>
 
-        <div className="flex justify-end mb-6">
+        <div className="flex flex-wrap justify-end gap-2 sm:gap-3 mb-4 sm:mb-6">
           <button
             onClick={handleBulkRemind}
-            className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold px-6 py-2 rounded shadow disabled:opacity-50"
+            className="bg-yellow-500 hover:bg-yellow-600 text-white font-semibold px-4 py-2 sm:px-6 text-sm sm:text-base rounded shadow disabled:opacity-50"
             disabled={reminding}
           >
-            {reminding ? 'Sending Reminders...' : 'Send Payment Reminders'}
+            {reminding ? 'Sending...' : 'Send Payment Reminders'}
           </button>
         </div>
 
-        <div className="flex flex-wrap gap-2 mb-6">
-          <button onClick={exportTenantsCSV} className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-4 py-2 rounded shadow">Export Tenants (CSV)</button>
-          <button onClick={exportInvoicesCSV} className="bg-green-500 hover:bg-green-600 text-white font-semibold px-4 py-2 rounded shadow">Export Invoices (CSV)</button>
-          <button onClick={exportInvoicesPDF} className="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold px-4 py-2 rounded shadow">Export Invoices (PDF)</button>
+        <div className="flex flex-wrap gap-2 mb-4 sm:mb-6">
+          <button onClick={exportTenantsCSV} className="bg-blue-500 hover:bg-blue-600 text-white font-semibold px-3 py-2 sm:px-4 text-sm rounded shadow">Export Tenants (CSV)</button>
+          <button onClick={exportInvoicesCSV} className="bg-green-500 hover:bg-green-600 text-white font-semibold px-3 py-2 sm:px-4 text-sm rounded shadow">Export Invoices (CSV)</button>
+          <button onClick={exportInvoicesPDF} className="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold px-3 py-2 sm:px-4 text-sm rounded shadow">Export (PDF)</button>
         </div>
       </div>
     </div>

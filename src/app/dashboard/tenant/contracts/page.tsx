@@ -6,7 +6,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import toast from 'react-hot-toast';
 import { getContractExpiryStatus, getExpiryBadgeClass } from '@/lib/utils';
 import SignaturePad from 'react-signature-canvas';
-import { getStorage, ref, uploadString, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadString, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '@/lib/firebase';
 
 interface Contract {
   id: string;
@@ -45,7 +46,6 @@ export default function TenantContractsPage() {
   const [uploadingContractId, setUploadingContractId] = useState<string | null>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const storage = getStorage();
 
   useEffect(() => {
     async function fetchContracts() {

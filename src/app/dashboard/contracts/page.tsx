@@ -1,12 +1,14 @@
 'use client';
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { collection, getDocs, addDoc, query, orderBy, serverTimestamp, doc, updateDoc, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Tenant, Contract } from '@/types';
+import { Tenant, Contract, Building, Unit } from '@/types';
 import toast from 'react-hot-toast';
 import emailjs from '@emailjs/browser';
-import { getStorage, ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { ref, uploadString, getDownloadURL } from 'firebase/storage';
+import { storage } from '@/lib/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { getContractExpiryStatus, getExpiryBadgeClass } from '@/lib/utils';
 import { generateComprehensiveContractPDF, ContractFields, generateAgreementText } from '@/utils/contractGenerator';
@@ -36,10 +38,9 @@ const initialContractFields = {
   companyEmail: 'info@greenbridge-my.com',
 };
 
-const storage = getStorage();
-
 export default function ContractsPage() {
   const { user } = useAuth();
+  const searchParams = useSearchParams();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
@@ -54,19 +55,35 @@ export default function ContractsPage() {
   const [view, setView] = useState<'list' | 'create' | 'edit'>('list');
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
   const [showArchived, setShowArchived] = useState(false);
+  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [units, setUnits] = useState<Unit[]>([]);
+  const [selectedBuildingId, setSelectedBuildingId] = useState('');
+  const [selectedUnitId, setSelectedUnitId] = useState('');
+  const [editHandled, setEditHandled] = useState(false);
+  
+  // Check for edit query parameter
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const editId = params.get('edit');
+      if (editId && contracts.length > 0) {
+        const contractToEdit = contracts.find(c => c.id === editId);
+        if (contractToEdit) {
+          handleEditContract(contractToEdit as Contract & { buildingId?: string; unitId?: string });
+        }
+      }
+    }
+  }, [contracts]);
 
   useEffect(() => {
     async function fetchData() {
       if (!user) return;
       setLoading(true);
       try {
-        console.log('Fetching tenants and contracts...');
-        
         // Fetch tenants
         const tenantsQuery = query(collection(db, 'users'), where('role', '==', 'tenant'));
         const tenantsSnapshot = await getDocs(tenantsQuery);
         const tenantsData = tenantsSnapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() } as Tenant));
-        console.log('Tenants loaded:', tenantsData.length);
         setTenants(tenantsData);
 
         // Fetch contracts
@@ -81,12 +98,36 @@ export default function ContractsPage() {
             tenantName: tenant?.fullName || 'Unknown Tenant',
           } as Contract;
         });
-        console.log('Contracts loaded:', contractsData.length);
         setContracts(contractsData);
 
-        // Automated expiry notifications
         await sendExpiryReminders(contractsData, tenantsData);
 
+        // Fetch buildings and units for dropdowns
+        const buildingsQuery = query(collection(db, 'buildings'), orderBy('name'));
+        const buildingsSnap = await getDocs(buildingsQuery);
+        const buildingsData = buildingsSnap.docs.map(docSnap => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            ...data,
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt || new Date()),
+            updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : (data.updatedAt || new Date()),
+          } as Building;
+        });
+        setBuildings(buildingsData);
+
+        const unitsQuery = query(collection(db, 'units'), orderBy('fullUnitNumber'));
+        const unitsSnap = await getDocs(unitsQuery);
+        const unitsData = unitsSnap.docs.map(docSnap => {
+          const data = docSnap.data();
+          return {
+            id: docSnap.id,
+            ...data,
+            createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : (data.createdAt || new Date()),
+            updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : (data.updatedAt || new Date()),
+          } as Unit;
+        });
+        setUnits(unitsData);
       } catch (error) {
         console.error("Failed to load data:", error);
         toast.error('Failed to load data: ' + (error as Error).message);
@@ -96,6 +137,85 @@ export default function ContractsPage() {
     }
     fetchData();
   }, [user]);
+
+  // Helper function to safely convert dates
+  const convertDateToString = useMemo(() => {
+    return (dateValue: unknown): string => {
+      if (!dateValue) return '';
+      if (typeof dateValue === 'object' && dateValue !== null && 'toDate' in dateValue) {
+        return (dateValue as { toDate: () => Date }).toDate().toISOString().split('T')[0];
+      }
+      if (typeof dateValue === 'string') {
+        return dateValue.split('T')[0];
+      }
+      try {
+        return new Date(dateValue as string | number | Date).toISOString().split('T')[0];
+      } catch {
+        return '';
+      }
+    };
+  }, []);
+
+  // Handle edit query parameter from contract detail page
+  useEffect(() => {
+    if (!searchParams || editHandled) return;
+    const editId = searchParams.get('edit');
+    if (editId && !editHandled && contracts.length > 0 && tenants.length > 0) {
+      const contractToEdit = contracts.find(c => c.id === editId);
+      if (contractToEdit) {
+        try {
+          setEditHandled(true);
+          setSelectedContract(contractToEdit);
+          const tenant = tenants.find(t => t.id === contractToEdit.tenantId);
+          if (tenant) {
+            setSelectedTenant(tenant);
+          }
+          const bid = (contractToEdit as { buildingId?: string }).buildingId || '';
+          const uid = (contractToEdit as { unitId?: string }).unitId || '';
+          setSelectedBuildingId(bid);
+          setSelectedUnitId(uid);
+          
+          // Safely convert dates
+          const moveInDateStr = convertDateToString(contractToEdit.moveInDate);
+          const expiryDateStr = convertDateToString(contractToEdit.expiryDate);
+          const dateOfAgreementStr = convertDateToString(contractToEdit.dateOfAgreement);
+          
+          const calculatedTerm = moveInDateStr && expiryDateStr 
+            ? calculateTermDuration(moveInDateStr, expiryDateStr)
+            : '';
+          
+          setFields({
+            propertyAddress: contractToEdit.propertyAddress || '',
+            unitNumber: contractToEdit.unitNumber || '',
+            term: calculatedTerm || contractToEdit.term || '',
+            moveInDate: moveInDateStr,
+            expiryDate: expiryDateStr,
+            rentalPerMonth: Number(contractToEdit.rentalPerMonth) || 0,
+            securityDeposit: Number(contractToEdit.securityDeposit) || 0,
+            utilityDeposit: Number(contractToEdit.utilityDeposit) || 0,
+            accessCardDeposit: Number(contractToEdit.accessCardDeposit) || 0,
+            agreementFee: Number(contractToEdit.agreementFee) || 0,
+            dateOfAgreement: dateOfAgreementStr,
+            companySignName: contractToEdit.companySignName || 'ALWAELI MOHAMMED',
+            companySignNRIC: contractToEdit.companySignNRIC || '09308729',
+            companySignDesignation: contractToEdit.companySignDesignation || 'Managing Director',
+            companyAddress: contractToEdit.companyAddress || 'Kuala Lumpur, Malaysia',
+            companyPhone: contractToEdit.companyPhone || '+60 3-1234 5678',
+            companyEmail: contractToEdit.companyEmail || 'info@greenbridge-my.com',
+            acknowledged: contractToEdit.acknowledged || false,
+          });
+          setView('edit');
+        } catch (error) {
+          console.error('Error loading contract for edit:', error);
+          toast.error('Failed to load contract for editing');
+          setEditHandled(true); // Mark as handled to prevent retry loops
+        }
+      } else if (editId) {
+        // Contract not found, mark as handled to prevent retry
+        setEditHandled(true);
+      }
+    }
+  }, [searchParams, contracts, tenants, editHandled, convertDateToString]);
 
   const sendExpiryReminders = async (contractsData: Contract[], tenantsData: Tenant[]) => {
     const expiringContracts = contractsData.filter(c => {
@@ -121,6 +241,56 @@ export default function ContractsPage() {
       }
     }
   };
+
+  // Function to calculate term duration from move-in and expiry dates
+  const calculateTermDuration = (moveInDate: string, expiryDate: string): string => {
+    if (!moveInDate || !expiryDate) return '';
+    
+    try {
+      const start = new Date(moveInDate);
+      const end = new Date(expiryDate);
+      
+      if (isNaN(start.getTime()) || isNaN(end.getTime()) || end <= start) {
+        return '';
+      }
+      
+      const diffTime = end.getTime() - start.getTime();
+      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      
+      const years = Math.floor(diffDays / 365);
+      const months = Math.floor((diffDays % 365) / 30);
+      const days = diffDays % 30;
+      
+      const parts: string[] = [];
+      if (years > 0) {
+        parts.push(`${years} ${years === 1 ? 'year' : 'years'}`);
+      }
+      if (months > 0) {
+        parts.push(`${months} ${months === 1 ? 'month' : 'months'}`);
+      }
+      if (days > 0 && years === 0) {
+        // Only show days if less than a month
+        parts.push(`${days} ${days === 1 ? 'day' : 'days'}`);
+      }
+      
+      return parts.length > 0 ? parts.join(' ') : '';
+    } catch {
+      return '';
+    }
+  };
+
+  // Auto-calculate term when move-in date or expiry date changes
+  useEffect(() => {
+    if (fields.moveInDate && fields.expiryDate) {
+      const moveInStr = fields.moveInDate.toString();
+      const expiryStr = fields.expiryDate.toString();
+      const calculatedTerm = calculateTermDuration(moveInStr, expiryStr);
+      setFields(prev => ({ ...prev, term: calculatedTerm }));
+    } else {
+      // Clear term if dates are not both filled
+      setFields(prev => ({ ...prev, term: '' }));
+    }
+  }, [fields.moveInDate, fields.expiryDate]);
 
   const handleFieldChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value, type } = e.target;
@@ -148,8 +318,8 @@ export default function ContractsPage() {
     } as Tenant;
   };
 
-  const generateContractPDF = (tenant: Tenant, contractFields: typeof fields) => {
-    return generateComprehensiveContractPDF(tenant, contractFields as ContractFields);
+  const generateContractPDF = async (tenant: Tenant, contractFields: typeof fields) => {
+    return await generateComprehensiveContractPDF(tenant, contractFields as ContractFields);
   }
 
   const handleGeneratePreview = () => {
@@ -163,15 +333,20 @@ export default function ContractsPage() {
     toast.success('Contract preview generated');
   };
 
-  const handleDownloadPdf = () => {
+  const handleDownloadPdf = async () => {
     const t = getContractTenant();
     if (!t) {
       toast.error('Please select a tenant.');
       return;
     }
-    const pdfDoc = generateContractPDF(t, fields);
-    const fileName = `tenancy_agreement_${t.fullName.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
-    pdfDoc.save(fileName);
+    try {
+      const pdfDoc = await generateContractPDF(t, fields);
+      const fileName = `tenancy_agreement_${t.fullName.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
+      pdfDoc.save(fileName);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      toast.error('Failed to generate PDF');
+    }
   };
 
   const handleFormSubmit = async (e: React.FormEvent) => {
@@ -184,7 +359,7 @@ export default function ContractsPage() {
 
     try {
       const t = getContractTenant() as Tenant;
-      const pdfDoc = generateContractPDF(t, fields);
+      const pdfDoc = await generateContractPDF(t, fields);
       const pdfBase64 = pdfDoc.output('datauristring').split(',')[1];
       
       const fileName = `contract_${selectedTenant.id}_${Date.now()}.pdf`;
@@ -192,11 +367,13 @@ export default function ContractsPage() {
       await uploadString(storageRef, pdfBase64, 'base64', { contentType: 'application/pdf' });
       const pdfUrl = await getDownloadURL(storageRef);
 
-      const contractData: Omit<Contract, 'id'> = {
+      const contractData: Omit<Contract, 'id'> & { buildingId?: string; unitId?: string } = {
         tenantId: selectedTenant.id,
         tenantName: t.fullName,
         contractUrl: pdfUrl,
         ...fields,
+        ...(selectedBuildingId && { buildingId: selectedBuildingId }),
+        ...(selectedUnitId && { unitId: selectedUnitId }),
         agreementText: previewHtml || generateAgreementText(t, fields as unknown as ContractFields),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -217,6 +394,18 @@ export default function ContractsPage() {
         docRefId = docRef.id;
         setContracts(prev => [{ id: docRefId, ...contractData } as Contract, ...prev]);
         toast.success('Contract created successfully!');
+        // Update tenant with building/unit so it appears on profile and My residency
+        const selectedBuilding = buildings.find(b => b.id === selectedBuildingId);
+        const selectedUnit = units.find(u => u.id === selectedUnitId);
+        if (selectedTenant?.id && (selectedBuilding || selectedUnit)) {
+          await updateDoc(doc(db, 'users', selectedTenant.id), {
+            ...(selectedBuildingId && { buildingId: selectedBuildingId }),
+            ...(selectedBuilding && { buildingName: selectedBuilding.name }),
+            ...(selectedUnitId && { unitId: selectedUnitId }),
+            ...((selectedUnit?.fullUnitNumber || fields.unitNumber) && { unitNumber: selectedUnit?.fullUnitNumber || fields.unitNumber }),
+            updatedAt: serverTimestamp(),
+          });
+        }
       }
 
       setView('list');
@@ -234,31 +423,56 @@ export default function ContractsPage() {
     setFields({ ...initialContractFields, acknowledged: false });
     setSelectedTenant(null);
     setSelectedContract(null);
+    setSelectedBuildingId('');
+    setSelectedUnitId('');
   }
 
-  const handleEditContract = (contract: Contract) => {
-    setSelectedContract(contract);
-    const tenant = tenants.find(t => t.id === contract.tenantId);
-    if (tenant) {
-      setSelectedTenant(tenant);
+  const handleEditContract = (contract: Contract & { buildingId?: string; unitId?: string }) => {
+    try {
+      setSelectedContract(contract);
+      const tenant = tenants.find(t => t.id === contract.tenantId);
+      if (tenant) {
+        setSelectedTenant(tenant);
+      }
+      const bid = (contract as { buildingId?: string }).buildingId || '';
+      const uid = (contract as { unitId?: string }).unitId || '';
+      setSelectedBuildingId(bid);
+      setSelectedUnitId(uid);
+      
+      // Safely convert dates
+      const moveInDateStr = convertDateToString(contract.moveInDate);
+      const expiryDateStr = convertDateToString(contract.expiryDate);
+      const dateOfAgreementStr = convertDateToString(contract.dateOfAgreement);
+      
+      const calculatedTerm = moveInDateStr && expiryDateStr 
+        ? calculateTermDuration(moveInDateStr, expiryDateStr)
+        : '';
+      
+      setFields({
+        propertyAddress: contract.propertyAddress || '',
+        unitNumber: contract.unitNumber || '',
+        term: calculatedTerm || contract.term || '',
+        moveInDate: moveInDateStr,
+        expiryDate: expiryDateStr,
+        rentalPerMonth: Number(contract.rentalPerMonth) || 0,
+        securityDeposit: Number(contract.securityDeposit) || 0,
+        utilityDeposit: Number(contract.utilityDeposit) || 0,
+        accessCardDeposit: Number(contract.accessCardDeposit) || 0,
+        agreementFee: Number(contract.agreementFee) || 0,
+        dateOfAgreement: dateOfAgreementStr,
+        companySignName: contract.companySignName || 'ALWAELI MOHAMMED',
+        companySignNRIC: contract.companySignNRIC || '09308729',
+        companySignDesignation: contract.companySignDesignation || 'Managing Director',
+        companyAddress: contract.companyAddress || 'Kuala Lumpur, Malaysia',
+        companyPhone: contract.companyPhone || '+60 3-1234 5678',
+        companyEmail: contract.companyEmail || 'info@greenbridge-my.com',
+        acknowledged: contract.acknowledged || false,
+      });
+      setView('edit');
+    } catch (error) {
+      console.error('Error editing contract:', error);
+      toast.error('Failed to load contract for editing');
     }
-    setFields({
-        propertyAddress: contract.propertyAddress,
-        term: contract.term,
-        moveInDate: contract.moveInDate.toString(),
-        expiryDate: contract.expiryDate.toString(),
-        rentalPerMonth: contract.rentalPerMonth,
-        securityDeposit: contract.securityDeposit,
-        utilityDeposit: contract.utilityDeposit,
-        accessCardDeposit: contract.accessCardDeposit,
-        agreementFee: contract.agreementFee,
-        dateOfAgreement: contract.dateOfAgreement.toString(),
-        companySignName: contract.companySignName,
-        companySignNRIC: contract.companySignNRIC,
-        companySignDesignation: contract.companySignDesignation,
-        acknowledged: contract.acknowledged,
-    });
-    setView('edit');
   };
 
   const handleArchiveContract = async (contract: Contract) => {
@@ -279,10 +493,10 @@ export default function ContractsPage() {
   }, [contracts, showArchived]);
 
   const renderContractList = () => (
-    <div>
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold">Contracts</h2>
-        <button onClick={() => setView('create')} className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">
+    <div className="w-full min-w-0">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-900">Contracts</h2>
+        <button onClick={() => setView('create')} className="bg-indigo-600 text-white px-3 py-2 sm:px-4 rounded-md hover:bg-indigo-700 text-sm sm:text-base flex-shrink-0 w-full sm:w-auto">
           Create New Contract
         </button>
       </div>
@@ -292,46 +506,48 @@ export default function ContractsPage() {
             type="checkbox"
             checked={showArchived}
             onChange={(e) => setShowArchived(e.target.checked)}
-            className="form-checkbox h-5 w-5 text-indigo-600"
+            className="form-checkbox h-4 w-4 sm:h-5 sm:w-5 text-indigo-600"
           />
-          <span className="ml-2 text-gray-700">Show Archived Contracts</span>
+          <span className="ml-2 text-sm sm:text-base text-gray-700">Show Archived Contracts</span>
         </label>
       </div>
-      <div className="bg-white shadow-md rounded-lg overflow-x-auto">
-        <table className="min-w-full divide-y divide-gray-200">
+      <div className="bg-white shadow-md rounded-lg overflow-x-auto -mx-1 sm:mx-0">
+        <table className="min-w-[600px] sm:min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tenant</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Property</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Expiry Date</th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">Tenant</th>
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">Property</th>
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">Expiry Date</th>
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+              <th className="px-3 sm:px-6 py-2 sm:py-3 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
             {loading ? (
-              <tr><td colSpan={5} className="text-center py-4">Loading...</td></tr>
+              <tr><td colSpan={5} className="text-center py-4 text-sm">Loading...</td></tr>
             ) : (
               filteredContracts.map(contract => {
                 const expiryStatus = getContractExpiryStatus(contract.expiryDate);
                 const badgeClass = getExpiryBadgeClass(expiryStatus.status);
                 return (
                   <tr key={contract.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">{contract.tenantName}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{contract.propertyAddress}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">{new Date(contract.expiryDate).toLocaleDateString()}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm whitespace-nowrap">{contract.tenantName}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm whitespace-nowrap max-w-[120px] sm:max-w-none truncate" title={contract.propertyAddress}>{contract.propertyAddress}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm whitespace-nowrap">{new Date(contract.expiryDate).toLocaleDateString()}</td>
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${badgeClass}`}>
                         {expiryStatus.label}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <Link href={`/dashboard/contracts/${contract.id}`} className="text-indigo-600 hover:text-indigo-900 mr-4">View</Link>
-                      <a href={contract.contractUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-900 mr-4">PDF</a>
-                      <button onClick={() => handleEditContract(contract)} className="text-indigo-600 hover:text-indigo-900 mr-4">Edit</button>
-                      {!contract.archived && (
-                        <button onClick={() => handleArchiveContract(contract)} className="text-red-600 hover:text-red-900">Archive</button>
-                      )}
+                    <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-right text-xs sm:text-sm font-medium">
+                      <span className="flex flex-wrap justify-end gap-1 sm:gap-2">
+                        <Link href={`/dashboard/contracts/${contract.id}`} className="text-indigo-600 hover:text-indigo-900">View</Link>
+                        <a href={contract.contractUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:text-indigo-900">PDF</a>
+                        <button onClick={() => handleEditContract(contract)} className="text-indigo-600 hover:text-indigo-900">Edit</button>
+                        {!contract.archived && (
+                          <button onClick={() => handleArchiveContract(contract)} className="text-red-600 hover:text-red-900">Archive</button>
+                        )}
+                      </span>
                     </td>
                   </tr>
                 )
@@ -344,8 +560,8 @@ export default function ContractsPage() {
   );
 
   const renderContractForm = () => (
-    <form onSubmit={handleFormSubmit} className="bg-white p-8 rounded-lg shadow-md">
-       <h2 className="text-2xl font-bold mb-6">{selectedContract ? 'Edit Contract' : 'Create Contract'}</h2>
+    <form onSubmit={handleFormSubmit} className="bg-white p-4 sm:p-6 md:p-8 rounded-lg shadow-md w-full min-w-0">
+       <h2 className="text-xl sm:text-2xl font-bold mb-4 sm:mb-6">{selectedContract ? 'Edit Contract' : 'Create Contract'}</h2>
       
        <div className="mb-4">
         <label htmlFor="tenant" className="block text-sm font-medium text-gray-700 mb-1">Select Tenant</label>
@@ -387,19 +603,81 @@ export default function ContractsPage() {
         </div>
       )}
 
+      {/* Building & Unit: select from list */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div>
+          <label htmlFor="building" className="block text-sm font-medium text-gray-700">Building</label>
+          <select
+            id="building"
+            value={selectedBuildingId}
+            onChange={(e) => {
+              const id = e.target.value;
+              setSelectedBuildingId(id);
+              setSelectedUnitId('');
+              const b = buildings.find(x => x.id === id);
+              if (b) setFields(prev => ({ ...prev, propertyAddress: b.address }));
+            }}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+          >
+            <option value="">-- Select a building (optional) --</option>
+            {buildings.map(b => (
+              <option key={b.id} value={b.id}>{b.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="unit" className="block text-sm font-medium text-gray-700">Unit</label>
+          <select
+            id="unit"
+            value={selectedUnitId}
+            onChange={(e) => {
+              const id = e.target.value;
+              setSelectedUnitId(id);
+              const u = units.find(x => x.id === id);
+              if (u) {
+                setFields(prev => ({
+                  ...prev,
+                  unitNumber: u.fullUnitNumber,
+                  ...(u.monthlyRent != null && u.monthlyRent > 0 ? { rentalPerMonth: u.monthlyRent } : {}),
+                }));
+              }
+            }}
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm"
+          >
+            <option value="">-- Select a unit (optional) --</option>
+            {(selectedBuildingId ? units.filter(u => u.buildingId === selectedBuildingId) : units).map(u => (
+              <option key={u.id} value={u.id}>{u.fullUnitNumber} {u.buildingName ? `(${u.buildingName})` : ''}</option>
+            ))}
+          </select>
+          {!selectedUnitId && (
+            <input type="text" name="unitNumber" id="unitNumberManual" value={fields.unitNumber} onChange={handleFieldChange} className="mt-2 block w-full rounded-md border-gray-300 shadow-sm" placeholder="Or enter unit number manually" />
+          )}
+        </div>
+      </div>
+      {!selectedBuildingId && (
+        <div className="mb-6">
+          <label htmlFor="propertyAddress" className="block text-sm font-medium text-gray-700">Property address (if not selected above)</label>
+          <input type="text" name="propertyAddress" id="propertyAddress" value={fields.propertyAddress} onChange={handleFieldChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required />
+        </div>
+      )}
+
       {/* Form Fields */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-            <label htmlFor="unitNumber" className="block text-sm font-medium text-gray-700">Unit Number</label>
-            <input type="text" name="unitNumber" id="unitNumber" value={fields.unitNumber} onChange={handleFieldChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" placeholder="e.g., A-01-01" />
-        </div>
-        <div>
-            <label htmlFor="propertyAddress" className="block text-sm font-medium text-gray-700">Property Address</label>
-            <input type="text" name="propertyAddress" id="propertyAddress" value={fields.propertyAddress} onChange={handleFieldChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required />
-        </div>
-        <div>
-            <label htmlFor="term" className="block text-sm font-medium text-gray-700">Term (e.g., 1 year)</label>
-            <input type="text" name="term" id="term" value={fields.term} onChange={handleFieldChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm" required />
+            <label htmlFor="term" className="block text-sm font-medium text-gray-700">
+              Term Duration <span className="text-xs text-gray-500 font-normal">(auto-calculated)</span>
+            </label>
+            <input 
+              type="text" 
+              name="term" 
+              id="term" 
+              value={fields.term || ''} 
+              readOnly
+              className="mt-1 block w-full rounded-md border-gray-300 shadow-sm bg-gray-50 cursor-not-allowed text-gray-700" 
+              placeholder={fields.moveInDate && fields.expiryDate ? "Calculating..." : "Enter move-in and expiry dates to calculate"}
+              required 
+            />
+            <p className="mt-1 text-xs text-gray-500">Automatically calculated from move-in and expiry dates</p>
         </div>
         <div>
             <label htmlFor="moveInDate" className="block text-sm font-medium text-gray-700">Move-in Date</label>
@@ -481,8 +759,16 @@ export default function ContractsPage() {
     </form>
   );
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="container mx-auto p-4 md:p-8">
+    <div className="w-full min-w-0 px-0 sm:px-2 md:px-4 lg:p-8">
       {view === 'list' && renderContractList()}
       {(view === 'create' || view === 'edit') && renderContractForm()}
     </div>

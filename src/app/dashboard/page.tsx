@@ -148,12 +148,12 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">
+    <div className="max-w-7xl mx-auto w-full min-w-0">
+      <div className="mb-4 sm:mb-6 md:mb-8">
+        <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 mb-1 sm:mb-2 truncate">
           Welcome back, {user.fullName}
         </h1>
-        <p className="text-gray-600">
+        <p className="text-sm sm:text-base text-gray-600">
           Here&apos;s what&apos;s happening with your {user.role === 'admin' ? 'property management' : user.role === 'agent' ? 'operations' : user.role === 'tenant' ? 'rental' : 'business'} today.
         </p>
       </div>

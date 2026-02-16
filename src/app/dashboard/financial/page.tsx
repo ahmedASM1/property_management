@@ -649,98 +649,98 @@ function FinancialManagementContent() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto py-8 px-4">
+    <div className="w-full min-w-0 max-w-7xl mx-auto py-4 sm:py-8 px-2 sm:px-4">
       {/* Header */}
-      <div className="mb-6 flex justify-start">
+      <div className="mb-4 sm:mb-6 flex justify-start">
         <Link href="/dashboard">
-          <span className="inline-block px-4 py-2 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 font-medium">&larr; Back to Dashboard</span>
+          <span className="inline-block px-3 py-2 sm:px-4 bg-gray-200 text-gray-800 rounded hover:bg-gray-300 font-medium text-sm sm:text-base">&larr; Back to Dashboard</span>
         </Link>
       </div>
       
-      <h1 className="text-3xl font-bold mb-8 text-center text-gray-900">Financial Management</h1>
+      <h1 className="text-xl sm:text-2xl md:text-3xl font-bold mb-4 sm:mb-8 text-center text-gray-900">Financial Management</h1>
       
       {/* Tab Navigation */}
-      <div className="mb-8 flex justify-center">
-        <div className="bg-white rounded-lg shadow-sm border p-1 flex flex-wrap gap-1">
+      <div className="mb-4 sm:mb-8 flex justify-center">
+        <div className="bg-white rounded-lg shadow-sm border p-1 flex flex-wrap gap-1 justify-center">
           <button
             onClick={() => setActiveTab('expenses')}
-            className={`px-6 py-3 rounded-md font-medium transition-all duration-200 flex items-center gap-2 ${
+            className={`px-3 py-2 sm:px-6 sm:py-3 rounded-md font-medium transition-all duration-200 flex items-center gap-2 text-xs sm:text-base ${
               activeTab === 'expenses' 
                 ? 'bg-green-100 text-green-700 shadow-sm' 
                 : 'text-gray-600 hover:text-gray-800'
             }`}
           >
-            <FaCreditCard className="w-4 h-4" />
-            Expenses Management
+            <FaCreditCard className="w-4 h-4 flex-shrink-0" />
+            <span className="whitespace-nowrap">Expenses</span>
           </button>
           <button
             onClick={() => setActiveTab('deposits')}
-            className={`px-6 py-3 rounded-md font-medium transition-all duration-200 flex items-center gap-2 ${
+            className={`px-3 py-2 sm:px-6 sm:py-3 rounded-md font-medium transition-all duration-200 flex items-center gap-2 text-xs sm:text-base ${
               activeTab === 'deposits' 
                 ? 'bg-green-100 text-green-700 shadow-sm' 
                 : 'text-gray-600 hover:text-gray-800'
             }`}
           >
-            <FaHandHoldingUsd className="w-4 h-4" />
-            Deposits & Contracts Tracking
+            <FaHandHoldingUsd className="w-4 h-4 flex-shrink-0" />
+            <span className="whitespace-nowrap">Deposits</span>
           </button>
           <button
             onClick={() => setActiveTab('rentals')}
-            className={`px-6 py-3 rounded-md font-medium transition-all duration-200 flex items-center gap-2 ${
+            className={`px-3 py-2 sm:px-6 sm:py-3 rounded-md font-medium transition-all duration-200 flex items-center gap-2 text-xs sm:text-base ${
               activeTab === 'rentals' 
                 ? 'bg-green-100 text-green-700 shadow-sm' 
                 : 'text-gray-600 hover:text-gray-800'
             }`}
           >
-            <FaFileInvoiceDollar className="w-4 h-4" />
-            Rental Income Tracking
+            <FaFileInvoiceDollar className="w-4 h-4 flex-shrink-0" />
+            <span className="whitespace-nowrap">Rentals</span>
           </button>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Expenses</p>
-              <p className="text-3xl font-bold text-red-600">RM{totalExpenses.toFixed(2)}</p>
+      <div className="mb-4 sm:mb-8 grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Total Expenses</p>
+              <p className="text-lg sm:text-3xl font-bold text-red-600 truncate">RM{totalExpenses.toFixed(2)}</p>
             </div>
-            <div className="p-3 bg-red-100 rounded-full">
-              <FaCreditCard className="w-6 h-6 text-red-600" />
-            </div>
-          </div>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Deposits Held</p>
-              <p className="text-3xl font-bold text-blue-600">RM{totalDepositsHeld.toFixed(2)}</p>
-            </div>
-            <div className="p-3 bg-blue-100 rounded-full">
-              <FaFileInvoiceDollar className="w-6 h-6 text-blue-600" />
+            <div className="p-2 sm:p-3 bg-red-100 rounded-full flex-shrink-0">
+              <FaCreditCard className="w-4 h-4 sm:w-6 sm:h-6 text-red-600" />
             </div>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Total Active Tenants</p>
-              <p className="text-3xl font-bold text-green-700">{totalActiveTenants}</p>
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Deposits Held</p>
+              <p className="text-lg sm:text-3xl font-bold text-blue-600 truncate">RM{totalDepositsHeld.toFixed(2)}</p>
             </div>
-            <div className="p-3 bg-green-100 rounded-full">
-              <FaWallet className="w-6 h-6 text-green-700" />
+            <div className="p-2 sm:p-3 bg-blue-100 rounded-full flex-shrink-0">
+              <FaFileInvoiceDollar className="w-4 h-4 sm:w-6 sm:h-6 text-blue-600" />
             </div>
           </div>
         </div>
-        <div className="bg-white p-6 rounded-lg shadow-sm border">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-600">Contracts Expiring This Month</p>
-              <p className="text-3xl font-bold text-amber-600">{contractsExpiringThisMonth}</p>
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Active Tenants</p>
+              <p className="text-lg sm:text-3xl font-bold text-green-700">{totalActiveTenants}</p>
             </div>
-            <div className="p-3 rounded-full bg-yellow-100">
-              <FaHandHoldingUsd className="w-6 h-6 text-yellow-600" />
+            <div className="p-2 sm:p-3 bg-green-100 rounded-full flex-shrink-0">
+              <FaWallet className="w-4 h-4 sm:w-6 sm:h-6 text-green-700" />
+            </div>
+          </div>
+        </div>
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-sm border min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs sm:text-sm font-medium text-gray-600 truncate">Expiring This Month</p>
+              <p className="text-lg sm:text-3xl font-bold text-amber-600">{contractsExpiringThisMonth}</p>
+            </div>
+            <div className="p-2 sm:p-3 rounded-full bg-yellow-100 flex-shrink-0">
+              <FaHandHoldingUsd className="w-4 h-4 sm:w-6 sm:h-6 text-yellow-600" />
             </div>
           </div>
         </div>
@@ -891,11 +891,11 @@ function FinancialManagementContent() {
                 Reset Filters
               </button>
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full">
+            <div className="overflow-x-auto -mx-2 sm:mx-0">
+              <table className="min-w-[900px] w-full">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant Name</th>
+                    <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant Name</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Unit</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Security Deposit</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Utility Deposit</th>

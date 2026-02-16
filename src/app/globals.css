@@ -33,6 +33,8 @@ body {
   font-family: 'Inter', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   @apply font-sans bg-gray-50 text-gray-900 antialiased;
   line-height: 1.6;
+  overflow-x: hidden;
+  min-width: 0;
 }
 
 /* Custom scrollbar styles for notifications */
@@ -157,9 +159,16 @@ body {
   background: linear-gradient(to bottom, #16a34a, #15803d);
 }
 
-/* Smooth scrolling */
+/* Smooth scrolling & prevent horizontal overflow on mobile */
 html {
   scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+/* Ensure dashboard/main content never forces horizontal scroll */
+main {
+  overflow-x: hidden;
+  min-width: 0;
 }
 
 /* Custom focus styles */
@@ -208,11 +217,16 @@ html {
 }
 
 .table th {
-  @apply bg-gray-50 px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200;
+  @apply bg-gray-50 px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-b border-gray-200;
 }
 
 .table td {
-  @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-b border-gray-200;
+  @apply px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 border-b border-gray-200;
+}
+
+/* Responsive table wrapper: use on a div around table to allow horizontal scroll on small screens */
+.table-responsive {
+  @apply overflow-x-auto w-full min-w-0;
 }
 
 .table tbody tr:hover {

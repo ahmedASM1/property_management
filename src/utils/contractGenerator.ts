@@ -21,7 +21,7 @@ export interface ContractFields {
   companyEmail?: string;
 }
 
-export const generateComprehensiveContractPDF = (tenant: Tenant, contractFields: ContractFields): jsPDF => {
+export const generateComprehensiveContractPDF = async (tenant: Tenant, contractFields: ContractFields): Promise<jsPDF> => {
   const doc = new jsPDF();
   let yPosition = 20;
   const pageWidth = doc.internal.pageSize.getWidth();
@@ -29,6 +29,56 @@ export const generateComprehensiveContractPDF = (tenant: Tenant, contractFields:
   const margin = 20;
   const contentWidth = pageWidth - (margin * 2);
   const maxY = pageHeight - 25; // Safe bottom margin
+  
+  // Add logo at the top
+  try {
+    // Try to load logo as image (PNG/JPG) or convert SVG
+    const logoImg = new Image();
+    logoImg.crossOrigin = 'anonymous';
+    
+    await new Promise<void>((resolve) => {
+      logoImg.onload = () => resolve();
+      logoImg.onerror = async () => {
+        // Try SVG conversion if PNG doesn't exist
+        try {
+          const svgResponse = await fetch('/Green Bridge.svg');
+          if (svgResponse.ok) {
+            const svgText = await svgResponse.text();
+            const svgBlob = new Blob([svgText], { type: 'image/svg+xml' });
+            const svgUrl = URL.createObjectURL(svgBlob);
+            logoImg.src = svgUrl;
+            await new Promise<void>((resolveSvg) => {
+              logoImg.onload = () => {
+                URL.revokeObjectURL(svgUrl);
+                resolveSvg();
+              };
+              logoImg.onerror = () => {
+                URL.revokeObjectURL(svgUrl);
+                console.warn('Could not load logo, continuing without it');
+                resolveSvg();
+              };
+            });
+          }
+        } catch (svgError) {
+          console.warn('Logo not found, continuing without logo');
+        }
+        resolve();
+      };
+      // Try PNG first
+      logoImg.src = '/Green Bridge.png';
+    });
+    
+    if (logoImg.complete && logoImg.naturalWidth > 0 && logoImg.naturalHeight > 0) {
+      const logoWidth = 40;
+      const logoHeight = 40;
+      const logoX = pageWidth / 2 - logoWidth / 2;
+      doc.addImage(logoImg, 'PNG', logoX, yPosition, logoWidth, logoHeight);
+      yPosition += logoHeight + 8;
+    }
+  } catch (error) {
+    console.warn('Could not load logo:', error);
+    // Continue without logo
+  }
   
   // Helper function to check if we need a new page and add it if necessary
   const checkPageBreak = (spaceNeeded: number = 15): void => {

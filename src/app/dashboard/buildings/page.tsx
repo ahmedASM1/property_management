@@ -204,37 +204,37 @@ export default function BuildingsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
+    <div className="space-y-4 sm:space-y-6 w-full min-w-0">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-900 truncate">
             {isAgent ? 'Buildings' : 'Buildings Management'}
           </h1>
-          <p className="text-gray-600 mt-2">
+          <p className="text-sm sm:text-base text-gray-600 mt-1 sm:mt-2">
             {isAgent ? 'Buildings assigned to you' : 'Manage your building portfolio'}
           </p>
         </div>
         {!isAgent && (
           <button
             onClick={() => setShowModal(true)}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+            className="bg-green-600 text-white px-3 py-2 sm:px-4 rounded-lg hover:bg-green-700 flex items-center justify-center gap-2 text-sm sm:text-base flex-shrink-0"
           >
-            <FaPlus /> Add Building
+            <FaPlus className="w-4 h-4" /> <span className="whitespace-nowrap">Add Building</span>
           </button>
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
         {buildings.map((building) => (
-          <div key={building.id} className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <FaBuilding className="text-green-600" />
+          <div key={building.id} className="bg-white rounded-lg shadow-md p-4 sm:p-6 border border-gray-200 min-w-0">
+            <div className="flex items-start justify-between gap-2 mb-3 sm:mb-4">
+              <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                <div className="p-1.5 sm:p-2 bg-green-100 rounded-lg flex-shrink-0">
+                  <FaBuilding className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
                 </div>
-                <div>
-                  <h3 className="font-semibold text-lg text-gray-900">{building.name}</h3>
-                  <p className="text-sm text-gray-600">{building.address}</p>
+                <div className="min-w-0">
+                  <h3 className="font-semibold text-base sm:text-lg text-gray-900 truncate">{building.name}</h3>
+                  <p className="text-xs sm:text-sm text-gray-600 truncate">{building.address}</p>
                 </div>
               </div>
               {!isAgent && (
@@ -296,8 +296,8 @@ export default function BuildingsPage() {
 
       {/* Add/Edit Building Modal - admin only */}
       {showModal && !isAgent && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-2 sm:p-4 overflow-y-auto">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md my-auto">
             <h2 className="text-xl font-bold mb-4">
               {editingBuilding ? 'Edit Building' : 'Add New Building'}
             </h2>

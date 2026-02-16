@@ -418,61 +418,74 @@ function UsersPageContent() {
     );
   }
 
+  const pendingCount = users.filter(u => (u.status || (u.isApproved ? 'approved' : 'pending')) === 'pending').length;
+  const getRoleBadgeClass = (role: string) =>
+    role === 'admin' ? 'bg-purple-100 text-purple-800' :
+    role === 'agent' ? 'bg-teal-100 text-teal-800' :
+    role === 'tenant' ? 'bg-blue-100 text-blue-800' :
+    role === 'property_owner' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800';
+  const getStatusBadge = (user: User) => {
+    const userStatus = user.status || (user.isApproved ? 'approved' : 'pending');
+    if (userStatus === 'approved') return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">Approved</span>;
+    if (userStatus === 'rejected') return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">Rejected</span>;
+    return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>;
+  };
+
   return (
-    <div className="px-2 sm:px-0">
-      <div className="flex items-center gap-4 mb-6">
-        <Link href="/dashboard" className="text-gray-500 hover:text-gray-700">
-          <FaArrowLeft className="h-5 w-5" />
-        </Link>
-        <h2 className="text-2xl font-bold text-gray-900">Users Management</h2>
-        <div className="ml-auto flex items-center gap-2">
+    <div className="px-0 sm:px-0 w-full min-w-0">
+      {/* Header - stacks on mobile */}
+      <div className="flex flex-col gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+          <Link href="/dashboard" className="text-gray-500 hover:text-gray-700 flex-shrink-0 p-1" aria-label="Back">
+            <FaArrowLeft className="h-5 w-5" />
+          </Link>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">Users Management</h2>
+        </div>
+        <div className="flex flex-wrap gap-2">
           <Link
             href="/dashboard/users/approvals"
-            className="flex items-center gap-2 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+            className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors text-sm font-medium"
           >
-            <FaUserCheck className="h-4 w-4" />
-            Approvals ({users.filter(u => (u.status || (u.isApproved ? 'approved' : 'pending')) === 'pending').length})
+            <FaUserCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
+            Approvals ({pendingCount})
           </Link>
           <button
             onClick={() => setShowCreateModal(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
           >
-            <FaUserPlus className="h-4 w-4" />
+            <FaUserPlus className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
             Create User
           </button>
           <button
             onClick={exportUsers}
-            className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
           >
-            <FaDownload className="h-4 w-4" />
+            <FaDownload className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
             Export CSV
           </button>
         </div>
       </div>
 
-      {/* Advanced Filters and Search */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-        <div className="flex flex-col lg:flex-row gap-4">
-          {/* Search */}
-          <div className="flex-1">
+      {/* Search & Filters - full width and wrap on mobile */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-4 mb-4 sm:mb-6">
+        <div className="flex flex-col gap-3 sm:gap-4">
+          <div className="w-full min-w-0">
             <div className="relative">
-              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+              <FaSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4 flex-shrink-0" />
               <input
                 type="text"
                 placeholder="Search users by name, email, or phone..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-9 pr-3 sm:pl-10 sm:pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
               />
             </div>
           </div>
-
-          {/* Filters */}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="flex-1 min-w-[120px] sm:min-w-0 sm:flex-none px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             >
               <option value="all">All Roles</option>
               <option value="tenant">Tenant</option>
@@ -481,22 +494,20 @@ function UsersPageContent() {
               <option value="agent">Agent</option>
               <option value="admin">Admin</option>
             </select>
-
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="flex-1 min-w-[100px] sm:min-w-0 sm:flex-none px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             >
               <option value="all">All Status</option>
               <option value="approved">Approved</option>
               <option value="pending">Pending</option>
             </select>
-
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              className="inline-flex items-center gap-1.5 px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
             >
-              <FaFilter className="h-4 w-4" />
+              <FaFilter className="h-3.5 w-3.5" />
               More Filters
             </button>
           </div>
@@ -504,18 +515,16 @@ function UsersPageContent() {
 
         {/* Bulk Actions */}
         {selectedUsers.length > 0 && (
-          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-blue-800">
-                  {selectedUsers.length} user(s) selected
-                </span>
-              </div>
-              <div className="flex items-center gap-2">
+          <div className="mt-4 p-3 sm:p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <span className="text-sm font-medium text-blue-800">
+                {selectedUsers.length} user(s) selected
+              </span>
+              <div className="flex flex-wrap gap-2">
                 <select
                   value={bulkAction}
                   onChange={(e) => setBulkAction(e.target.value)}
-                  className="px-3 py-1 border border-gray-300 rounded text-sm"
+                  className="flex-1 min-w-[140px] sm:flex-none px-3 py-2 border border-gray-300 rounded-lg text-sm"
                 >
                   <option value="">Select Action</option>
                   <option value="approve">Approve Selected</option>
@@ -525,13 +534,13 @@ function UsersPageContent() {
                 <button
                   onClick={handleBulkAction}
                   disabled={!bulkAction || bulkProcessing}
-                  className="px-4 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {bulkProcessing ? 'Processing...' : 'Apply'}
                 </button>
                 <button
                   onClick={() => setSelectedUsers([])}
-                  className="px-4 py-1 bg-gray-500 text-white rounded text-sm hover:bg-gray-600"
+                  className="px-4 py-2 bg-gray-500 text-white rounded-lg text-sm hover:bg-gray-600"
                 >
                   Cancel
                 </button>
@@ -540,8 +549,84 @@ function UsersPageContent() {
           </div>
         )}
       </div>
-      <div className="overflow-x-auto rounded-lg shadow bg-white">
-        <table className="min-w-[800px] divide-y divide-gray-200 text-sm md:text-base">
+
+      {/* Mobile: card list (no horizontal scroll) */}
+      <div className="md:hidden space-y-3">
+        {filteredUsers.map(user => (
+          <div key={user.id} className="bg-white rounded-lg shadow border border-gray-200 p-4">
+            <div className="flex items-start gap-3">
+              <input
+                type="checkbox"
+                checked={selectedUsers.includes(user.id)}
+                onChange={() => handleSelectUser(user.id)}
+                className="mt-1 rounded border-gray-300 text-blue-600 focus:ring-blue-500 flex-shrink-0"
+              />
+              {user.profileImage ? (
+                <img className="h-10 w-10 rounded-full flex-shrink-0" src={user.profileImage} alt="" />
+              ) : (
+                <div className="h-10 w-10 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0">
+                  <span className="text-gray-500 text-sm font-medium">{user.fullName?.[0] || '?'}</span>
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="font-medium text-gray-900 truncate">{user.fullName}</p>
+                <p className="text-xs sm:text-sm text-gray-600 truncate">{user.email}</p>
+                {user.phoneNumber && <p className="text-xs text-gray-500">{user.phoneNumber}</p>}
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getRoleBadgeClass(user.role)}`}>
+                    {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                  </span>
+                  {getStatusBadge(user)}
+                </div>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-gray-100 flex flex-wrap gap-2">
+              {(() => {
+                const userStatus = user.status || (user.isApproved ? 'approved' : 'pending');
+                if (userStatus === 'pending') {
+                  return (
+                    <>
+                      <button onClick={() => handleApprove(user.id)} className="flex-1 min-w-[70px] py-2 px-3 bg-indigo-600 text-white rounded-lg text-xs font-medium hover:bg-indigo-700">
+                        Approve
+                      </button>
+                      <button onClick={() => handleReject(user.id)} className="flex-1 min-w-[70px] py-2 px-3 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700">
+                        Reject
+                      </button>
+                    </>
+                  );
+                }
+                return null;
+              })()}
+              <button onClick={() => setEditUser(user)} className="py-2 px-3 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-700">
+                Edit
+              </button>
+              {user.role !== 'admin' && (
+                <button
+                  disabled={deletingId === user.id}
+                  onClick={() => setConfirmDelete(user.id)}
+                  className="py-2 px-3 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-700 disabled:opacity-50"
+                >
+                  {deletingId === user.id ? 'Deleting...' : 'Delete'}
+                </button>
+              )}
+              {user.role === 'tenant' && ((user as Tenant).outstandingAmount ?? 0) > 0 && (
+                <button onClick={() => handleSendReminder(user as Tenant)} className="py-2 px-3 bg-yellow-600 text-white rounded-lg text-xs font-medium hover:bg-yellow-700">
+                  Remind
+                </button>
+              )}
+            </div>
+          </div>
+        ))}
+        {filteredUsers.length === 0 && (
+          <div className="bg-white rounded-lg shadow border border-gray-200 p-8 text-center text-gray-500">
+            No users match your filters.
+          </div>
+        )}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden md:block overflow-x-auto rounded-lg shadow bg-white">
+        <table className="min-w-[700px] w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
@@ -729,8 +814,8 @@ function UsersPageContent() {
 
       {/* Edit User Modal */}
       {editUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-medium mb-4">Edit User</h3>
             <form onSubmit={handleEditSave} ref={editFormRef}>
               <div className="space-y-4">
@@ -834,8 +919,8 @@ function UsersPageContent() {
       )}
       {/* Delete Confirmation Modal */}
       {confirmDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-lg p-6 w-full max-w-sm shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-sm shadow-xl">
             <h3 className="text-lg font-medium mb-4">Confirm Delete</h3>
             <p className="text-sm text-gray-500 mb-4">Are you sure you want to delete this user? This action cannot be undone.</p>
             <div className="flex justify-end space-x-3">
@@ -858,8 +943,8 @@ function UsersPageContent() {
 
       {/* Create User Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-gray-900">Create New User</h3>
               <button

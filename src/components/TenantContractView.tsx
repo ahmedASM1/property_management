@@ -139,10 +139,9 @@ export default function TenantContractView({ tenantId }: TenantContractViewProps
         companyEmail: 'info@greenbridge-my.com'
       };
 
-      const doc = generateComprehensiveContractPDF(tenant, contractFields);
-      
       // Save the PDF
-      doc.save(`contract-${contract.id}.pdf`);
+      const docPDF = await generateComprehensiveContractPDF(tenant, contractFields);
+      docPDF.save(`contract-${contract.id}.pdf`);
     } catch (error) {
       alert('Failed to export contract: ' + (error as Error).message);
     }

@@ -61,7 +61,7 @@ export default function TenantContractPage() {
     setCommentLoading(false);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (!contract || !user) return;
     
     // Create a mock tenant object from user data
@@ -103,7 +103,7 @@ export default function TenantContractPage() {
       companyEmail: 'info@greenbridge-my.com'
     };
 
-    const docPDF = generateComprehensiveContractPDF(tenant, contractFields);
+    const docPDF = await generateComprehensiveContractPDF(tenant, contractFields);
     docPDF.save(`Contract_${user.fullName || ''}_${contract.dateOfAgreement}.pdf`);
   };
 

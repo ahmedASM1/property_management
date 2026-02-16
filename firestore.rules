@@ -100,6 +100,12 @@ service cloud.firestore {
       allow update, delete: if isAdmin();
     }
 
+    // Buildings collection
+    match /buildings/{buildingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
     // Properties collection
     match /properties/{propertyId} {
       allow read: if isAuthenticated();

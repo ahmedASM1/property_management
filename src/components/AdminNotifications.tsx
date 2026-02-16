@@ -188,38 +188,40 @@ export default function AdminNotifications() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg flex items-center justify-center">
-            <Bell className="h-5 w-5 text-white" />
+    <div className="space-y-4 sm:space-y-6">
+      {/* Header - stacks on mobile */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 flex-shrink-0 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-lg flex items-center justify-center">
+            <Bell className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
           </div>
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">Admin Notifications</h2>
-            <p className="text-sm text-gray-600">Manage user approvals and system alerts</p>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="text-lg sm:text-xl font-semibold text-gray-900">Admin Notifications</h2>
+              {notifications.length > 0 && (
+                <span className="bg-red-500 text-white text-xs rounded-full h-5 w-5 sm:h-6 sm:w-6 flex items-center justify-center font-semibold shadow-sm border-2 border-white flex-shrink-0">
+                  {notifications.length}
+                </span>
+              )}
+            </div>
+            <p className="text-xs sm:text-sm text-gray-600">Manage user approvals and system alerts</p>
           </div>
-          {notifications.length > 0 && (
-            <span className="bg-red-500 text-white text-xs rounded-full h-6 w-6 flex items-center justify-center font-semibold shadow-sm border-2 border-white">
-              {notifications.length}
-            </span>
-          )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:flex-shrink-0">
           {notifications.length > 0 && (
             <button
               onClick={clearAllNotifications}
               disabled={clearing}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all duration-200 font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 disabled:opacity-50 flex items-center gap-2"
+              className="w-full sm:w-auto px-3 py-2 sm:px-4 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all duration-200 font-medium text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-2 disabled:opacity-50 flex items-center justify-center gap-2"
               title="Remove all current notifications (test/old data) so only new production notifications appear"
             >
-              <Trash2 className="h-4 w-4" />
+              <Trash2 className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
               {clearing ? 'Clearing...' : 'Clear all notifications'}
             </button>
           )}
           <button
             onClick={() => setShowPendingUsers(!showPendingUsers)}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+            className="w-full sm:w-auto px-3 py-2 sm:px-4 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all duration-200 font-medium text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
           >
             {showPendingUsers ? 'Hide' : 'Show'} Pending Users ({pendingUsers.length})
           </button>
@@ -228,60 +230,58 @@ export default function AdminNotifications() {
 
       {/* Pending Users Section */}
       {showPendingUsers && (
-        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-6">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center">
-              <Eye className="h-4 w-4 text-orange-600" />
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 p-4 sm:p-6">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-orange-600" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900">Pending User Approvals</h3>
-            <span className="bg-orange-100 text-orange-800 text-xs rounded-full px-2 py-1 font-semibold">
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900">Pending User Approvals</h3>
+            <span className="bg-orange-100 text-orange-800 text-xs rounded-full px-2 py-0.5 font-semibold">
               {pendingUsers.length} pending
             </span>
           </div>
           {pendingUsers.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="w-16 h-16 mx-auto mb-4 bg-green-100 rounded-full flex items-center justify-center">
-                <CheckCircle className="h-8 w-8 text-green-600" />
+            <div className="text-center py-8 sm:py-12">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 bg-green-100 rounded-full flex items-center justify-center">
+                <CheckCircle className="h-6 w-6 sm:h-8 sm:w-8 text-green-600" />
               </div>
-              <p className="text-gray-600 font-medium">No pending user approvals</p>
-              <p className="text-sm text-gray-500 mt-1">All users have been processed</p>
+              <p className="text-gray-600 font-medium text-sm sm:text-base">No pending user approvals</p>
+              <p className="text-xs sm:text-sm text-gray-500 mt-1">All users have been processed</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {pendingUsers.map((user) => (
-                <div key={user.id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50 transition-all duration-200 hover:shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-3 mb-2">
-                        <h4 className="font-semibold text-gray-900">{user.fullName}</h4>
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${getRoleColor(user.role)}`}>
+                <div key={user.id} className="border border-gray-200 rounded-lg p-3 sm:p-4 hover:bg-gray-50 transition-all duration-200 hover:shadow-sm">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1 sm:mb-2">
+                        <h4 className="font-semibold text-gray-900 text-sm sm:text-base">{user.fullName}</h4>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${getRoleColor(user.role)}`}>
                           {user.role}
                         </span>
                       </div>
-                      <div className="space-y-1">
-                        <p className="text-sm text-gray-600">{user.email}</p>
+                      <div className="space-y-0.5">
+                        <p className="text-xs sm:text-sm text-gray-600 truncate">{user.email}</p>
                         {user.phoneNumber && (
-                          <p className="text-sm text-gray-600">Phone: {user.phoneNumber}</p>
+                          <p className="text-xs sm:text-sm text-gray-600">Phone: {user.phoneNumber}</p>
                         )}
                         {user.unitNumber && (
-                          <p className="text-sm text-gray-600">Unit: {user.unitNumber}</p>
+                          <p className="text-xs sm:text-sm text-gray-600">Unit: {user.unitNumber}</p>
                         )}
                         {user.buildingName && (
-                          <p className="text-sm text-gray-600">Building: {user.buildingName}</p>
+                          <p className="text-xs sm:text-sm text-gray-600">Building: {user.buildingName}</p>
                         )}
-                        <p className="text-xs text-gray-500 font-medium mt-2">
+                        <p className="text-xs text-gray-500 font-medium mt-1 sm:mt-2">
                           Registered: {formatDate(user.createdAt)}
                         </p>
                       </div>
                     </div>
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => setSelectedUser(user)}
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                      >
-                        Review
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => setSelectedUser(user)}
+                      className="w-full sm:w-auto flex-shrink-0 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-xs sm:text-sm font-medium transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                    >
+                      Review
+                    </button>
                   </div>
                 </div>
               ))}
@@ -292,8 +292,8 @@ export default function AdminNotifications() {
 
       {/* User Review Modal */}
       {selectedUser && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-3 sm:p-4">
+          <div className="bg-white rounded-lg p-4 sm:p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4">Review User Registration</h3>
             
             <div className="space-y-3 mb-4">
@@ -377,15 +377,15 @@ export default function AdminNotifications() {
       )}
 
       {/* Notifications List */}
-      <div className="bg-white rounded-xl shadow-lg border border-gray-200">
-        <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-              <Bell className="h-4 w-4 text-blue-600" />
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Bell className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-blue-600" />
             </div>
-            <h3 className="text-lg font-semibold text-gray-900">Recent Notifications</h3>
+            <h3 className="text-base sm:text-lg font-semibold text-gray-900">Recent Notifications</h3>
             {notifications.length > 0 && (
-              <span className="bg-blue-100 text-blue-800 text-xs rounded-full px-2 py-1 font-semibold">
+              <span className="bg-blue-100 text-blue-800 text-xs rounded-full px-2 py-0.5 font-semibold">
                 {notifications.length} total
               </span>
             )}
@@ -393,28 +393,28 @@ export default function AdminNotifications() {
         </div>
         <div className="divide-y divide-gray-100">
           {notifications.length === 0 ? (
-            <div className="px-6 py-12 text-center text-gray-500">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gray-100 rounded-full flex items-center justify-center">
-                <Bell className="h-8 w-8 text-gray-400" />
+            <div className="px-4 sm:px-6 py-8 sm:py-12 text-center text-gray-500">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 mx-auto mb-3 sm:mb-4 bg-gray-100 rounded-full flex items-center justify-center">
+                <Bell className="h-6 w-6 sm:h-8 sm:w-8 text-gray-400" />
               </div>
-              <p className="text-gray-600 font-medium">No new notifications</p>
-              <p className="text-sm text-gray-500 mt-1">You&apos;re all caught up!</p>
+              <p className="text-gray-600 font-medium text-sm sm:text-base">No new notifications</p>
+              <p className="text-xs sm:text-sm text-gray-500 mt-1">You&apos;re all caught up!</p>
             </div>
           ) : (
             notifications.map((notification) => (
-              <div key={notification.id} className="px-6 py-4 hover:bg-gray-50 transition-all duration-200 group">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <h4 className="font-semibold text-gray-900">
+              <div key={notification.id} className="px-4 sm:px-6 py-3 sm:py-4 hover:bg-gray-50 transition-all duration-200 group">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 sm:mb-2 flex-wrap">
+                      <h4 className="font-semibold text-gray-900 text-sm sm:text-base">
                         New {notification.userRole} Registration
                       </h4>
                       {!notification.read && (
-                        <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse"></div>
+                        <div className="h-2 w-2 bg-red-500 rounded-full animate-pulse flex-shrink-0"></div>
                       )}
                     </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-gray-600">
+                    <div className="space-y-0.5">
+                      <p className="text-xs sm:text-sm text-gray-600 truncate">
                         {notification.userFullName} ({notification.userEmail})
                       </p>
                       <p className="text-xs text-gray-500 font-medium">
@@ -422,14 +422,12 @@ export default function AdminNotifications() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => markNotificationRead(notification.id)}
-                      className="px-3 py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm font-medium transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
-                    >
-                      Mark Read
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => markNotificationRead(notification.id)}
+                    className="w-full sm:w-auto flex-shrink-0 px-3 py-2 sm:py-1 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-xs sm:text-sm font-medium transition-all duration-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2"
+                  >
+                    Mark Read
+                  </button>
                 </div>
               </div>
             ))

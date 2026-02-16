@@ -1,0 +1,17 @@
+[
+  {
+    "origin": [
+      "https://www.greenbridge-my.com",
+      "https://greenbridge-my.com",
+      "http://localhost:3000"
+    ],
+    "method": ["GET", "PUT", "POST", "DELETE", "HEAD"],
+    "responseHeader": [
+      "Content-Type",
+      "Content-Length",
+      "Content-Disposition",
+      "Authorization"
+    ],
+    "maxAgeSeconds": 3600
+  }
+]

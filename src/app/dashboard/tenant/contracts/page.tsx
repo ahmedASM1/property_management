@@ -31,6 +31,7 @@ interface Contract {
   tenantUploadedContractUrl?: string;
   tenantUploadedAt?: string | Date;
   tenantUploadedContractFileName?: string;
+  archived?: boolean;
 }
 
 export default function TenantContractsPage() {
@@ -52,18 +53,45 @@ export default function TenantContractsPage() {
       if (!user?.id) return;
       
       try {
-        const q = query(
+        // First try with status filter
+        let q = query(
           collection(db, 'contracts'),
           where('tenantId', '==', user.id),
-          where('status', 'in', ['pending', 'signed', 'active']),
+          where('archived', '!=', true),
           orderBy('createdAt', 'desc')
         );
         
-        const snapshot = await getDocs(q);
-        const contractsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        })) as Contract[];
+        let snapshot;
+        try {
+          snapshot = await getDocs(q);
+        } catch (queryError) {
+          // If query fails (e.g., missing index), fetch all and filter client-side
+          console.warn('Query with orderBy failed, fetching all contracts:', queryError);
+          const allContractsQuery = query(
+            collection(db, 'contracts'),
+            where('tenantId', '==', user.id)
+          );
+          snapshot = await getDocs(allContractsQuery);
+        }
+        
+        const contractsData = (snapshot.docs
+          .map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as Contract[])
+          .filter((contract: Contract) => {
+            // Filter out archived contracts
+            if (contract.archived === true) return false;
+            // Show all contracts regardless of status (pending, active, signed, etc.)
+            // The status field is optional, so include contracts without status
+            return true;
+          })
+          .sort((a: Contract, b: Contract) => {
+            // Sort by createdAt descending
+            const aDate = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const bDate = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return bDate - aDate;
+          });
         
         setContracts(contractsData);
       } catch (_error) {
@@ -163,9 +191,44 @@ export default function TenantContractsPage() {
     try {
       const ext = uploadFile.name.split('.').pop() || 'pdf';
       const fileName = `signed_contracts/${uploadingContractId}_${user.id}_${Date.now()}.${ext}`;
-      const storageRef = ref(storage, fileName);
-      await uploadBytes(storageRef, uploadFile);
-      const downloadUrl = await getDownloadURL(storageRef);
+      let downloadUrl = '';
+      
+      // Try client-side upload first
+      try {
+        const storageRef = ref(storage, fileName);
+        await uploadBytes(storageRef, uploadFile);
+        downloadUrl = await getDownloadURL(storageRef);
+      } catch (uploadError) {
+        console.warn('Client-side upload failed, trying server-side API:', uploadError);
+        
+        // Fallback: Use server-side API route (bypasses CORS)
+        try {
+          const formData = new FormData();
+          formData.append('file', uploadFile);
+          formData.append('folder', 'signed_contracts');
+          
+          const response = await fetch('/api/upload-file', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error(`Upload API failed: ${response.statusText}`);
+          }
+
+          const result = await response.json();
+          downloadUrl = result.url;
+          
+          if (result.fallback) {
+            console.warn('Using fallback storage method:', result.message);
+          }
+        } catch (apiError) {
+          console.error('Server-side upload also failed:', apiError);
+          toast.error('Failed to upload file. Please check your connection and try again.');
+          return;
+        }
+      }
+      
       const contractToUpdate = contracts.find(c => c.id === uploadingContractId);
       const originalFileName = uploadFile.name;
       await updateDoc(doc(db, 'contracts', uploadingContractId), {

@@ -363,9 +363,46 @@ export default function ContractsPage() {
       const pdfBase64 = pdfDoc.output('datauristring').split(',')[1];
       
       const fileName = `contract_${selectedTenant.id}_${Date.now()}.pdf`;
-      const storageRef = ref(storage, `contracts/${fileName}`);
-      await uploadString(storageRef, pdfBase64, 'base64', { contentType: 'application/pdf' });
-      const pdfUrl = await getDownloadURL(storageRef);
+      let pdfUrl = '';
+
+      // Try client-side upload first
+      try {
+        const storageRef = ref(storage, `contracts/${fileName}`);
+        await uploadString(storageRef, pdfBase64, 'base64', { contentType: 'application/pdf' });
+        pdfUrl = await getDownloadURL(storageRef);
+      } catch (uploadError: unknown) {
+        console.warn('Client-side upload failed, trying server-side API:', uploadError);
+        
+        // Fallback: Use server-side API route (bypasses CORS)
+        try {
+          const response = await fetch('/api/upload-contract', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              pdfBase64,
+              fileName,
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Upload API failed: ${response.statusText}`);
+          }
+
+          const result = await response.json();
+          pdfUrl = result.url;
+          
+          if (result.fallback) {
+            console.warn('Using fallback storage method:', result.message);
+          }
+        } catch (apiError) {
+          console.error('Server-side upload also failed:', apiError);
+          // Last resort: Use data URL (stored in Firestore)
+          pdfUrl = `data:application/pdf;base64,${pdfBase64}`;
+          toast.error('Contract saved but PDF upload failed. Contract is stored as data URL.');
+        }
+      }
 
       const contractData: Omit<Contract, 'id'> & { buildingId?: string; unitId?: string } = {
         tenantId: selectedTenant.id,
@@ -379,6 +416,7 @@ export default function ContractsPage() {
         updatedAt: serverTimestamp(),
         archived: false,
         status: 'pending',
+        acknowledged: false,
       };
       
       let docRefId: string;
@@ -394,6 +432,7 @@ export default function ContractsPage() {
         docRefId = docRef.id;
         setContracts(prev => [{ id: docRefId, ...contractData } as Contract, ...prev]);
         toast.success('Contract created successfully!');
+        
         // Update tenant with building/unit so it appears on profile and My residency
         const selectedBuilding = buildings.find(b => b.id === selectedBuildingId);
         const selectedUnit = units.find(u => u.id === selectedUnitId);
@@ -405,6 +444,21 @@ export default function ContractsPage() {
             ...((selectedUnit?.fullUnitNumber || fields.unitNumber) && { unitNumber: selectedUnit?.fullUnitNumber || fields.unitNumber }),
             updatedAt: serverTimestamp(),
           });
+        }
+        
+        // Send notification to tenant about new contract
+        try {
+          await addDoc(collection(db, 'notifications'), {
+            userId: selectedTenant.id,
+            role: 'tenant',
+            message: `A new contract has been created for ${fields.propertyAddress || 'your property'}. Please review and sign it.`,
+            link: `/dashboard/tenant/contracts`,
+            createdAt: serverTimestamp(),
+            read: false,
+          });
+        } catch (notifError) {
+          console.error('Failed to send notification:', notifError);
+          // Don't fail the whole operation if notification fails
         }
       }
 

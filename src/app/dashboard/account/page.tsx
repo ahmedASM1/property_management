@@ -168,14 +168,41 @@ export default function AccountPage() {
     if (imageFile && user) {
       setUploading(true);
       try {
+        // Try client-side upload first
         const storageRef = ref(storage, `profileImages/${user.id}_${Date.now()}`);
         await uploadBytes(storageRef, imageFile);
         profileImageUrl = await getDownloadURL(storageRef);
-      } catch {
-        setError('Failed to upload image.');
-        setUploading(false);
-        setSaving(false);
-        return;
+      } catch (uploadError) {
+        console.warn('Client-side upload failed, trying server-side API:', uploadError);
+        
+        // Fallback: Use server-side API route (bypasses CORS)
+        try {
+          const formData = new FormData();
+          formData.append('file', imageFile);
+          formData.append('folder', 'profileImages');
+          
+          const response = await fetch('/api/upload-file', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!response.ok) {
+            throw new Error(`Upload API failed: ${response.statusText}`);
+          }
+
+          const result = await response.json();
+          profileImageUrl = result.url;
+          
+          if (result.fallback) {
+            console.warn('Using fallback storage method:', result.message);
+          }
+        } catch (apiError) {
+          console.error('Server-side upload also failed:', apiError);
+          setError('Failed to upload image. Please check your connection and try again.');
+          setUploading(false);
+          setSaving(false);
+          return;
+        }
       }
       setUploading(false);
     }

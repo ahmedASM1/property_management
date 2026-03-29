@@ -10,7 +10,6 @@ import {
   FaTools,
   FaFileContract,
   FaBuilding,
-  FaClipboardList,
   FaCheckCircle,
   FaClock,
   FaExclamationTriangle,
@@ -257,12 +256,6 @@ export default function AgentDashboard({ data }: AgentDashboardProps) {
               className="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors"
             >
               <FaTools className="h-4 w-4" /> Maintenance
-            </Link>
-            <Link
-              href="/dashboard/assignments"
-              className="inline-flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-            >
-              <FaClipboardList className="h-4 w-4" /> Assignments
             </Link>
             <Link
               href="/dashboard/buildings"

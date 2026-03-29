@@ -121,7 +121,6 @@ function generatePropertyOwnerWelcomeEmail(userData: WelcomeUserData, magicLink:
             <li>Monitor tenant information and contracts</li>
             <li>Track rental income and expenses</li>
             <li>Request maintenance services</li>
-            <li>Generate financial reports</li>
             <li>Communicate with tenants and service providers</li>
           </ul>
           
@@ -271,7 +270,7 @@ function generateServiceProviderWelcomeEmail(userData: WelcomeUserData, magicLin
           <div style="background-color: #d1ecf1; padding: 15px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #17a2b8;">
             <h4 style="margin-top: 0; color: #0c5460;">Service Provider Guidelines:</h4>
             <ul style="margin: 0; padding-left: 20px; font-size: 14px;">
-              <li>Respond to job assignments promptly</li>
+              <li>Respond to maintenance requests promptly</li>
               <li>Update job status regularly</li>
               <li>Maintain professional communication</li>
               <li>Submit invoices within 48 hours of job completion</li>

@@ -47,15 +47,14 @@ const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'contracts.create', 'contracts.read', 'contracts.update', 'contracts.delete',
     'invoices.create', 'invoices.read', 'invoices.update', 'invoices.delete',
     'maintenance.create', 'maintenance.read', 'maintenance.update', 'maintenance.delete',
-    'reports.read', 'analytics.read', 'settings.update'
+    'settings.update'
   ],
   property_owner: [
     'properties.read.own', 'properties.update.own',
     'tenants.read.own', 'tenants.update.own',
     'contracts.read.own', 'contracts.update.own',
     'invoices.read.own', 'invoices.create.own',
-    'maintenance.create', 'maintenance.read.own', 'maintenance.update.own',
-    'reports.read.own'
+    'maintenance.create', 'maintenance.read.own', 'maintenance.update.own'
   ],
   tenant: [
     'profile.read.own', 'profile.update.own',

@@ -107,7 +107,7 @@ export default function NavBar() {
     <header className="w-full bg-white shadow-sm sticky top-0 z-50">
       <div className="max-w-6xl mx-auto flex items-center justify-between px-4 py-2">
         <div className="flex items-center space-x-2">
-          <Image src="/Green Bridge.png" alt="Green Bridge Logo" width={32} height={32} className="h-8 w-8 inline-block align-middle" />
+          <Image src="/Green Bridge.svg" alt="Green Bridge Logo" width={32} height={32} className="h-8 w-8 inline-block align-middle" />
           <span className="font-bold text-lg text-green-900 tracking-wide hidden sm:inline">Green Bridge</span>
         </div>
         {/* Hamburger for mobile */}

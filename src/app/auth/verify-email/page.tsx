@@ -46,7 +46,7 @@ function VerifyEmailContent() {
       <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-4">
         <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
           <div className="mb-6">
-            <Image src="/Green Bridge.png" alt="Green Bridge" width={64} height={64} className="mx-auto" />
+            <Image src="/Green Bridge.svg" alt="Green Bridge" width={64} height={64} className="mx-auto" />
           </div>
           <div className="inline-block w-10 h-10 border-2 border-green-600 border-t-transparent rounded-full animate-spin mb-4" />
           <h1 className="text-xl font-semibold text-gray-900">Verifying your email...</h1>
@@ -61,7 +61,7 @@ function VerifyEmailContent() {
       <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-4">
         <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
           <div className="mb-6">
-            <Image src="/Green Bridge.png" alt="Green Bridge" width={64} height={64} className="mx-auto" />
+            <Image src="/Green Bridge.svg" alt="Green Bridge" width={64} height={64} className="mx-auto" />
           </div>
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -85,7 +85,7 @@ function VerifyEmailContent() {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-4">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
         <div className="mb-6">
-          <Image src="/Green Bridge.png" alt="Green Bridge" width={64} height={64} className="mx-auto" />
+          <Image src="/Green Bridge.svg" alt="Green Bridge" width={64} height={64} className="mx-auto" />
         </div>
         <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

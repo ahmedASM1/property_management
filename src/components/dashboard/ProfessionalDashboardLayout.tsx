@@ -4,7 +4,7 @@ import { useEnhancedAuth } from '@/contexts/EnhancedAuthContext';
 import { UserRole } from '@/types';
 import { 
   FaHome, FaUsers, FaBuilding, FaFileContract, FaReceipt, 
-  FaWrench, FaChartBar, FaCog, FaSignOutAlt, FaBars, FaTimes,
+  FaWrench, FaCog, FaSignOutAlt, FaBars, FaTimes,
   FaUser, FaUserTie, FaUserCog, FaUserCheck, FaBell, FaQuestionCircle
 } from 'react-icons/fa';
 import Image from 'next/image';
@@ -72,13 +72,6 @@ const navigationItems: NavigationItem[] = [
     icon: FaWrench,
     roles: ['admin', 'property_owner', 'tenant', 'service_provider', 'mixedProvider'],
     permissions: ['maintenance.read']
-  },
-  {
-    label: 'Analytics',
-    href: '/dashboard/analytics',
-    icon: FaChartBar,
-    roles: ['admin', 'property_owner'],
-    permissions: ['analytics.read', 'reports.read']
   },
   {
     label: 'Settings',
@@ -184,7 +177,7 @@ export default function ProfessionalDashboardLayout({ children }: DashboardLayou
           <div className="flex items-center justify-between p-4 border-b border-gray-200">
             <div className="flex items-center">
               <Image 
-                src="/Green Bridge.png" 
+                src="/Green Bridge.svg" 
                 alt="Green Bridge Logo" 
                 width={32} 
                 height={32}

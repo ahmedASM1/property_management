@@ -94,18 +94,20 @@ export async function POST(req: NextRequest) {
         console.warn('makePublic failed (may already be public):', publicError);
       }
 
+      // Use bucket name that works for public access (firebasestorage.app for Firebase Storage)
+      const bucketName = (bucket.name || '').replace('waeliweb.appspot.com', 'waeliweb.firebasestorage.app');
+
       // Get public URL - try signed URL first, then public URL
       let publicUrl: string;
       try {
-        // Try to get a signed URL (works even if public access fails)
         const [signedUrl] = await storageFile.getSignedUrl({
           action: 'read',
           expires: '03-09-2491', // Far future date
         });
         publicUrl = signedUrl;
       } catch {
-        // Fallback to public URL
-        publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+        // Fallback to public URL using the correct bucket host
+        publicUrl = `https://storage.googleapis.com/${bucketName}/${fileName}`;
       }
 
       return NextResponse.json({ 

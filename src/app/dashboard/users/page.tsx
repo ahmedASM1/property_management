@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState, useRef } from 'react';
-import { collection, getDocs, updateDoc, doc, deleteDoc, writeBatch, addDoc } from 'firebase/firestore';
+import { collection, getDocs, updateDoc, doc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { User, Invoice, Tenant } from '@/types';
 import toast from 'react-hot-toast';
@@ -11,20 +11,21 @@ import {
   FaArrowLeft, 
   FaSearch, 
   FaFilter, 
-  FaTimes, 
   FaDownload, 
   FaSortUp,
   FaSortDown,
-  FaUserPlus,
-  FaSpinner,
-  FaUser,
-  FaUserCog,
-  FaEnvelope,
-  FaPhone,
-  FaBuilding,
-  FaBriefcase,
   FaUserCheck
 } from 'react-icons/fa';
+
+function toJsDate(val: unknown): Date | null {
+  if (val == null || val === '') return null;
+  if (val instanceof Date) return val;
+  if (typeof val === 'object' && val !== null && 'toDate' in val && typeof (val as { toDate: () => Date }).toDate === 'function') {
+    return (val as { toDate: () => Date }).toDate();
+  }
+  const d = new Date(val as string);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
 
 export default function UsersPage() {
   return (
@@ -54,18 +55,6 @@ function UsersPageContent() {
   const [bulkAction, setBulkAction] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [bulkProcessing, setBulkProcessing] = useState(false);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [createUserData, setCreateUserData] = useState({
-    fullName: '',
-    email: '',
-    role: 'tenant',
-    phoneNumber: '',
-    idNumber: '',
-    unitId: '',
-    serviceType: '',
-    companyName: ''
-  });
-  const [creatingUser, setCreatingUser] = useState(false);
 
   useEffect(() => {
     async function fetchUsers() {
@@ -113,10 +102,17 @@ function UsersPageContent() {
 
     // Search filter
     if (searchTerm) {
-      filtered = filtered.filter(user => 
-        user.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.phoneNumber?.toLowerCase().includes(searchTerm.toLowerCase())
+      const q = searchTerm.toLowerCase();
+      filtered = filtered.filter(user =>
+        user.fullName.toLowerCase().includes(q) ||
+        user.email.toLowerCase().includes(q) ||
+        user.phoneNumber?.toLowerCase().includes(q) ||
+        user.buildingName?.toLowerCase().includes(q) ||
+        user.unitNumber?.toLowerCase().includes(q) ||
+        user.idNumber?.toLowerCase().includes(q) ||
+        user.serviceType?.toLowerCase().includes(q) ||
+        user.companyName?.toLowerCase().includes(q) ||
+        user.rentalType?.toLowerCase().includes(q)
       );
     }
 
@@ -151,8 +147,8 @@ function UsersPageContent() {
           bValue = b.role;
           break;
         case 'createdAt':
-          aValue = new Date(a.createdAt).getTime();
-          bValue = new Date(b.createdAt).getTime();
+          aValue = (toJsDate(a.createdAt) ?? new Date(0)).getTime();
+          bValue = (toJsDate(b.createdAt) ?? new Date(0)).getTime();
           break;
         default:
           aValue = String(a[sortBy as keyof User] ?? '');
@@ -225,14 +221,16 @@ function UsersPageContent() {
         fullName: editUser.fullName,
         phoneNumber: editUser.phoneNumber,
         role: editUser.role,
+        idNumber: editUser.idNumber || '',
       };
-      // Add role-specific fields
       if (editUser.role === 'tenant') {
         updateData.unitNumber = editUser.unitNumber;
+        updateData.buildingName = editUser.buildingName || '';
         updateData.rentalType = editUser.rentalType;
         updateData.contractEnd = editUser.contractEnd || '';
-      } else if (editUser.role === 'service_provider') {
+      } else if (editUser.role === 'service_provider' || editUser.role === 'mixedProvider') {
         updateData.serviceType = editUser.serviceType;
+        updateData.companyName = editUser.companyName;
       }
       await updateDoc(doc(db, 'users', editUser.id), updateData);
       setUsers(prev => prev.map(u => u.id === editUser.id ? { ...editUser } : u));
@@ -333,10 +331,12 @@ function UsersPageContent() {
 
   const exportUsers = () => {
     const csvContent = [
-      'Name,Email,Phone,Role,Status,Unit,Service Type,Created At',
-      ...filteredUsers.map(user => 
-        `"${user.fullName}","${user.email}","${user.phoneNumber || ''}","${user.role}","${user.isApproved ? 'Approved' : 'Pending'}","${user.unitNumber || ''}","${user.serviceType || ''}","${new Date(user.createdAt).toLocaleDateString()}"`
-      )
+      'Name,Email,Phone,Role,Status,ID Number,Building,Unit,Rental Type,Service Type,Company,Contract End,Outstanding,Created At',
+      ...filteredUsers.map(user => {
+        const st = user.status || (user.isApproved ? 'approved' : 'pending');
+        const out = user.role === 'tenant' ? String((user as Tenant).outstandingAmount ?? '') : '';
+        return `"${user.fullName}","${user.email}","${user.phoneNumber || ''}","${user.role}","${st}","${user.idNumber || ''}","${user.buildingName || ''}","${user.unitNumber || ''}","${user.rentalType || ''}","${user.serviceType || ''}","${user.companyName || ''}","${user.contractEnd ? String(user.contractEnd) : ''}","${out}","${new Date(user.createdAt).toLocaleDateString()}"`;
+      })
     ].join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv' });
@@ -346,68 +346,6 @@ function UsersPageContent() {
     a.download = 'users.csv';
     a.click();
     window.URL.revokeObjectURL(url);
-  };
-
-  const normalizeRoleForDb = (role: string): string => {
-    const map: Record<string, string> = {
-      propertyOwner: 'property_owner',
-      service: 'service_provider',
-    };
-    return map[role] || role;
-  };
-
-  const handleCreateUser = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setCreatingUser(true);
-    try {
-      const userData = {
-        ...createUserData,
-        role: normalizeRoleForDb(createUserData.role),
-        status: 'approved',
-        isApproved: true,
-        hasSetPassword: false,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-
-      const docRef = await addDoc(collection(db, 'users'), userData);
-      
-      // Send magic link
-      const response = await fetch('/api/auth/send-magic-link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: createUserData.email, userId: docRef.id }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to send magic link');
-      }
-
-      toast.success('User created successfully! Magic link sent to their email.');
-      setShowCreateModal(false);
-      setCreateUserData({
-        fullName: '',
-        email: '',
-        role: 'tenant',
-        phoneNumber: '',
-        idNumber: '',
-        unitId: '',
-        serviceType: '',
-        companyName: ''
-      });
-      
-      // Refresh users list
-      window.location.reload();
-    } catch (error) {
-      console.error('Error creating user:', error);
-      toast.error('Failed to create user');
-    } finally {
-      setCreatingUser(false);
-    }
-  };
-
-  const handleCreateUserChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setCreateUserData({ ...createUserData, [e.target.name]: e.target.value });
   };
 
   if (loading) {
@@ -423,12 +361,31 @@ function UsersPageContent() {
     role === 'admin' ? 'bg-purple-100 text-purple-800' :
     role === 'agent' ? 'bg-teal-100 text-teal-800' :
     role === 'tenant' ? 'bg-blue-100 text-blue-800' :
-    role === 'property_owner' ? 'bg-green-100 text-green-800' : 'bg-orange-100 text-orange-800';
+    role === 'property_owner' ? 'bg-green-100 text-green-800' :
+    role === 'mixedProvider' ? 'bg-violet-100 text-violet-800' :
+    'bg-orange-100 text-orange-800';
   const getStatusBadge = (user: User) => {
     const userStatus = user.status || (user.isApproved ? 'approved' : 'pending');
     if (userStatus === 'approved') return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">Approved</span>;
     if (userStatus === 'rejected') return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-red-100 text-red-800">Rejected</span>;
     return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending</span>;
+  };
+
+  const formatRentalType = (t?: string) => {
+    if (!t) return '—';
+    const labels: Record<string, string> = {
+      Room1: 'Room 1',
+      Room2: 'Room 2',
+      Room3: 'Room 3',
+      Studio: 'Studio',
+      'Whole Unit': 'Whole Unit',
+    };
+    return labels[t] || t;
+  };
+
+  const formatDateShort = (d: unknown) => {
+    const date = toJsDate(d);
+    return date ? date.toLocaleDateString() : '—';
   };
 
   return (
@@ -449,13 +406,6 @@ function UsersPageContent() {
             <FaUserCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
             Approvals ({pendingCount})
           </Link>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-          >
-            <FaUserPlus className="h-3.5 w-3.5 sm:h-4 sm:w-4 flex-shrink-0" />
-            Create User
-          </button>
           <button
             onClick={exportUsers}
             className="inline-flex items-center gap-1.5 sm:gap-2 px-3 py-2 sm:px-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
@@ -572,9 +522,18 @@ function UsersPageContent() {
                 <p className="font-medium text-gray-900 truncate">{user.fullName}</p>
                 <p className="text-xs sm:text-sm text-gray-600 truncate">{user.email}</p>
                 {user.phoneNumber && <p className="text-xs text-gray-500">{user.phoneNumber}</p>}
+                {user.idNumber && <p className="text-xs text-gray-500">ID: {user.idNumber}</p>}
+                {user.role === 'tenant' && (
+                  <div className="text-xs text-gray-600 mt-1 space-y-0.5">
+                    <p><span className="text-gray-400">Building:</span> {user.buildingName || '—'}</p>
+                    <p><span className="text-gray-400">Unit:</span> {user.unitNumber || '—'}</p>
+                    <p><span className="text-gray-400">Type:</span> {formatRentalType(user.rentalType)}</p>
+                  </div>
+                )}
+                <p className="text-[10px] text-gray-400 mt-1">Joined {formatDateShort(user.createdAt)}</p>
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getRoleBadgeClass(user.role)}`}>
-                    {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                    {user.role.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
                   </span>
                   {getStatusBadge(user)}
                 </div>
@@ -626,7 +585,7 @@ function UsersPageContent() {
 
       {/* Desktop: table */}
       <div className="hidden md:block overflow-x-auto rounded-lg shadow bg-white">
-        <table className="min-w-[700px] w-full divide-y divide-gray-200 text-sm">
+        <table className="min-w-[960px] w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
             <tr>
               <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
@@ -671,7 +630,19 @@ function UsersPageContent() {
                   )}
                 </div>
               </th>
-              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Details</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider min-w-[140px]">Building / unit / type</th>
+              <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">ID number</th>
+              <th 
+                className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-gray-100"
+                onClick={() => handleSort('createdAt')}
+              >
+                <div className="flex items-center gap-1">
+                  Joined
+                  {sortBy === 'createdAt' && (
+                    sortOrder === 'asc' ? <FaSortUp className="h-3 w-3" /> : <FaSortDown className="h-3 w-3" />
+                  )}
+                </div>
+              </th>
               <th 
                 className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap cursor-pointer hover:bg-gray-100"
                 onClick={() => handleSort('isApproved')}
@@ -713,27 +684,28 @@ function UsersPageContent() {
                   </div>
                 </td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">{user.email}</td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">{user.phoneNumber}</td>
+                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">{user.phoneNumber || '—'}</td>
                 <td className="px-3 py-4 whitespace-nowrap">
-                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full 
-                    ${user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 
-                      user.role === 'agent' ? 'bg-teal-100 text-teal-800' :
-                      user.role === 'tenant' ? 'bg-blue-100 text-blue-800' : 
-                      user.role === 'property_owner' ? 'bg-green-100 text-green-800' :
-                      'bg-orange-100 text-orange-800'}`}>
-                    {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                  <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadgeClass(user.role)}`}>
+                    {user.role.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
                   </span>
                 </td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">
+                <td className="px-3 py-4 text-sm text-gray-700 align-top">
                   {user.role === 'tenant' ? (
-                    <>Unit: {user.unitNumber}<br/>Type: {user.rentalType}</>
-                  ) : user.role === 'service_provider' ? (
-                    <>Service: {user.serviceType}</>
-                  ) : user.role === 'property_owner' ? (
-                    <>Property Owner</>
+                    <div className="space-y-0.5">
+                      <div><span className="text-gray-400 text-xs">Bldg</span> {user.buildingName || '—'}</div>
+                      <div><span className="text-gray-400 text-xs">Unit</span> {user.unitNumber || '—'}</div>
+                      <div><span className="text-gray-400 text-xs">Type</span> {formatRentalType(user.rentalType)}</div>
+                    </div>
                   ) : (
-                    '-'
+                    <span className="text-gray-400">—</span>
                   )}
+                </td>
+                <td className="px-3 py-4 text-sm text-gray-700 max-w-[120px] break-words align-top">
+                  {user.idNumber || '—'}
+                </td>
+                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-600">
+                  {formatDateShort(user.createdAt)}
                 </td>
                 <td className="px-3 py-4 whitespace-nowrap">
                   {(() => {
@@ -815,10 +787,19 @@ function UsersPageContent() {
       {/* Edit User Modal */}
       {editUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-lg shadow-xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-medium mb-4">Edit User</h3>
             <form onSubmit={handleEditSave} ref={editFormRef}>
               <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Email</label>
+                  <input
+                    type="email"
+                    value={editUser.email}
+                    readOnly
+                    className="mt-1 block w-full rounded-md border-gray-200 bg-gray-50 text-gray-600 shadow-sm sm:text-sm cursor-not-allowed"
+                  />
+                </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Full Name</label>
                   <input
@@ -834,8 +815,19 @@ function UsersPageContent() {
                   <input
                     type="text"
                     name="phoneNumber"
-                    value={editUser.phoneNumber}
+                    value={editUser.phoneNumber || ''}
                     onChange={handleEditChange}
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">ID number</label>
+                  <input
+                    type="text"
+                    name="idNumber"
+                    value={editUser.idNumber || ''}
+                    onChange={handleEditChange}
+                    placeholder="NRIC / passport"
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   />
                 </div>
@@ -849,6 +841,7 @@ function UsersPageContent() {
                   >
                     <option value="tenant">Tenant</option>
                     <option value="service_provider">Service Provider</option>
+                    <option value="mixedProvider">Mixed Provider</option>
                     <option value="property_owner">Property Owner</option>
                     <option value="agent">Agent</option>
                     <option value="admin">Admin</option>
@@ -857,7 +850,18 @@ function UsersPageContent() {
                 {editUser.role === 'tenant' && (
                   <>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Unit Number</label>
+                      <label className="block text-sm font-medium text-gray-700">Building name</label>
+                      <input
+                        type="text"
+                        name="buildingName"
+                        value={editUser.buildingName || ''}
+                        onChange={handleEditChange}
+                        placeholder="e.g. Tower B"
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Unit number</label>
                       <input
                         type="text"
                         name="unitNumber"
@@ -867,34 +871,59 @@ function UsersPageContent() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Rental Type</label>
+                      <label className="block text-sm font-medium text-gray-700">Rental type</label>
                       <select
                         name="rentalType"
                         value={editUser.rentalType || ''}
                         onChange={handleEditChange}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                       >
-                        <option value="">Select Type</option>
+                        <option value="">Select type</option>
                         <option value="Room1">Room 1</option>
                         <option value="Room2">Room 2</option>
                         <option value="Room3">Room 3</option>
                         <option value="Studio">Studio</option>
-                        <option value="Whole Unit">Whole Unit</option>
+                        <option value="Whole Unit">Whole unit</option>
                       </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Contract end</label>
+                      <input
+                        type="date"
+                        name="contractEnd"
+                        value={(() => {
+                          const d = toJsDate(editUser.contractEnd);
+                          return d ? d.toISOString().slice(0, 10) : '';
+                        })()}
+                        onChange={handleEditChange}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      />
                     </div>
                   </>
                 )}
-                {editUser.role === 'service_provider' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Service Type</label>
-                    <input
-                      type="text"
-                      name="serviceType"
-                      value={editUser.serviceType || ''}
-                      onChange={handleEditChange}
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
-                    />
-                  </div>
+                {(editUser.role === 'service_provider' || editUser.role === 'mixedProvider') && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Service type</label>
+                      <input
+                        type="text"
+                        name="serviceType"
+                        value={editUser.serviceType || ''}
+                        onChange={handleEditChange}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Company name</label>
+                      <input
+                        type="text"
+                        name="companyName"
+                        value={editUser.companyName || ''}
+                        onChange={handleEditChange}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                      />
+                    </div>
+                  </>
                 )}
               </div>
               <div className="mt-6 flex justify-end space-x-3">
@@ -937,209 +966,6 @@ function UsersPageContent() {
                 Delete
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Create User Modal */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4">
-          <div className="bg-white rounded-lg p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-xl">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-gray-900">Create New User</h3>
-              <button
-                onClick={() => setShowCreateModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <FaTimes className="h-6 w-6" />
-              </button>
-            </div>
-            
-            <form onSubmit={handleCreateUser} className="space-y-6">
-              {/* Basic Information */}
-              <div className="space-y-4">
-                <h4 className="text-lg font-medium text-gray-900">Basic Information</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      <FaUser className="inline mr-2" />
-                      Full Name *
-                    </label>
-                    <input
-                      type="text"
-                      name="fullName"
-                      value={createUserData.fullName}
-                      onChange={handleCreateUserChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Enter full name"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      <FaEnvelope className="inline mr-2" />
-                      Email Address *
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={createUserData.email}
-                      onChange={handleCreateUserChange}
-                      required
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="user@example.com"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      <FaPhone className="inline mr-2" />
-                      Phone Number
-                    </label>
-                    <input
-                      type="text"
-                      name="phoneNumber"
-                      value={createUserData.phoneNumber}
-                      onChange={handleCreateUserChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="+60 12-345 6789"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">ID Number</label>
-                    <input
-                      type="text"
-                      name="idNumber"
-                      value={createUserData.idNumber}
-                      onChange={handleCreateUserChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="NRIC/Passport Number"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Role Selection */}
-              <div className="space-y-4">
-                <h4 className="text-lg font-medium text-gray-900">Role Assignment</h4>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">User Role *</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    {[
-                      { value: 'tenant', label: 'Tenant', icon: FaUser, color: 'blue' },
-                      { value: 'propertyOwner', label: 'Property Owner', icon: FaBuilding, color: 'green' },
-                      { value: 'service', label: 'Service Provider', icon: FaBriefcase, color: 'orange' },
-                      { value: 'mixedProvider', label: 'Mixed Provider', icon: FaBriefcase, color: 'purple' },
-                      { value: 'agent', label: 'Agent', icon: FaUserCog, color: 'teal' }
-                    ].map(({ value, label, icon: Icon, color }) => (
-                      <label key={value} className="relative">
-                        <input
-                          type="radio"
-                          name="role"
-                          value={value}
-                          checked={createUserData.role === value}
-                          onChange={handleCreateUserChange}
-                          className="sr-only"
-                        />
-                        <div className={`p-4 border-2 rounded-lg cursor-pointer transition-all ${
-                          createUserData.role === value 
-                            ? 'border-blue-500 bg-blue-50' 
-                            : 'border-gray-200 hover:border-gray-300'
-                        }`}>
-                          <Icon className={`w-6 h-6 mx-auto mb-2 text-${color}-600`} />
-                          <div className="text-sm font-medium text-center">{label}</div>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Role-specific fields */}
-              {createUserData.role === 'tenant' && (
-                <div className="space-y-4 p-4 bg-blue-50 rounded-lg">
-                  <h4 className="font-medium text-blue-900">Tenant Information</h4>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Unit Assignment (Optional)</label>
-                    <input
-                      type="text"
-                      name="unitId"
-                      value={createUserData.unitId}
-                      onChange={handleCreateUserChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Unit number or ID"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {(createUserData.role === 'service_provider' || createUserData.role === 'mixedProvider') && (
-                <div className="space-y-4 p-4 bg-orange-50 rounded-lg">
-                  <h4 className="font-medium text-orange-900">Service Provider Information</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Service Type</label>
-                      <select
-                        name="serviceType"
-                        value={createUserData.serviceType}
-                        onChange={handleCreateUserChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="">Select service type</option>
-                        <option value="Cleaning">Cleaning</option>
-                        <option value="Electrical">Electrical</option>
-                        <option value="Plumbing">Plumbing</option>
-                        <option value="Door Repair">Door Repair</option>
-                        <option value="General Maintenance">General Maintenance</option>
-                        <option value="Air Conditioning">Air Conditioning</option>
-                        <option value="Security">Security</option>
-                        <option value="Landscaping">Landscaping</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
-                      <input
-                        type="text"
-                        name="companyName"
-                        value={createUserData.companyName}
-                        onChange={handleCreateUserChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Company name"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Submit Buttons */}
-              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-                <button
-                  type="button"
-                  onClick={() => setShowCreateModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={creatingUser}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-                >
-                  {creatingUser ? (
-                    <>
-                      <FaSpinner className="animate-spin h-4 w-4" />
-                      Creating...
-                    </>
-                  ) : (
-                    <>
-                      <FaUserPlus className="h-4 w-4" />
-                      Create User & Send Login Link
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
           </div>
         </div>
       )}

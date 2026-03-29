@@ -1,7 +1,7 @@
 'use client';
 import {
-  FaHome, FaFileContract, FaFileInvoiceDollar, FaTools, FaChartLine, FaUsers,
-  FaBuilding, FaBars, FaTimes, FaClipboardList, FaChartBar, FaCreditCard
+  FaHome, FaFileContract, FaFileInvoiceDollar, FaTools, FaUsers,
+  FaBuilding, FaBars, FaTimes
 } from 'react-icons/fa';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -24,20 +24,15 @@ const linksByRole: Record<UserRole, NavItem[]> = {
     { href: '/dashboard/users', label: 'User Management', icon: FaUsers },
     { href: '/dashboard/buildings', label: 'Buildings', icon: FaBuilding },
     { href: '/dashboard/units', label: 'Units', icon: FaHome },
-    { href: '/dashboard/assignments', label: 'Assignments', icon: FaClipboardList },
     { href: '/dashboard/contracts', label: 'Contracts', icon: FaFileContract },
     { href: '/dashboard/invoices', label: 'Invoices', icon: FaFileInvoiceDollar },
-    { href: '/dashboard/financial', label: 'Financial Management', icon: FaCreditCard },
     { href: '/dashboard/maintenance/admin', label: 'Maintenance', icon: FaTools },
-    { href: '/dashboard/reports', label: 'Reports', icon: FaChartBar },
-    { href: '/dashboard/analytics', label: 'Analytics', icon: FaChartLine },
   ],
   agent: [
     { href: '/dashboard', label: 'Dashboard', icon: FaHome },
     { href: '/dashboard/tenants', label: 'Tenants', icon: FaUsers },
     { href: '/dashboard/buildings', label: 'Buildings', icon: FaBuilding },
     { href: '/dashboard/units', label: 'Units', icon: FaHome },
-    { href: '/dashboard/assignments', label: 'Assignments', icon: FaClipboardList },
     { href: '/dashboard/contracts', label: 'Contracts', icon: FaFileContract },
     { href: '/dashboard/invoices', label: 'Invoices', icon: FaFileInvoiceDollar },
     { href: '/dashboard/maintenance/admin', label: 'Maintenance', icon: FaTools },
@@ -48,10 +43,7 @@ const linksByRole: Record<UserRole, NavItem[]> = {
     { href: '/dashboard/units', label: 'My Units', icon: FaHome },
     { href: '/dashboard/contracts', label: 'Contracts', icon: FaFileContract },
     { href: '/dashboard/invoices', label: 'Invoices', icon: FaFileInvoiceDollar },
-    { href: '/dashboard/financial', label: 'Financial Management', icon: FaCreditCard },
     { href: '/dashboard/maintenance', label: 'Maintenance', icon: FaTools },
-    { href: '/dashboard/reports', label: 'Reports', icon: FaChartBar },
-    { href: '/dashboard/analytics', label: 'Analytics', icon: FaChartLine },
   ],
   tenant: [
     { href: '/dashboard', label: 'Dashboard', icon: FaHome },

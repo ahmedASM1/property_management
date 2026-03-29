@@ -105,7 +105,7 @@ async function createAdminFromEnv() {
         'contracts.create', 'contracts.read', 'contracts.update', 'contracts.delete',
         'invoices.create', 'invoices.read', 'invoices.update', 'invoices.delete',
         'maintenance.create', 'maintenance.read', 'maintenance.update', 'maintenance.delete',
-        'reports.read', 'analytics.read', 'settings.update'
+        'settings.update'
       ],
       setupCompleted: true,
       setupDate: new Date().toISOString(),

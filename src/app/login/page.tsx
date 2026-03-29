@@ -80,7 +80,7 @@ export default function LoginPage() {
       <div className="max-w-md w-full space-y-8 bg-white p-8 sm:p-10 rounded-2xl shadow-lg">
         <header className="flex flex-col items-center">
           <div className="mb-6">
-            <Image src="/Green Bridge.png" alt="Green Bridge Logo" width={64} height={64} className="object-contain" priority />
+            <Image src="/Green Bridge.svg" alt="Green Bridge Logo" width={64} height={64} className="object-contain" priority />
           </div>
           <h1 className="text-3xl font-extrabold text-gray-900 text-center">Welcome back</h1>
           <p className="mt-2 text-sm text-gray-600 text-center">Sign in to your Green Bridge account</p>

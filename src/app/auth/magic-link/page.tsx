@@ -70,7 +70,7 @@ function MagicLinkContent() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
           <div className="mb-6">
-            <Image src="/Green Bridge.png" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
+            <Image src="/Green Bridge.svg" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
           </div>
           <div className="flex items-center justify-center mb-4">
             <FaSpinner className="animate-spin text-green-600 text-2xl mr-3" />
@@ -87,7 +87,7 @@ function MagicLinkContent() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
           <div className="mb-6">
-            <Image src="/Green Bridge.png" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
+            <Image src="/Green Bridge.svg" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
           </div>
           <div className="flex items-center justify-center mb-4">
             <FaExclamationTriangle className="text-red-500 text-2xl mr-3" />
@@ -112,7 +112,7 @@ function MagicLinkContent() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
           <div className="mb-6">
-            <Image src="/Green Bridge.png" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
+            <Image src="/Green Bridge.svg" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
           </div>
           <div className="flex items-center justify-center mb-4">
             <FaExclamationTriangle className="text-yellow-500 text-2xl mr-3" />
@@ -137,7 +137,7 @@ function MagicLinkContent() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
           <div className="mb-6">
-            <Image src="/Green Bridge.png" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
+            <Image src="/Green Bridge.svg" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
           </div>
           <div className="flex items-center justify-center mb-4">
             <FaCheck className="text-green-500 text-2xl mr-3" />
@@ -171,7 +171,7 @@ function MagicLinkFallback() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
         <div className="mb-6">
-          <Image src="/Green Bridge.png" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
+          <Image src="/Green Bridge.svg" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
         </div>
         <div className="flex items-center justify-center mb-4">
           <FaSpinner className="animate-spin text-green-600 text-2xl mr-3" />

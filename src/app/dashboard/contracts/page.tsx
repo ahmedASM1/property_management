@@ -365,42 +365,40 @@ export default function ContractsPage() {
       const fileName = `contract_${selectedTenant.id}_${Date.now()}.pdf`;
       let pdfUrl = '';
 
-      // Try client-side upload first
+      // Always try API first so production never hits Firebase Storage from the client (avoids CORS).
+      const isProduction = typeof window !== 'undefined' && window.location.origin.includes('greenbridge-my.com');
+
+      const uploadViaApi = async (): Promise<string> => {
+        const response = await fetch('/api/upload-contract', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pdfBase64, fileName }),
+        });
+        if (!response.ok) throw new Error(`Upload API failed: ${response.statusText}`);
+        const result = await response.json();
+        return result.url;
+      };
+
       try {
-        const storageRef = ref(storage, `contracts/${fileName}`);
-        await uploadString(storageRef, pdfBase64, 'base64', { contentType: 'application/pdf' });
-        pdfUrl = await getDownloadURL(storageRef);
-      } catch (uploadError: unknown) {
-        console.warn('Client-side upload failed, trying server-side API:', uploadError);
-        
-        // Fallback: Use server-side API route (bypasses CORS)
-        try {
-          const response = await fetch('/api/upload-contract', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              pdfBase64,
-              fileName,
-            }),
-          });
-
-          if (!response.ok) {
-            throw new Error(`Upload API failed: ${response.statusText}`);
-          }
-
-          const result = await response.json();
-          pdfUrl = result.url;
-          
-          if (result.fallback) {
-            console.warn('Using fallback storage method:', result.message);
-          }
-        } catch (apiError) {
-          console.error('Server-side upload also failed:', apiError);
-          // Last resort: Use data URL (stored in Firestore)
+        pdfUrl = await uploadViaApi();
+        if (pdfUrl.startsWith('data:')) {
+          toast.error('Contract saved but PDF upload failed. Contract is stored as data URL.');
+        }
+      } catch (apiError) {
+        console.warn('Server-side upload failed, will try client or data URL:', apiError);
+        if (isProduction) {
           pdfUrl = `data:application/pdf;base64,${pdfBase64}`;
           toast.error('Contract saved but PDF upload failed. Contract is stored as data URL.');
+        } else {
+          try {
+            const storageRef = ref(storage, `contracts/${fileName}`);
+            await uploadString(storageRef, pdfBase64, 'base64', { contentType: 'application/pdf' });
+            pdfUrl = await getDownloadURL(storageRef);
+          } catch (uploadError: unknown) {
+            console.error('Client-side upload also failed:', uploadError);
+            pdfUrl = `data:application/pdf;base64,${pdfBase64}`;
+            toast.error('Contract saved but PDF upload failed. Contract is stored as data URL.');
+          }
         }
       }
 

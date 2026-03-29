@@ -178,7 +178,7 @@ export default function EnhancedRegisterPage() {
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center items-center p-4">
       <div className="max-w-2xl w-full bg-white p-8 sm:p-10 rounded-2xl shadow-lg">
         <header className="text-center mb-8">
-          <Image src="/Green Bridge.png" alt="Green Bridge Logo" width={60} height={60} className="mx-auto mb-4" />
+          <Image src="/Green Bridge.svg" alt="Green Bridge Logo" width={60} height={60} className="mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900">Create your account</h1>
           <p className="text-gray-600 text-sm mt-1">Join Green Bridge Realty Platform</p>
         </header>

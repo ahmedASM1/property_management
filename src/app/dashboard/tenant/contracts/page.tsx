@@ -189,43 +189,28 @@ export default function TenantContractsPage() {
     }
     setUploading(true);
     try {
-      const ext = uploadFile.name.split('.').pop() || 'pdf';
-      const fileName = `signed_contracts/${uploadingContractId}_${user.id}_${Date.now()}.${ext}`;
-      let downloadUrl = '';
-      
-      // Try client-side upload first
-      try {
-        const storageRef = ref(storage, fileName);
-        await uploadBytes(storageRef, uploadFile);
-        downloadUrl = await getDownloadURL(storageRef);
-      } catch (uploadError) {
-        console.warn('Client-side upload failed, trying server-side API:', uploadError);
-        
-        // Fallback: Use server-side API route (bypasses CORS)
+      const isProduction = typeof window !== 'undefined' && window.location.origin.includes('greenbridge-my.com');
+      const uploadViaApi = async (): Promise<string> => {
+        const formData = new FormData();
+        formData.append('file', uploadFile);
+        formData.append('folder', 'signed_contracts');
+        const response = await fetch('/api/upload-file', { method: 'POST', body: formData });
+        if (!response.ok) throw new Error(`Upload API failed: ${response.statusText}`);
+        const result = await response.json();
+        return result.url;
+      };
+      let downloadUrl: string;
+      if (isProduction) {
+        downloadUrl = await uploadViaApi();
+      } else {
         try {
-          const formData = new FormData();
-          formData.append('file', uploadFile);
-          formData.append('folder', 'signed_contracts');
-          
-          const response = await fetch('/api/upload-file', {
-            method: 'POST',
-            body: formData,
-          });
-
-          if (!response.ok) {
-            throw new Error(`Upload API failed: ${response.statusText}`);
-          }
-
-          const result = await response.json();
-          downloadUrl = result.url;
-          
-          if (result.fallback) {
-            console.warn('Using fallback storage method:', result.message);
-          }
-        } catch (apiError) {
-          console.error('Server-side upload also failed:', apiError);
-          toast.error('Failed to upload file. Please check your connection and try again.');
-          return;
+          const fileName = `signed_contracts/${uploadingContractId}_${user.id}_${Date.now()}.${uploadFile.name.split('.').pop() || 'pdf'}`;
+          const storageRef = ref(storage, fileName);
+          await uploadBytes(storageRef, uploadFile);
+          downloadUrl = await getDownloadURL(storageRef);
+        } catch (uploadError) {
+          console.warn('Client-side upload failed, trying API:', uploadError);
+          downloadUrl = await uploadViaApi();
         }
       }
       

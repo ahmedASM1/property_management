@@ -60,7 +60,7 @@ export function generateWelcomeEmailTemplate(
 
   const roleDescriptions: Record<string, string> = {
     admin: 'You have full administrative access to the Green Bridge property management system.',
-    property_owner: 'You can manage your properties, view tenant information, and access financial reports.',
+    property_owner: 'You can manage your properties, view tenant information, and track invoices.',
     tenant: 'You can view your rental information, pay invoices, and submit maintenance requests.',
     service_provider: 'You can view assigned maintenance jobs and create invoices for completed work.',
     mixedProvider: 'You can manage assigned properties, view maintenance jobs, and create invoices.',

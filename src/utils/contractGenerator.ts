@@ -65,7 +65,7 @@ export const generateComprehensiveContractPDF = async (tenant: Tenant, contractF
         resolve();
       };
       // Try PNG first
-      logoImg.src = '/Green Bridge.png';
+      logoImg.src = '/Green Bridge.svg';
     });
     
     if (logoImg.complete && logoImg.naturalWidth > 0 && logoImg.naturalHeight > 0) {

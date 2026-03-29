@@ -132,7 +132,7 @@ export default function SetupAdminPage() {
           'contracts.create', 'contracts.read', 'contracts.update', 'contracts.delete',
           'invoices.create', 'invoices.read', 'invoices.update', 'invoices.delete',
           'maintenance.create', 'maintenance.read', 'maintenance.update', 'maintenance.delete',
-          'reports.read', 'analytics.read', 'settings.update'
+          'settings.update'
         ],
         setupCompleted: true,
         setupDate: new Date().toISOString()
@@ -182,7 +182,7 @@ export default function SetupAdminPage() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
           <div className="mb-6">
-            <Image src="/Green Bridge.png" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
+            <Image src="/Green Bridge.svg" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
           </div>
           <FaShieldAlt className="text-green-500 text-4xl mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Admin Already Exists</h1>
@@ -205,7 +205,7 @@ export default function SetupAdminPage() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
         <div className="text-center mb-8">
-          <Image src="/Green Bridge.png" alt="Green Bridge Logo" width={64} height={64} className="mx-auto mb-4" />
+          <Image src="/Green Bridge.svg" alt="Green Bridge Logo" width={64} height={64} className="mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900">Setup Admin Account</h1>
           <p className="text-gray-600 mt-2">Create the initial administrator account</p>
         </div>

@@ -130,7 +130,7 @@ function ResetPasswordContent() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
           <div className="mb-6">
-            <Image src="/Green Bridge.png" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
+            <Image src="/Green Bridge.svg" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
           </div>
           <div className="flex items-center justify-center mb-4">
             <FaSpinner className="animate-spin text-green-600 text-2xl mr-3" />
@@ -147,7 +147,7 @@ function ResetPasswordContent() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
           <div className="mb-6">
-            <Image src="/Green Bridge.png" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
+            <Image src="/Green Bridge.svg" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
           </div>
           <div className="flex items-center justify-center mb-4">
             <FaExclamationTriangle className="text-red-500 text-2xl mr-3" />
@@ -172,7 +172,7 @@ function ResetPasswordContent() {
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
           <div className="mb-6">
-            <Image src="/Green Bridge.png" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
+            <Image src="/Green Bridge.svg" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
           </div>
           <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <FaCheck className="text-green-600 text-2xl" />
@@ -194,7 +194,7 @@ function ResetPasswordContent() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8">
         <div className="text-center mb-8">
-          <Image src="/Green Bridge.png" alt="Green Bridge Logo" width={64} height={64} className="mx-auto mb-4" />
+          <Image src="/Green Bridge.svg" alt="Green Bridge Logo" width={64} height={64} className="mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900">Reset Your Password</h1>
           <p className="text-gray-600 mt-2">Enter your new password below</p>
         </div>
@@ -290,7 +290,7 @@ function ResetPasswordFallback() {
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full bg-white rounded-xl shadow-lg p-8 text-center">
         <div className="mb-6">
-          <Image src="/Green Bridge.png" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
+          <Image src="/Green Bridge.svg" alt="Green Bridge Logo" width={64} height={64} className="mx-auto" />
         </div>
         <div className="flex items-center justify-center mb-4">
           <FaSpinner className="animate-spin text-green-600 text-2xl mr-3" />

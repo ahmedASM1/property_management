@@ -63,7 +63,6 @@ interface SystemSettings {
     maintenanceRequests: boolean;
     invoiceGeneration: boolean;
     contractManagement: boolean;
-    reporting: boolean;
     userManagement: boolean;
   };
   
@@ -111,7 +110,6 @@ export default function AdminSettingsPage() {
       maintenanceRequests: true,
       invoiceGeneration: true,
       contractManagement: true,
-      reporting: true,
       userManagement: true
     },
     apiRateLimit: 1000,
@@ -133,8 +131,20 @@ export default function AdminSettingsPage() {
     try {
       const settingsSnapshot = await getDocs(collection(db, 'system_settings'));
       if (!settingsSnapshot.empty) {
-        const settingsData = settingsSnapshot.docs[0].data() as SystemSettings;
-        setSettings({ ...settings, ...settingsData });
+        const settingsData = settingsSnapshot.docs[0].data() as Partial<SystemSettings>;
+        const mergedFeatures = settingsData.features
+          ? {
+              maintenanceRequests:
+                settingsData.features.maintenanceRequests ?? settings.features.maintenanceRequests,
+              invoiceGeneration:
+                settingsData.features.invoiceGeneration ?? settings.features.invoiceGeneration,
+              contractManagement:
+                settingsData.features.contractManagement ?? settings.features.contractManagement,
+              userManagement:
+                settingsData.features.userManagement ?? settings.features.userManagement,
+            }
+          : settings.features;
+        setSettings({ ...settings, ...settingsData, features: mergedFeatures });
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
@@ -506,7 +516,6 @@ export default function AdminSettingsPage() {
                           {key === 'maintenanceRequests' && 'Allow users to submit maintenance requests'}
                           {key === 'invoiceGeneration' && 'Enable automatic invoice generation'}
                           {key === 'contractManagement' && 'Enable contract creation and management'}
-                          {key === 'reporting' && 'Enable reporting and analytics features'}
                           {key === 'userManagement' && 'Enable user management features'}
                         </p>
                       </div>

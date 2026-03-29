@@ -11,7 +11,6 @@ import {
   FaMoneyBillWave, 
   FaExclamationTriangle, 
   FaBuilding,
-  FaChartLine,
   FaTools,
   FaBell,
   FaCog,
@@ -434,9 +433,6 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
                   )}
                 </div>
               </Link>
-              <Link href="/dashboard/reports" className="block w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-lg transition-colors">
-                Generate Reports
-              </Link>
             </div>
           </div>
         </div>
@@ -521,18 +517,6 @@ export default function AdminDashboard({ data }: AdminDashboardProps) {
               <div className="min-w-0">
                 <h3 className="font-semibold text-base sm:text-lg truncate">Manage Units</h3>
                 <p className="text-gray-500 text-xs sm:text-sm truncate">View all properties</p>
-              </div>
-            </div>
-          </Link>
-
-          <Link href="/dashboard/reports" className="bg-white rounded-xl shadow-sm p-4 sm:p-6 hover:shadow-md transition-shadow min-w-0">
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="bg-orange-100 p-2 sm:p-3 rounded-full flex-shrink-0">
-                <FaChartLine className="h-5 w-5 sm:h-6 sm:w-6 text-orange-600" />
-              </div>
-              <div className="min-w-0">
-                <h3 className="font-semibold text-base sm:text-lg truncate">Reports</h3>
-                <p className="text-gray-500 text-xs sm:text-sm truncate">Financial insights</p>
               </div>
             </div>
           </Link>

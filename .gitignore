@@ -35,6 +35,13 @@ firebase-debug.log
 # env files (can opt-in for committing if needed)
 .env*
 
+# local Firebase admin key (used by scripts/set-admin-claims.js)
+serviceAccountKey.json
+
+# ad-hoc build logs
+build-output.txt
+build-final.txt
+
 # vercel
 .vercel
 

@@ -217,7 +217,7 @@ export default function InvoiceDetailPage() {
 
     // Add logo (PNG)
     const logoImg = new window.Image();
-    logoImg.src = '/Green Bridge.png';
+    logoImg.src = '/Green Bridge.svg';
     logoImg.onload = () => {
       // Company Header - More compact
       docToPdf.addImage(logoImg, 'PNG', leftMargin, y, 50, 50);
@@ -395,7 +395,7 @@ export default function InvoiceDetailPage() {
         {/* Logo and Header - More compact */}
         <div className="flex flex-col sm:flex-row sm:justify-between items-start sm:items-center mb-6 gap-4">
           <div className="flex items-center gap-3">
-            <Image src="/Green Bridge.png" alt="Green Bridge Logo" width={50} height={50} className="object-contain" />
+            <Image src="/Green Bridge.svg" alt="Green Bridge Logo" width={50} height={50} className="object-contain" />
             <div>
               <div className="text-xl font-bold text-green-900">GREEN BRIDGE REALTY SDN. BHD.</div>
               <div className="text-xs text-gray-600 mt-1">

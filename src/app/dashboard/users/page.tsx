@@ -104,8 +104,8 @@ function UsersPageContent() {
     if (searchTerm) {
       const q = searchTerm.toLowerCase();
       filtered = filtered.filter(user =>
-        user.fullName.toLowerCase().includes(q) ||
-        user.email.toLowerCase().includes(q) ||
+        (user.fullName || '').toLowerCase().includes(q) ||
+        (user.email || '').toLowerCase().includes(q) ||
         user.phoneNumber?.toLowerCase().includes(q) ||
         user.buildingName?.toLowerCase().includes(q) ||
         user.unitNumber?.toLowerCase().includes(q) ||
@@ -135,16 +135,16 @@ function UsersPageContent() {
       
       switch (sortBy) {
         case 'fullName':
-          aValue = a.fullName.toLowerCase();
-          bValue = b.fullName.toLowerCase();
+          aValue = (a.fullName || '').toLowerCase();
+          bValue = (b.fullName || '').toLowerCase();
           break;
         case 'email':
-          aValue = a.email.toLowerCase();
-          bValue = b.email.toLowerCase();
+          aValue = (a.email || '').toLowerCase();
+          bValue = (b.email || '').toLowerCase();
           break;
         case 'role':
-          aValue = a.role;
-          bValue = b.role;
+          aValue = a.role || '';
+          bValue = b.role || '';
           break;
         case 'createdAt':
           aValue = (toJsDate(a.createdAt) ?? new Date(0)).getTime();
@@ -215,6 +215,10 @@ function UsersPageContent() {
   const handleEditSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editUser) return;
+    if (!editUser.role) {
+      toast.error('Please select a role');
+      return;
+    }
     setSavingEdit(true);
     try {
       const updateData: Partial<User> = {
@@ -335,7 +339,8 @@ function UsersPageContent() {
       ...filteredUsers.map(user => {
         const st = user.status || (user.isApproved ? 'approved' : 'pending');
         const out = user.role === 'tenant' ? String((user as Tenant).outstandingAmount ?? '') : '';
-        return `"${user.fullName}","${user.email}","${user.phoneNumber || ''}","${user.role}","${st}","${user.idNumber || ''}","${user.buildingName || ''}","${user.unitNumber || ''}","${user.rentalType || ''}","${user.serviceType || ''}","${user.companyName || ''}","${user.contractEnd ? String(user.contractEnd) : ''}","${out}","${new Date(user.createdAt).toLocaleDateString()}"`;
+        const created = toJsDate(user.createdAt);
+        return `"${(user.fullName || '').replace(/"/g, '""')}","${(user.email || '').replace(/"/g, '""')}","${user.phoneNumber || ''}","${user.role || ''}","${st}","${user.idNumber || ''}","${user.buildingName || ''}","${user.unitNumber || ''}","${user.rentalType || ''}","${user.serviceType || ''}","${user.companyName || ''}","${user.contractEnd ? String(user.contractEnd) : ''}","${out}","${created ? created.toLocaleDateString() : ''}"`;
       })
     ].join('\n');
     
@@ -357,13 +362,20 @@ function UsersPageContent() {
   }
 
   const pendingCount = users.filter(u => (u.status || (u.isApproved ? 'approved' : 'pending')) === 'pending').length;
-  const getRoleBadgeClass = (role: string) =>
-    role === 'admin' ? 'bg-purple-100 text-purple-800' :
-    role === 'agent' ? 'bg-teal-100 text-teal-800' :
-    role === 'tenant' ? 'bg-blue-100 text-blue-800' :
-    role === 'property_owner' ? 'bg-green-100 text-green-800' :
-    role === 'mixedProvider' ? 'bg-violet-100 text-violet-800' :
-    'bg-orange-100 text-orange-800';
+  const formatRoleLabel = (role: string | undefined) => {
+    if (!role || typeof role !== 'string') return 'Unknown';
+    return role.split('_').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  };
+
+  const getRoleBadgeClass = (role: string | undefined) => {
+    if (!role) return 'bg-gray-100 text-gray-800';
+    if (role === 'admin') return 'bg-purple-100 text-purple-800';
+    if (role === 'agent') return 'bg-teal-100 text-teal-800';
+    if (role === 'tenant') return 'bg-blue-100 text-blue-800';
+    if (role === 'property_owner') return 'bg-green-100 text-green-800';
+    if (role === 'mixedProvider') return 'bg-violet-100 text-violet-800';
+    return 'bg-orange-100 text-orange-800';
+  };
   const getStatusBadge = (user: User) => {
     const userStatus = user.status || (user.isApproved ? 'approved' : 'pending');
     if (userStatus === 'approved') return <span className="px-2 py-0.5 text-xs font-semibold rounded-full bg-green-100 text-green-800">Approved</span>;
@@ -519,8 +531,8 @@ function UsersPageContent() {
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-900 truncate">{user.fullName}</p>
-                <p className="text-xs sm:text-sm text-gray-600 truncate">{user.email}</p>
+                <p className="font-medium text-gray-900 truncate">{user.fullName || '—'}</p>
+                <p className="text-xs sm:text-sm text-gray-600 truncate">{user.email || '—'}</p>
                 {user.phoneNumber && <p className="text-xs text-gray-500">{user.phoneNumber}</p>}
                 {user.idNumber && <p className="text-xs text-gray-500">ID: {user.idNumber}</p>}
                 {user.role === 'tenant' && (
@@ -533,7 +545,7 @@ function UsersPageContent() {
                 <p className="text-[10px] text-gray-400 mt-1">Joined {formatDateShort(user.createdAt)}</p>
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   <span className={`px-2 py-0.5 text-xs font-semibold rounded-full ${getRoleBadgeClass(user.role)}`}>
-                    {user.role.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                    {formatRoleLabel(user.role)}
                   </span>
                   {getStatusBadge(user)}
                 </div>
@@ -675,19 +687,19 @@ function UsersPageContent() {
                       <img className="h-8 w-8 rounded-full mr-3" src={user.profileImage} alt="" />
                     ) : (
                       <div className="h-8 w-8 rounded-full bg-gray-200 mr-3 flex items-center justify-center">
-                        <span className="text-gray-500 text-sm">{user.fullName[0]}</span>
+                        <span className="text-gray-500 text-sm">{user.fullName?.[0] || '?'}</span>
                       </div>
                     )}
                     <div>
-                      <div className="text-sm font-medium text-gray-900">{user.fullName}</div>
+                      <div className="text-sm font-medium text-gray-900">{user.fullName || '—'}</div>
                     </div>
                   </div>
                 </td>
-                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">{user.email}</td>
+                <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">{user.email || '—'}</td>
                 <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-700">{user.phoneNumber || '—'}</td>
                 <td className="px-3 py-4 whitespace-nowrap">
                   <span className={`px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleBadgeClass(user.role)}`}>
-                    {user.role.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                    {formatRoleLabel(user.role)}
                   </span>
                 </td>
                 <td className="px-3 py-4 text-sm text-gray-700 align-top">
@@ -835,10 +847,11 @@ function UsersPageContent() {
                   <label className="block text-sm font-medium text-gray-700">Role</label>
                   <select
                     name="role"
-                    value={editUser.role}
+                    value={editUser.role ?? ''}
                     onChange={handleEditChange}
                     className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
                   >
+                    <option value="">Select role…</option>
                     <option value="tenant">Tenant</option>
                     <option value="service_provider">Service Provider</option>
                     <option value="mixedProvider">Mixed Provider</option>

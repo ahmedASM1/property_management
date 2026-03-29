@@ -94,8 +94,8 @@ export async function POST(req: NextRequest) {
         console.warn('makePublic failed (may already be public):', publicError);
       }
 
-      // Use bucket name that works for public access (firebasestorage.app for Firebase Storage)
-      const bucketName = (bucket.name || '').replace('waeliweb.appspot.com', 'waeliweb.firebasestorage.app');
+      const bucketName =
+        process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || bucket.name || '';
 
       // Get public URL - try signed URL first, then public URL
       let publicUrl: string;

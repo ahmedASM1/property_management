@@ -27,7 +27,7 @@ export default function InvoiceDetailPage() {
 
   useEffect(() => {
     if (!invoiceId || !user) {
-      if (!user && typeof window !== 'undefined') router.push('/login');
+      if (!user && typeof window !== 'undefined') router.push('/');
       return;
     };
     async function fetchInvoice() {
@@ -207,9 +207,10 @@ export default function InvoiceDetailPage() {
     }
   };
 
-  // PDF Export Handler
-  const handleExportPDF = () => {
+  // PDF Export Handler (dynamic import avoids bundler issues with jspdf in dev)
+  const handleExportPDF = async () => {
     if (!invoice) return;
+    const { default: jsPDF } = await import('jspdf');
     const docToPdf = new jsPDF({ unit: 'pt', format: 'a4' });
     const leftMargin = 40;
     const rightMargin = 555;
@@ -519,7 +520,7 @@ export default function InvoiceDetailPage() {
           )}
         </div>
         {/* Admin: Verify receipt or Mark as Paid */}
-        {user?.role === 'admin' && !invoice.isPaid && (
+        {(user?.role === 'admin' || user?.role === 'agent') && !invoice.isPaid && (
           <div className="mb-4 flex flex-wrap gap-3">
             {invoice.receiptUrl && invoice.receiptStatus === 'pending_review' && (
               <>

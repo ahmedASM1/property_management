@@ -32,7 +32,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const adminAuth = getAdminAuth();
+    let adminAuth;
+    try {
+      adminAuth = getAdminAuth();
+    } catch (adminInitErr) {
+      console.error('Firebase Admin not configured:', adminInitErr);
+      return NextResponse.json(
+        {
+          error:
+            'Server configuration error: add FIREBASE_CLIENT_EMAIL and FIREBASE_PRIVATE_KEY (service account JSON from Firebase Console → Project settings → Service accounts) plus NEXT_PUBLIC_FIREBASE_PROJECT_ID to .env for this project.',
+        },
+        { status: 503 }
+      );
+    }
+
     const decoded = await adminAuth.verifyIdToken(idToken);
     const uid = decoded.uid;
     const email = decoded.email;

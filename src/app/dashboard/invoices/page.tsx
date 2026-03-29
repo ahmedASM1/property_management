@@ -7,8 +7,6 @@ import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, update
 import { db } from '@/lib/firebase';
 import { Invoice, Tenant } from '@/types';
 import { mockTenants, mockInvoices, isFirebaseConfigured } from '@/lib/mockData';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
 import toast from 'react-hot-toast';
 import { FaChevronDown, FaArrowLeft } from 'react-icons/fa';
 
@@ -380,7 +378,7 @@ export default function InvoicesPage() {
       resetForm();
       setShowForm(false);
       
-      const invoicesQuery = user?.role === 'admin'
+      const invoicesQuery = (user?.role === 'admin' || user?.role === 'agent')
         ? query(collection(db, 'invoices'))
         : query(collection(db, 'invoices'), where('tenantId', '==', user?.id));
       const invoicesSnap = await getDocs(invoicesQuery);
@@ -416,7 +414,7 @@ export default function InvoicesPage() {
     }
   };
 
-  const handleExportSingleInvoicePDF = (invoice: Invoice) => {
+  const handleExportSingleInvoicePDF = async (invoice: Invoice) => {
     const tenant = tenants.find(t => t.id === invoice.tenantId);
 
     const isServiceInvoice = !!invoice.fromId;
@@ -426,6 +424,10 @@ export default function InvoicesPage() {
       return;
     }
 
+    const [{ default: jsPDF }] = await Promise.all([
+      import('jspdf'),
+      import('jspdf-autotable'),
+    ]);
     const doc = new jsPDF();
     doc.text(`Invoice: ${invoice.id}`, 14, 16);
     
@@ -455,7 +457,7 @@ export default function InvoicesPage() {
   });
   // Search filter
   const searchedInvoices = filteredByType.filter(inv => {
-    const idMatch = inv.id.toLowerCase().includes(search.toLowerCase());
+    const idMatch = String(inv.id).toLowerCase().includes(search.toLowerCase());
     const payerName = inv.tenantId
       ? tenants.find(t => t.id === inv.tenantId)?.fullName || ''
       : inv.from || '';
@@ -474,8 +476,10 @@ export default function InvoicesPage() {
     );
   }
 
-  // Admin UI
-  if (user?.role === 'admin') {
+  const isInvoiceStaff = user?.role === 'admin' || user?.role === 'agent';
+
+  // Admin / agent UI (same data access as fetch)
+  if (isInvoiceStaff) {
     return (
       <div className="w-full min-w-0 max-w-7xl mx-auto px-2 sm:px-4 py-4 sm:py-6">
         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 sm:mb-6">

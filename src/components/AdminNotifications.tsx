@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, getDocs, updateDoc, doc, orderBy, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, query, where, getDocs, updateDoc, doc, deleteDoc, writeBatch, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { Bell, Check, X, Eye, CheckCircle, Trash2 } from 'lucide-react';
@@ -51,14 +51,17 @@ export default function AdminNotifications() {
       const notificationsQuery = query(
         collection(db, 'notifications'),
         where('role', '==', 'admin'),
-        orderBy('createdAt', 'desc')
+        limit(200)
       );
       const notificationsSnapshot = await getDocs(notificationsQuery);
-      const notificationsData = notificationsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt?.toDate ? doc.data().createdAt.toDate() : new Date(doc.data().createdAt)
+      const notificationsData = notificationsSnapshot.docs.map((d) => ({
+        id: d.id,
+        ...d.data(),
+        createdAt: d.data().createdAt?.toDate ? d.data().createdAt.toDate() : new Date(d.data().createdAt),
       })) as AdminNotification[];
+      notificationsData.sort(
+        (a, b) => new Date(b.createdAt as Date).getTime() - new Date(a.createdAt as Date).getTime()
+      );
       setNotifications(notificationsData);
     } catch (error) {
       console.log('No notifications found or collection not accessible:', error);

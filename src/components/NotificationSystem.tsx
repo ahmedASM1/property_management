@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { collection, query, where, onSnapshot, updateDoc, doc, deleteDoc, orderBy } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, updateDoc, doc, deleteDoc, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { toast } from 'react-hot-toast';
 import { Bell, X, AlertCircle, Info, CheckCircle, AlertTriangle } from 'lucide-react';
@@ -42,35 +42,53 @@ export default function NotificationSystem({ className = '' }: NotificationSyste
   useEffect(() => {
     if (!user) return;
 
+    // Equality filter only (no orderBy) avoids requiring a composite index before deploy.
+    // Sort newest-first in memory.
     const q = query(
       collection(db, 'notifications'),
-      user.role === 'admin' 
+      user.role === 'admin'
         ? where('role', '==', 'admin')
         : where('userId', '==', user.id),
-      orderBy('createdAt', 'desc')
+      limit(100)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const items = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        createdAt: doc.data().createdAt
-      })) as Notification[];
+    const toTime = (c: unknown) => {
+      if (c && typeof c === 'object' && 'toDate' in c && typeof (c as { toDate: () => Date }).toDate === 'function') {
+        return (c as { toDate: () => Date }).toDate().getTime();
+      }
+      if (typeof c === 'object' && c !== null && 'seconds' in c) {
+        return new Date((c as { seconds: number }).seconds * 1000).getTime();
+      }
+      return new Date(c as string | number).getTime();
+    };
 
-      // Remove duplicates based on message and timestamp
-      const toTime = (c: unknown) => {
-        if (typeof c === 'object' && c !== null && 'seconds' in c) return new Date((c as { seconds: number }).seconds * 1000).getTime();
-        return new Date(c as string | number).getTime();
-      };
-      const uniqueItems = items.filter((item, index, self) => 
-        index === self.findIndex(t => 
-          t.message === item.message && 
-          Math.abs(toTime(t.createdAt) - toTime(item.createdAt)) < 1000
-        )
-      );
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const items = snapshot.docs.map((d) => ({
+          id: d.id,
+          ...d.data(),
+          createdAt: d.data().createdAt,
+        })) as Notification[];
 
-      setNotifications(uniqueItems);
-    });
+        items.sort((a, b) => toTime(b.createdAt) - toTime(a.createdAt));
+
+        const uniqueItems = items.filter((item, index, self) =>
+          index ===
+          self.findIndex(
+            (t) =>
+              t.message === item.message &&
+              Math.abs(toTime(t.createdAt) - toTime(item.createdAt)) < 1000
+          )
+        );
+
+        setNotifications(uniqueItems);
+      },
+      (err) => {
+        console.error('Notifications listener error:', err);
+        setNotifications([]);
+      }
+    );
 
     return () => unsubscribe();
   }, [user]);
